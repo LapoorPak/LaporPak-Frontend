@@ -1,0 +1,1 @@
+export { useMutationUploadImage } from "./queries";

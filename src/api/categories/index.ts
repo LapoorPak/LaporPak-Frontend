@@ -1,0 +1,1 @@
+export { useQueryCategories } from "./queries";
