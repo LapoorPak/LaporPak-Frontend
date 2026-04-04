@@ -1,7 +1,7 @@
+@import url("https://fonts.googleapis.com/css2?family=Urbanist:ital,wght@0,100..900;1,100..900&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap");
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import url("https://fonts.googleapis.com/css2?family=Urbanist:ital,wght@0,100..900;1,100..900&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap");
 
 @custom-variant dark (&:is(.dark *));
 
@@ -148,6 +148,35 @@
     -moz-osx-font-smoothing: grayscale;
   }
   h1, h2, h3, h4, h5, h6 { @apply font-heading; }
+  .maplibregl-popup-content {
+    @apply bg-transparent! shadow-none! p-0! rounded-none!;
+  }
+  .maplibregl-popup-content > .maplibregl-popup-close-button {
+    z-index: 10;
+    top: 8px;
+    right: 8px;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    color: white;
+    border-radius: 50%;
+    font-size: 16px;
+    line-height: 1;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .maplibregl-popup-content > .maplibregl-popup-close-button:hover {
+    background: rgba(0, 0, 0, 0.7);
+  }
+  .maplibregl-popup-tip {
+    @apply hidden!;
+  }
 }
 
 /* ==================== CUSTOM UTILITIES ==================== */

@@ -1,7 +1,19 @@
-import { Link } from "react-router";
-import { Megaphone, Building2, LogIn } from "lucide-react";
+import { Link, useLocation } from "react-router";
+import { Megaphone, Building2, LogIn, LayoutDashboard } from "lucide-react";
+import { useAuth } from "@/hooks";
 
 export function Navbar() {
+  const { data: session } = useAuth();
+  const dashboardPath = "/dashboard";
+  const isLoggedIn = Boolean(session);
+  const { pathname } = useLocation();
+
+  const getLinkClass = (path: string) => {
+    return pathname === path
+      ? "text-sm font-bold text-[#db2744] transition-colors"
+      : "text-sm font-bold text-gray-600 hover:text-[#db2744] transition-colors";
+  };
+
   return (
     <header className="w-full bg-white/80 backdrop-blur-md border-b border-gray-100 z-50 sticky top-0">
       <div className="w-full max-w-7xl mx-auto px-6 sm:px-12 py-5 flex items-center justify-between">
@@ -17,9 +29,9 @@ export function Navbar() {
         </Link>
         
         <div className="hidden lg:flex items-center gap-8">
-           <Link to="/" className="text-sm font-bold text-gray-600 hover:text-[#db2744] transition-colors">Beranda</Link>
-           <Link to="/#fitur" className="text-sm font-bold text-gray-600 hover:text-[#db2744] transition-colors">Cara Kerja</Link>
-           <Link to="/#faq" className="text-sm font-bold text-gray-600 hover:text-[#db2744] transition-colors">Bantuan</Link>
+           <Link to="/" className={getLinkClass("/")}>Beranda</Link>
+           <Link to="/cara-kerja" className={getLinkClass("/cara-kerja")}>Cara Kerja</Link>
+           <Link to="/bantuan" className={getLinkClass("/bantuan")}>Bantuan</Link>
         </div>
 
         <div className="flex items-center gap-3 md:gap-5">
@@ -28,9 +40,9 @@ export function Navbar() {
             <span className="hidden sm:inline">Portal Dinas</span>
           </Link>
           
-          <Link to="/login" className="flex items-center gap-2 text-sm font-bold text-white bg-[#db2744] hover:bg-[#b01e33] px-7 py-2.5 rounded-full transition-all duration-300 shadow-sm hover:shadow-md">
-            <LogIn size={16} />
-            <span>Masuk</span>
+          <Link to={isLoggedIn ? dashboardPath : "/login"} className="flex items-center gap-2 text-sm font-bold text-white bg-[#db2744] hover:bg-[#b01e33] px-7 py-2.5 rounded-full transition-all duration-300 shadow-sm hover:shadow-md">
+            {isLoggedIn ? <LayoutDashboard size={16} /> : <LogIn size={16} />}
+            <span>{isLoggedIn ? "Dashboard" : "Masuk"}</span>
           </Link>
         </div>
 

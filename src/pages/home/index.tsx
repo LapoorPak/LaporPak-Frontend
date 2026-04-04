@@ -2,8 +2,16 @@ import { Link } from "react-router";
 import { motion } from "framer-motion";
 import { Lightbulb, Megaphone } from "lucide-react";
 import { Navbar, Footer } from "@/components/layout";
+import { useAuth } from "@/hooks";
 
 export default function Home() {
+  const { data: session } = useAuth();
+  const dashboardPath = "/dashboard";
+  const primaryCtaPath = session ? dashboardPath : "/register";
+  const primaryCtaLabel = session ? "Buka dashboard" : "Mulai lapor yuk!";
+  const secondaryCtaPath = session ? dashboardPath : "/register";
+  const secondaryCtaLabel = session ? "Pantau di dashboard" : "Pantau sekarang!";
+
   return (
     <div className="min-h-screen bg-white overflow-x-hidden font-sans relative">
       <div className="absolute top-[15%] left-[-10%] w-[500px] h-[500px] bg-red-100 rounded-full mix-blend-multiply filter blur-[100px] opacity-60 -z-10 pointer-events-none" />
@@ -180,8 +188,8 @@ export default function Home() {
               Fotokan jalan berlubang, tumpukan sampah, atau fasilitas publik yang rusak. 
               Sistem akan otomatis mendeteksi lokasi koordinat Anda.
             </p>
-            <Link to="/register" className="inline-block bg-[#db2744] text-white font-bold px-8 py-3 rounded-full hover:bg-[#b01e33] transition-colors shadow-sm text-lg mt-2">
-              Mulai lapor yuk!
+            <Link to={primaryCtaPath} className="inline-block bg-[#db2744] text-white font-bold px-8 py-3 rounded-full hover:bg-[#b01e33] transition-colors shadow-sm text-lg mt-2">
+              {primaryCtaLabel}
             </Link>
           </div>
           <div className="md:w-1/2 flex justify-center order-1 md:order-2">
@@ -232,8 +240,8 @@ export default function Home() {
               Ketahui perkembangan laporan Anda secara real-time. Kami menjamin transparansi 
               tindak lanjut dari awal hingga masalah tuntas.
             </p>
-            <Link to="/register" className="inline-block bg-[#db2744] text-white font-bold px-8 py-3 rounded-full hover:bg-[#b01e33] transition-colors shadow-sm text-lg mt-2">
-              Pantau sekarang!
+            <Link to={secondaryCtaPath} className="inline-block bg-[#db2744] text-white font-bold px-8 py-3 rounded-full hover:bg-[#b01e33] transition-colors shadow-sm text-lg mt-2">
+              {secondaryCtaLabel}
             </Link>
           </div>
           <div className="md:w-1/2 flex justify-center order-1 md:order-2">
