@@ -4,9 +4,12 @@ import { Megaphone } from "lucide-react";
 export default function AuthLayout() {
   const location = useLocation();
   const isRegister = location.pathname.includes("register");
+  const isAgencyLogin = location.pathname.includes("/agency/login");
   const imgSrc = isRegister 
     ? "/illustrations/register_illustration.png" 
-    : "/illustrations/login_illustration.png";
+    : isAgencyLogin
+      ? "/illustrations/agency_login_illustration.png"
+      : "/illustrations/login_illustration.png";
 
   return (
     <div className="min-h-screen bg-white flex flex-col md:flex-row overflow-hidden font-sans">
@@ -31,11 +34,11 @@ export default function AuthLayout() {
         </p>
       </div>
 
-      <div className="hidden md:flex flex-1 bg-white relative items-center justify-center p-12 overflow-hidden border-l border-gray-100">
+      <div className="hidden md:flex flex-1 bg-white relative items-center justify-center p-12 overflow-hidden">
          <div className="relative z-10 w-full max-w-[600px] flex justify-center items-center">
             <img 
                src={imgSrc} 
-               alt={isRegister ? "LaporPak Pendaftaran" : "LaporPak Otentikasi"}
+               alt={isRegister ? "LaporPak Pendaftaran" : isAgencyLogin ? "LaporPak Portal Agency" : "LaporPak Otentikasi"}
                className="w-full h-auto object-contain mix-blend-multiply scale-110"
             />
          </div>

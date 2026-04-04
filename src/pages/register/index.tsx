@@ -1,11 +1,18 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { useEffect, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { authClient } from "@/lib/auth-client";
 import { motion } from "framer-motion";
 import { GoogleIcon, EyeIcon, EyeOffIcon } from "@/assets/icon";
+import { toast } from "sonner";
+import { clearOAuthAttemptPortal, getOAuthAttemptPortal, setOAuthAttemptPortal } from "@/lib/oauth-attempt";
+import { consumePortalError } from "@/lib/portal-error";
 
 export default function Register() {
+  const dashboardUrl = `${window.location.origin}/dashboard`;
+  const registerUrl = `${window.location.origin}/register`;
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { data: session, isPending: isSessionPending } = authClient.useSession();
   const [form, setForm] = useState({
     firstName: "",
     lastName: "",
@@ -16,8 +23,48 @@ export default function Register() {
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  useEffect(() => {
+    const portalError = consumePortalError();
+    if (portalError?.code === "citizen_role_forbidden") {
+      setError(portalError.message);
+      toast.error(portalError.message);
+      return;
+    }
+
+    const errorParam = searchParams.get("portal_error") || searchParams.get("error");
+    const messageParam = searchParams.get("portal_message") || searchParams.get("message");
+
+    if (errorParam === "citizen_role_forbidden") {
+      const nextError =
+        messageParam || "Akun Anda adalah akun pemerintah. Silakan login melalui portal dinas.";
+      setError(nextError);
+      toast.error(nextError);
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete("portal_error");
+      newParams.delete("portal_message");
+      newParams.delete("error");
+      newParams.delete("message");
+      setSearchParams(newParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
+  useEffect(() => {
+    if (isSessionPending || !session?.user) {
+      if (!isSessionPending && !session?.user && getOAuthAttemptPortal() === "citizen") {
+        const nextError = "Akun Anda adalah akun pemerintah. Silakan login melalui portal dinas.";
+        clearOAuthAttemptPortal();
+        setError(nextError);
+        toast.error(nextError);
+      }
+      return;
+    }
+
+    clearOAuthAttemptPortal();
+  }, [isSessionPending, session]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -50,10 +97,29 @@ export default function Register() {
   };
 
   const handleGoogleRegister = async () => {
-    await authClient.signIn.social({
+    if (googleLoading || loading) {
+      return;
+    }
+
+    setError("");
+    setGoogleLoading(true);
+    setOAuthAttemptPortal("citizen");
+
+    const { error } = await authClient.signIn.social({
       provider: "google",
-      callbackURL: "/dashboard",
+      callbackURL: dashboardUrl,
+      errorCallbackURL: registerUrl,
+      newUserCallbackURL: dashboardUrl,
+      additionalData: {
+        portal: "citizen",
+      },
     });
+
+    if (error) {
+      clearOAuthAttemptPortal();
+      setError(error.message || "Daftar dengan Google gagal");
+      setGoogleLoading(false);
+    }
   };
 
   const inputCls =
@@ -78,23 +144,18 @@ export default function Register() {
         </p>
       </div>
 
-      {error && (
-        <motion.div
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: "auto" }}
-          className="mb-4 rounded-xl bg-red-50 border border-red-200 p-3 text-sm text-red-600 text-center font-medium"
-        >
-          {error}
-        </motion.div>
-      )}
-
       <button
         type="button"
         onClick={handleGoogleRegister}
-        className="w-full flex items-center justify-center gap-3 bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 text-gray-700 font-bold text-sm px-4 py-3 rounded-xl transition-all mb-5"
+        disabled={googleLoading || loading}
+        className="w-full flex items-center justify-center gap-3 bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 text-gray-700 font-bold text-sm px-4 py-3 rounded-xl transition-all mb-5 disabled:opacity-60 disabled:cursor-not-allowed"
       >
-        <GoogleIcon />
-        Daftar dengan Google
+        {googleLoading ? (
+          <div className="w-5 h-5 rounded-full border-2 border-gray-300 border-t-gray-700 animate-spin" />
+        ) : (
+          <GoogleIcon />
+        )}
+        {googleLoading ? "Mengarahkan ke Google..." : "Daftar dengan Google"}
       </button>
 
       <div className="relative my-5">
@@ -188,7 +249,7 @@ export default function Register() {
            </div>
         </div>
 
-        <div className="space-y-1.5">
+        <div className="space-y-1.5 relative">
            <label className="text-xs font-bold text-gray-800 ml-1 block" htmlFor="register-confirmPassword">Konfirmasi Password</label>
            <div className="relative">
              <input
@@ -208,12 +269,22 @@ export default function Register() {
                {showConfirmPassword ? <EyeOffIcon /> : <EyeIcon />}
              </div>
            </div>
+           {error && (
+             <motion.p
+               initial={{ opacity: 0, y: -10 }}
+               animate={{ opacity: 1, y: 0 }}
+               transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+               className="absolute left-1 top-[calc(100%+4px)] text-xs font-semibold leading-tight text-[#db2744]"
+             >
+               {error}
+             </motion.p>
+           )}
         </div>
 
         <button
           type="submit"
           disabled={loading}
-          className="w-full flex items-center justify-center gap-2 bg-[#db2744] text-white font-bold tracking-wide py-3.5 rounded-xl hover:bg-[#b01e33] transition-all mt-6 disabled:opacity-60"
+          className="w-full flex items-center justify-center gap-2 bg-[#db2744] text-white font-bold tracking-wide py-3.5 rounded-xl hover:bg-[#b01e33] transition-all mt-10 disabled:opacity-60"
         >
           {loading ? (
             <div className="w-5 h-5 rounded-full border-2 border-white/30 border-t-white animate-spin" />

@@ -10,7 +10,7 @@ function App() {
       <BrowserRouter>
         <RouteMiddleware />
       </BrowserRouter>
-      <Toaster position="top-right" />
+      <Toaster position="top-right" richColors duration={8000} closeButton />
     </QueryClientProvider>
   );
 }
