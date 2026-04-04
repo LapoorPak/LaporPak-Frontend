@@ -117,7 +117,7 @@ export default function AgencyLogin() {
 
     setLoading(true);
 
-    const { data, error } = await authClient.signIn.email({
+    const { error } = await authClient.signIn.email({
       email: identifier,
       password,
       callbackURL: agencyLoginUrl,
@@ -133,7 +133,6 @@ export default function AgencyLogin() {
       return;
     }
 
-    const resolvedRole = data?.user?.role || agencyRole;
     navigate("/dashboard");
   };
 
