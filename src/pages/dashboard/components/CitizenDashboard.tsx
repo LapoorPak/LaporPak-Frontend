@@ -409,113 +409,110 @@ export default function CitizenDashboard() {
         </Map>
 
         {/* Floating Bottom Toolbar (Dock) */}
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 transition-all duration-300 pointer-events-none">
-           <div className="flex flex-col items-center gap-2 pointer-events-auto" ref={searchRef}>
+        <div className="absolute bottom-5 left-0 right-0 z-20 flex flex-col items-center gap-2 px-4 pointer-events-none">
 
-             {/* Search Results Dropdown (above toolbar) */}
-             <AnimatePresence>
-               {showSearch && searchQuery.trim().length >= 2 && (
-                 <motion.div
-                   initial={{ opacity: 0, y: 8 }}
-                   animate={{ opacity: 1, y: 0 }}
-                   exit={{ opacity: 0, y: 8 }}
-                   transition={{ duration: 0.15 }}
-                   className="w-[380px] bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden max-h-[240px] overflow-y-auto"
-                 >
-                   {isSearching ? (
-                     <div className="px-4 py-6 text-center">
-                       <div className="w-5 h-5 border-2 border-gray-300 border-t-[#db2744] rounded-full animate-spin mx-auto mb-2" />
-                       <p className="text-xs font-bold text-gray-400">Mencari...</p>
-                     </div>
-                   ) : searchResults.length === 0 ? (
-                     <div className="px-4 py-6 text-center">
-                       <p className="text-xs font-bold text-gray-400">Lokasi tidak ditemukan</p>
-                     </div>
-                   ) : (
-                     searchResults.map((place: SearchResult, idx: number) => (
-                       <button
-                         key={idx}
-                         onClick={() => handleSelectPlace(place)}
-                         className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors text-left border-b border-gray-50 last:border-b-0"
-                       >
-                         <div className="w-8 h-8 rounded-full bg-red-50 text-[#db2744] flex items-center justify-center shrink-0">
-                           <MapPin size={14} strokeWidth={2.5} />
-                         </div>
-                         <div className="min-w-0">
-                           <p className="text-[13px] font-bold text-gray-900 truncate">{place.name}</p>
-                           <p className="text-[11px] text-gray-400 font-medium truncate">{place.sub}</p>
-                         </div>
-                       </button>
-                     ))
-                   )}
-                 </motion.div>
-               )}
-             </AnimatePresence>
+          {/* Search Results Dropdown */}
+          <AnimatePresence>
+            {showSearch && searchQuery.trim().length >= 2 && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 8 }}
+                transition={{ duration: 0.15 }}
+                className="w-full max-w-sm bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden max-h-[240px] overflow-y-auto pointer-events-auto"
+              >
+                {isSearching ? (
+                  <div className="px-4 py-6 text-center">
+                    <div className="w-5 h-5 border-2 border-gray-300 border-t-[#db2744] rounded-full animate-spin mx-auto mb-2" />
+                    <p className="text-xs font-bold text-gray-400">Mencari...</p>
+                  </div>
+                ) : searchResults.length === 0 ? (
+                  <div className="px-4 py-6 text-center">
+                    <p className="text-xs font-bold text-gray-400">Lokasi tidak ditemukan</p>
+                  </div>
+                ) : (
+                  searchResults.map((place: SearchResult, idx: number) => (
+                    <button
+                      key={idx}
+                      onClick={() => handleSelectPlace(place)}
+                      className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors text-left border-b border-gray-50 last:border-b-0"
+                    >
+                      <div className="w-8 h-8 rounded-full bg-red-50 text-[#db2744] flex items-center justify-center shrink-0">
+                        <MapPin size={14} strokeWidth={2.5} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[13px] font-bold text-gray-900 truncate">{place.name}</p>
+                        <p className="text-[11px] text-gray-400 font-medium truncate">{place.sub}</p>
+                      </div>
+                    </button>
+                  ))
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-             {/* Toolbar Bar */}
-             <div className="bg-white px-2 py-2 rounded-full shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] border border-gray-100 flex items-center gap-1.5">
-               
-               {/* Search Input */}
-               <div className="relative">
-                 <div className={`flex items-center gap-2 rounded-full transition-all duration-300 overflow-hidden ${
-                   showSearch ? "w-[200px] bg-gray-50 border border-gray-200 pr-1" : "w-auto"
-                 }`}>
-                   <button
-                     onClick={() => setShowSearch(!showSearch)}
-                     className={`flex items-center justify-center shrink-0 p-3 rounded-full transition-all ${
-                       showSearch ? "text-[#db2744]" : "bg-gray-50 text-gray-500 hover:bg-gray-100"
-                     }`}
-                   >
-                     <Search size={18} strokeWidth={2.5} />
-                   </button>
-                   {showSearch && (
-                     <input
-                       type="text"
-                       value={searchQuery}
-                       onChange={(e) => setSearchQuery(e.target.value)}
-                       placeholder="Cari lokasi..."
-                       autoFocus
-                       className="bg-transparent border-none outline-none text-xs font-bold text-gray-900 placeholder:text-gray-400 w-full py-2 pr-2"
-                     />
-                   )}
-                 </div>
-               </div>
+          {/* Toolbar Bar */}
+          <div ref={searchRef} className="w-full max-w-sm pointer-events-auto">
+            <div className="bg-white rounded-full shadow-[0_8px_32px_-8px_rgba(0,0,0,0.18)] border border-gray-100 flex items-center px-2 py-1.5 gap-1">
 
-               <div className="w-[1px] h-6 bg-gray-200" />
+              {/* Search — always open */}
+              <div className="flex items-center flex-1 gap-1 bg-gray-50 border border-gray-200 rounded-full px-3 py-1 min-w-0">
+                <Search
+                  size={15}
+                  strokeWidth={2.5}
+                  className="text-[#db2744] shrink-0"
+                />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setShowSearch(true);
+                  }}
+                  onFocus={() => setShowSearch(true)}
+                  placeholder="Cari lokasi..."
+                  className="bg-transparent border-none outline-none text-xs font-bold text-gray-900 placeholder:text-gray-400 w-full py-1.5"
+                />
+              </div>
 
-               <button 
-                 onClick={togglePinMode}
-                 className={`flex items-center gap-2 px-5 py-3 rounded-full transition-all duration-300 ${
-                   mode === "pin_drop" 
-                   ? "bg-[#db2744] text-white shadow-md shadow-red-500/20" 
-                   : "bg-gray-50 text-gray-600 hover:bg-gray-100"
-                 }`}
-               >
-                  {mode === "pin_drop" ? <Check size={18} strokeWidth={2.5}/> : <Target size={18} />}
-                  <span className="text-xs font-bold tracking-wide">
-                    {mode === "pin_drop" ? "Pilih Lokasi" : "Tandai Lokasi"}
-                  </span>
-               </button>
+              <div className="w-px h-5 bg-gray-200 shrink-0 mx-0.5" />
 
-               <div className="w-[1px] h-6 bg-gray-200" />
+              {/* Pin mode toggle */}
+              <button
+                onClick={togglePinMode}
+                className={`flex items-center gap-1.5 px-3 py-2.5 rounded-full transition-all duration-300 font-bold shrink-0 ${
+                  mode === "pin_drop"
+                  ? "bg-[#db2744] text-white shadow-md shadow-red-500/20"
+                  : "text-gray-600 hover:bg-gray-100"
+                }`}
+              >
+                {mode === "pin_drop" ? <Check size={16} strokeWidth={2.5}/> : <Target size={16} />}
+                <span className="text-xs hidden sm:inline">
+                  {mode === "pin_drop" ? "Pilih" : "Tandai"}
+                </span>
+              </button>
 
-               <button 
-                 onClick={handleCreateReport}
-                 className={`flex items-center gap-2 px-5 py-3 rounded-full transition-all duration-300 ${
-                   isFormOpen 
-                   ? "bg-gray-900 text-white shadow-md" 
-                   : "bg-[#db2744] text-white shadow-md shadow-red-500/20 hover:scale-105"
-                 }`}
-               >
-                  {isFormOpen ? <X size={18} /> : <Plus size={18} strokeWidth={2.5} />}
-                  <span className="text-xs font-bold tracking-wide">
-                    {isFormOpen ? "Tutup" : "Buat Laporan"}
-                  </span>
-               </button>
+              <div className="w-px h-5 bg-gray-200 shrink-0 mx-0.5" />
 
-             </div>
-           </div>
+              {/* Create report */}
+              <button
+                onClick={handleCreateReport}
+                className={`flex items-center gap-1.5 px-3.5 py-2.5 rounded-full transition-all duration-300 font-bold shrink-0 ${
+                  isFormOpen
+                  ? "bg-gray-900 text-white shadow-md"
+                  : "bg-[#db2744] text-white shadow-md shadow-red-500/20 hover:bg-rose-600"
+                }`}
+              >
+                {isFormOpen ? <X size={16} /> : <Plus size={16} strokeWidth={2.5} />}
+                <span className="text-xs hidden sm:inline">
+                  {isFormOpen ? "Tutup" : "Buat Laporan"}
+                </span>
+              </button>
+
+            </div>
+          </div>
         </div>
+
       </div>
 
       {/* Sliding Drawer for the Form */}

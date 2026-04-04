@@ -126,14 +126,12 @@ export default function DashboardLayout() {
 
   return (
     <div className="h-[100dvh] w-full flex flex-col bg-gray-50 overflow-hidden relative font-sans">
-      <header className="absolute top-6 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-5xl rounded-full bg-white shadow-lg px-6 py-3 flex items-center justify-between">
-        <Link to="/dashboard" className="flex items-center gap-3 group hover:opacity-80 transition-opacity">
-           <Megaphone size={28} className="text-[#db2744]" strokeWidth={1.5} fill="#db2744" />
-           <div className="flex flex-col">
-             <span className="text-xl font-black font-heading tracking-tight text-gray-900 hidden sm:block leading-none">
-               Lapor<span className="text-[#db2744]">Pak</span>
-             </span>
-           </div>
+      <header className="absolute top-4 left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-5xl rounded-full bg-white shadow-lg px-4 py-2.5 flex items-center justify-between">
+        <Link to="/dashboard" className="flex items-center gap-2.5 group hover:opacity-80 transition-opacity shrink-0">
+           <Megaphone size={24} className="text-[#db2744] shrink-0" strokeWidth={1.5} fill="#db2744" />
+           <span className="text-lg font-black font-heading tracking-tight text-gray-900 leading-none">
+             Lapor<span className="text-[#db2744]">Pak</span>
+           </span>
         </Link>
         
         <div className="flex items-center gap-3 md:gap-5">
@@ -265,20 +263,20 @@ export default function DashboardLayout() {
           
           <div className="h-8 w-[1px] bg-gray-200 hidden md:block" />
           
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2.5 cursor-pointer group mr-1">
-               <div className="w-9 h-9 rounded-full bg-red-50 group-hover:bg-red-100 flex items-center justify-center transition-colors overflow-hidden border border-red-100">
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 cursor-pointer group">
+               <div className="w-8 h-8 rounded-full bg-red-50 group-hover:bg-red-100 flex items-center justify-center transition-colors overflow-hidden border border-red-100 shrink-0">
                  {session?.user?.image ? (
                    <img src={session.user.image} alt={session.user.name} referrerPolicy="no-referrer" crossOrigin="anonymous" className="w-full h-full object-cover" />
                  ) : (
-                   <User size={16} className="text-[#db2744]" strokeWidth={2.5} />
+                   <User size={15} className="text-[#db2744]" strokeWidth={2.5} />
                  )}
                </div>
-               <div className="flex flex-col">
-                 <span className="text-xs font-bold text-gray-900 hidden sm:block tracking-wide leading-none mb-1">
-                   {session?.user?.name || "Pengguna"}
+               <div className="flex flex-col max-w-[100px] sm:max-w-none">
+                 <span className="text-xs font-bold text-gray-900 tracking-wide leading-none mb-0.5 truncate">
+                   {session?.user?.name?.split(" ")[0] || "Pengguna"}
                  </span>
-                 <span className="text-[10px] font-bold text-[#db2744] uppercase tracking-widest hidden sm:block leading-none">
+                 <span className="text-[9px] font-black text-[#db2744] uppercase tracking-widest leading-none">
                    {session?.user?.role || "Warga"}
                  </span>
                </div>
@@ -287,13 +285,13 @@ export default function DashboardLayout() {
             <button 
                onClick={handleLogout}
                disabled={isSigningOut}
-               className="p-2.5 rounded-full hover:bg-red-50 text-gray-400 hover:text-[#db2744] transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed"
+               className="p-2 rounded-full hover:bg-red-50 text-gray-400 hover:text-[#db2744] transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed"
                title="Keluar"
             >
               {isSigningOut ? (
                 <div className="w-4 h-4 rounded-full border-2 border-gray-300 border-t-[#db2744] animate-spin" />
               ) : (
-                <LogOut size={16} strokeWidth={2.5} />
+                <LogOut size={15} strokeWidth={2.5} />
               )}
             </button>
           </div>
