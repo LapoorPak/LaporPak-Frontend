@@ -135,19 +135,19 @@ export default function DashboardLayout() {
         </Link>
         
         <div className="flex items-center gap-3 md:gap-5">
-          <div className="hidden md:flex items-center gap-2 relative" ref={panelRef}>
+          <div className="flex items-center gap-2 relative" ref={panelRef}>
              <button 
                 ref={bellRef}
                 onClick={() => setShowNotifications(!showNotifications)}
-                className={`transition-all p-3 rounded-full relative ${
+                className={`transition-all w-8 h-8 flex items-center justify-center rounded-full relative border ${
                   showNotifications 
-                    ? "bg-[#db2744] text-white" 
-                    : "text-[#db2744] border border-[#db2744] hover:text-[#db2744]  hover:bg-red-50"
+                    ? "bg-red-50 border-red-200 text-[#db2744]" 
+                    : "bg-white border-gray-200 text-gray-500 hover:text-[#db2744] hover:bg-red-50 hover:border-red-100"
                 }`}
              >
-                <Bell size={18} strokeWidth={2.5} />
+                <Bell size={15} strokeWidth={2.5} />
                 {unreadCount > 0 && (
-                  <span className={`absolute bg-[#db2744] text-white border-1 -top-[8px] -right-[10px] min-w-[24px] min-h-[24px] rounded-full  text-[9px] font-black flex items-center justify-center leading-none`}>
+                  <span className={`absolute bg-[#db2744] text-white -top-1 -right-1 min-w-[15px] min-h-[15px] rounded-full text-[8px] font-black flex items-center justify-center leading-none ring-2 ring-white shadow-sm`}>
                     {unreadCount}
                   </span>
                 )}
@@ -156,11 +156,11 @@ export default function DashboardLayout() {
              <AnimatePresence>
                {showNotifications && (
                    <motion.div 
-                     initial={{ opacity: 0, y: 6 }}
-                     animate={{ opacity: 1, y: 0 }}
-                     exit={{ opacity: 0, y: 6 }}
+                     initial={{ opacity: 0, scale: 0.95, y: 6 }}
+                     animate={{ opacity: 1, scale: 1, y: 0 }}
+                     exit={{ opacity: 0, scale: 0.95, y: 6 }}
                      transition={{ duration: 0.15, ease: "easeOut" }}
-                     className="absolute top-full right-0 mt-5 w-[400px] bg-white rounded-lg shadow-lg border border-gray-200 z-50 text-left origin-top-right flex flex-col overflow-hidden"
+                     className="fixed top-[75px] left-4 right-4 sm:absolute sm:top-full sm:-right-2 sm:left-auto sm:mt-3 sm:w-[400px] w-auto bg-white rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] sm:shadow-2xl border border-gray-100 z-50 text-left sm:origin-top-right flex flex-col overflow-hidden max-h-[85vh] sm:max-h-[500px]"
                    >
                      <div className="px-5 pt-4 pb-3 bg-white border-b border-gray-100">
                        <div className="flex justify-between items-center mb-3">
@@ -261,7 +261,7 @@ export default function DashboardLayout() {
              </AnimatePresence>
           </div>
           
-          <div className="h-8 w-[1px] bg-gray-200 hidden md:block" />
+          <div className="h-8 w-[1px] bg-gray-200 hidden sm:block mx-1" />
           
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-2 cursor-pointer group">

@@ -31,20 +31,15 @@ export default function HowItWorks() {
     <div className="min-h-screen bg-white font-sans selection:bg-[#C01D33]/20 selection:text-[#C01D33]">
       <Navbar />
 
-      {/* Hero Section (Full Height Centered) */}
+      {/* Hero */}
       <section className="relative px-6 overflow-hidden min-h-[100dvh] lg:h-screen flex flex-col justify-start pt-8 md:justify-center md:pt-0 pb-12 lg:pb-0">
-        {/* Soft Pink Glow Background */}
         <div className="absolute top-1/2 right-0 w-[800px] h-[800px] bg-red-100/50 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/3 -z-20 pointer-events-none"></div>
 
-        {/* Top Center Title */}
         <div className="text-center z-10 w-full lg:absolute lg:top-28 mb-8 lg:mb-0 shrink-0">
           <h1 className="text-3xl md:text-5xl font-extrabold text-[#C01D33] tracking-tight">Cara Kerja</h1>
         </div>
 
-        {/* Main Content Grid (Centered in remaining space) */}
         <div className="max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-12 items-center relative z-10">
-          
-          {/* Left: Typography & Arrow */}
           <div className="flex flex-col items-start lg:pl-10">
             <motion.div
               initial={{ opacity: 0, y: 30 }}
@@ -59,7 +54,6 @@ export default function HowItWorks() {
               </div>
             </motion.div>
             
-            {/* Hand-drawn Swoosh Arrow */}
             <motion.div
                initial={{ opacity: 0, pathLength: 0 }}
                animate={{ opacity: 1, pathLength: 1 }}
@@ -73,7 +67,6 @@ export default function HowItWorks() {
             </motion.div>
           </div>
 
-          {/* Right: Illustration & Floating Card */}
           <div className="relative flex justify-center lg:justify-end items-center lg:items-end w-full h-[400px] md:h-[500px]">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
@@ -87,7 +80,7 @@ export default function HowItWorks() {
         </div>
       </section>
 
-      {/* Sleek Vertical Alternating Layout (Cara Kerja) */}
+      {/* Steps */}
       <section className="py-32 bg-[#F9FAFB]">
         <div className="max-w-6xl mx-auto px-6">
           <div className="mb-24 text-center">
@@ -96,10 +89,8 @@ export default function HowItWorks() {
           </div>
 
           <div className="space-y-16 lg:space-y-32 relative">
-            {/* Connecting Vertical Line */}
             <div className="hidden lg:block absolute left-1/2 top-0 bottom-0 w-px bg-gray-200 -translate-x-1/2"></div>
             
-            {/* Step 1 */}
             <div className="flex flex-col lg:flex-row items-center justify-between gap-12 lg:gap-24 relative">
               <div className="lg:w-1/2 flex justify-center lg:justify-end">
                 <div className="w-[300px] h-[300px] md:w-[400px] md:h-[400px] p-8 flex items-center justify-center relative">
@@ -113,7 +104,6 @@ export default function HowItWorks() {
               </div>
             </div>
 
-            {/* Step 2 */}
             <div className="flex flex-col lg:flex-row-reverse items-center justify-between gap-12 lg:gap-24 relative">
               <div className="lg:w-1/2 flex justify-center lg:justify-start">
                 <div className="w-[300px] h-[300px] md:w-[400px] md:h-[400px] p-8 flex items-center justify-center relative">
@@ -127,7 +117,6 @@ export default function HowItWorks() {
               </div>
             </div>
 
-            {/* Step 3 */}
             <div className="flex flex-col lg:flex-row items-center justify-between gap-12 lg:gap-24 relative">
               <div className="lg:w-1/2 flex justify-center lg:justify-end">
                 <div className="w-[300px] h-[300px] md:w-[400px] md:h-[400px] p-8 flex items-center justify-center relative">
@@ -145,7 +134,7 @@ export default function HowItWorks() {
         </div>
       </section>
 
-      {/* Accordion FAQ Area (Swara /bantuan Style) */}
+      {/* FAQ */}
       <section className="py-32 bg-white">
         <div className="max-w-4xl mx-auto px-6">
           <div className="mb-20 text-center">
@@ -186,12 +175,10 @@ export default function HowItWorks() {
         </div>
       </section>
 
-      {/* Full Illustration CTA */}
+      {/* CTA */}
       <section className="py-24 bg-[#F9FAFB] border-t border-gray-100 overflow-hidden">
         <div className="max-w-7xl mx-auto px-6">
            <div className="bg-[#C01D33] rounded-[40px] flex flex-col lg:flex-row items-stretch overflow-hidden relative">
-              
-              {/* Left Side: Text and Button */}
               <div className="flex-1 p-12 md:p-20 flex flex-col justify-center z-10 relative">
                  <h2 className="text-4xl md:text-6xl font-extrabold text-white mb-6 leading-tight">
                    Mari Kita Mulai.
@@ -208,9 +195,7 @@ export default function HowItWorks() {
                  </div>
               </div>
 
-              {/* Right Side: Full Illustration Graphic */}
               <div className="flex-1 min-h-[300px] lg:min-h-full bg-white relative">
-                 {/* Diagonal cut to make it look seamless with red background */}
                  <div className="hidden lg:block absolute inset-y-0 left-0 w-32 bg-[#C01D33] rounded-br-[100px] z-10"></div>
                  
                  <img 

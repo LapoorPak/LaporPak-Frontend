@@ -112,13 +112,24 @@ export default function AgencyDashboard() {
     }
   };
 
-  const filteredReports = activeTab === "Semua" ? MOCK_REPORTS :
-    MOCK_REPORTS.filter(r => {
-      if (activeTab === "Baru") return r.status === "baru";
-      if (activeTab === "Diproses") return r.status === "proses";
-      if (activeTab === "Tuntas") return r.status === "selesai";
-      return true;
-    });
+  const filteredReports = reports.filter(r => {
+    // Tab filter
+    if (activeTab === "Baru" && r.status !== "baru") return false;
+    if (activeTab === "Diproses" && r.status !== "proses") return false;
+    if (activeTab === "Tuntas" && r.status !== "selesai") return false;
+    
+    // Search filter
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      const matchesSearch = 
+        r.id.toString().includes(q) || 
+        r.title.toLowerCase().includes(q) || 
+        r.loc.toLowerCase().includes(q);
+      if (!matchesSearch) return false;
+    }
+    
+    return true;
+  });
 
   return (
     <div className="relative w-full h-screen bg-[#F0F2F5] overflow-hidden font-sans">
@@ -128,6 +139,7 @@ export default function AgencyDashboard() {
         <Map
           viewport={viewport}
           onViewportChange={setViewport}
+          theme="light"
           className="w-full h-full"
         >
           <MapControls position="top-right" showZoom showLocate />
@@ -198,7 +210,7 @@ export default function AgencyDashboard() {
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: -400, opacity: 0 }}
             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            className="absolute top-0 left-0 bottom-0 z-20 w-[380px] flex flex-col bg-white shadow-2xl border-r border-gray-100 overflow-hidden pt-20"
+            className="absolute top-20 left-5 bottom-5 z-20 w-[380px] flex flex-col bg-white shadow-2xl border border-gray-100 rounded-2xl overflow-hidden"
           >
             <div className="p-5 border-b border-gray-100">
               <div className="flex justify-between items-center mb-4">
@@ -235,11 +247,22 @@ export default function AgencyDashboard() {
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-2.5 bg-gray-50/50">
-              <div className="flex items-center justify-between px-1 mb-1">
+              <div className="flex items-center justify-between px-1 mb-2">
                 <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
                   Tickets <span className="bg-white text-gray-900 px-2 py-0.5 rounded-full text-[10px] border border-gray-200">{filteredReports.length}</span>
                 </h3>
                 <button className="text-gray-400 hover:text-gray-900"><ListFilter size={13} strokeWidth={3} /></button>
+              </div>
+
+              <div className="relative mb-3">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input 
+                  type="text" 
+                  placeholder="Cari ID, kategori, atau lokasi..." 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-xl text-[11px] focus:outline-none focus:border-gray-300 transition-all font-medium text-gray-700 placeholder:text-gray-400/70"
+                />
               </div>
 
               {filteredReports.map((report) => (
@@ -495,7 +518,7 @@ export default function AgencyDashboard() {
                 onClick={handleSaveStatus} 
                 className="w-full bg-[#111827] hover:bg-gray-800 rounded-xl h-12 text-white font-black tracking-widest text-sm active:scale-[0.98] transition-all flex items-center justify-center gap-2"
               >
-                SIMPAN PEMBARUAN <ArrowRight size={15} strokeWidth={3} className="opacity-60" />
+                SIMPAN <ArrowRight size={15} strokeWidth={3} className="opacity-60" />
               </Button>
             </div>
           </motion.div>

@@ -48,7 +48,8 @@ export default function Login() {
   useEffect(() => {
     if (isSessionPending || !session?.user) {
       if (!isSessionPending && !session?.user && getOAuthAttemptPortal() === "citizen") {
-        const nextError = "Akun Anda adalah akun pemerintah. Silakan login melalui portal dinas.";
+        const nextError =
+          "Login berhasil diproses, tetapi sesi akun belum terbaca. Coba ulangi login atau refresh halaman.";
         clearOAuthAttemptPortal();
         setError(nextError);
         toast.error(nextError);

@@ -5,7 +5,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Map, MapControls, MapMarker, MarkerContent, MarkerPopup } from "@/components/ui/map";
 import { motion, AnimatePresence } from "framer-motion";
-import { MapPin, ImagePlus, X, AlertTriangle, Plus, Target, Check, Trash2, ChevronLeft, ChevronRight, Clock, User, Search, Navigation } from "lucide-react";
+import { authClient } from "@/lib/auth-client";
+import { MOCK_AGENCIES } from "@/data/agencies";
+import { MapPin, ImagePlus, X, AlertTriangle, Plus, Target, Check, Trash2, ChevronLeft, ChevronRight, Clock, User, Search, Navigation, Building2 } from "lucide-react";
 
 type InteractionMode = "idle" | "pin_drop";
 
@@ -19,6 +21,8 @@ interface MockReport {
   images: string[];
   lat: number;
   lng: number;
+  address: string;
+  agency?: string;
 }
 
 const STATUS_MAP = {
@@ -41,6 +45,8 @@ const MOCK_REPORTS: MockReport[] = [
     ],
     lat: -6.1950,
     lng: 106.8229,
+    address: "Jl. Jend. Sudirman, Jakarta Pusat",
+    agency: "Dinas Bina Marga DKI Jakarta",
   },
   {
     id: 2,
@@ -54,6 +60,7 @@ const MOCK_REPORTS: MockReport[] = [
     ],
     lat: -6.2010,
     lng: 106.8160,
+    address: "Trotoar Pasar Senen, Jakarta Pusat",
   },
   {
     id: 3,
@@ -69,17 +76,20 @@ const MOCK_REPORTS: MockReport[] = [
     ],
     lat: -6.1880,
     lng: 106.8320,
+    address: "Kawasan Menteng Indah, Jakarta Pusat",
+    agency: "Dinas Lingkungan Hidup DKI",
   },
 ];
 
 function ReportPopup({ report }: { report: MockReport }) {
   const [currentImg, setCurrentImg] = useState(0);
+  const [isExpanded, setIsExpanded] = useState(false);
   const status = STATUS_MAP[report.status];
   const hasMultiple = report.images.length > 1;
 
   return (
     <div className="w-[300px] overflow-hidden -m-[10px] -mb-[15px]">
-      {/* Image Slider */}
+      
       {report.images.length > 0 && (
         <div className="relative w-full h-[160px] bg-gray-100">
           <img
@@ -88,14 +98,12 @@ function ReportPopup({ report }: { report: MockReport }) {
             className="w-full h-full object-cover"
           />
 
-          {/* Image counter */}
           {hasMultiple && (
             <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-1 rounded-full">
               {currentImg + 1} / {report.images.length}
             </div>
           )}
 
-          {/* Nav arrows */}
           {hasMultiple && (
             <>
               <button
@@ -113,7 +121,6 @@ function ReportPopup({ report }: { report: MockReport }) {
             </>
           )}
 
-          {/* Dots */}
           {hasMultiple && (
             <div className="absolute bottom-2 right-2 flex gap-1">
               {report.images.map((_, i) => (
@@ -128,7 +135,6 @@ function ReportPopup({ report }: { report: MockReport }) {
         </div>
       )}
 
-      {/* Content */}
       <div className="p-4">
         <div className="flex items-center gap-2 mb-2">
           <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${status.color} uppercase tracking-wide`}>
@@ -139,9 +145,30 @@ function ReportPopup({ report }: { report: MockReport }) {
         <h4 className="font-extrabold text-sm text-gray-900 leading-tight mb-1">
           {report.title}
         </h4>
-        <p className="text-[12px] text-gray-500 leading-relaxed line-clamp-2 mb-3">
-          {report.description}
-        </p>
+        <div className="mb-3">
+          <p className={`text-[12px] text-gray-500 leading-relaxed transition-all duration-300 ${!isExpanded ? "line-clamp-2" : ""}`}>
+            {report.description}
+          </p>
+          {report.description.length > 65 && (
+            <button 
+              onClick={(e) => { e.stopPropagation(); setIsExpanded(!isExpanded); }}
+              className="text-[10px] font-bold text-gray-900 hover:text-[#db2744] transition-colors mt-0.5"
+            >
+              {isExpanded ? "Tampilkan lebih sedikit" : "Baca selengkapnya"}
+            </button>
+          )}
+        </div>
+
+        <div className="bg-gray-50 p-2.5 rounded-lg border border-gray-100 mb-3">
+          <div className="flex items-start gap-1.5 text-[11px] font-bold text-gray-700 mb-1">
+             <MapPin size={12} className="text-[#db2744] shrink-0 mt-0.5" strokeWidth={2.5} />
+             <span className="leading-tight">{report.address}</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-[10px] font-mono text-gray-400 ml-[18px]">
+            <Navigation size={10} className="shrink-0" />
+            {report.lat.toFixed(5)}, {report.lng.toFixed(5)}
+          </div>
+        </div>
 
         <div className="flex items-center justify-between pt-2 border-t border-gray-100">
           <div className="flex items-center gap-1.5 text-gray-400">
@@ -152,6 +179,13 @@ function ReportPopup({ report }: { report: MockReport }) {
             <Clock size={11} />
             <span className="text-[10px] font-medium">{report.time}</span>
           </div>
+        </div>
+
+        <div className="flex items-center gap-1.5 mt-2.5 pt-1.5 border-t border-dashed border-gray-100">
+          <Building2 size={11} className={report.agency ? "text-[#db2744]" : "text-gray-400"} />
+          <span className={`text-[10px] uppercase tracking-wide font-black ${report.agency ? "text-[#db2744]" : "text-gray-400"}`}>
+            {report.agency ? report.agency : "Menunggu Instansi"}
+          </span>
         </div>
       </div>
     </div>
@@ -166,6 +200,7 @@ interface SearchResult {
 }
 
 export default function CitizenDashboard() {
+  const { data: session } = authClient.useSession();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [mode, setMode] = useState<InteractionMode>("idle");
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 768);
@@ -195,7 +230,6 @@ export default function CitizenDashboard() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // Get user GPS location
   useEffect(() => {
     if (!navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(
@@ -207,7 +241,6 @@ export default function CitizenDashboard() {
     );
   }, []);
 
-  // Close search on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
@@ -218,7 +251,6 @@ export default function CitizenDashboard() {
     return () => document.removeEventListener("mousedown", handler);
   }, [showSearch]);
 
-  // Debounced Nominatim geocoding
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     
@@ -263,11 +295,11 @@ export default function CitizenDashboard() {
   const togglePinMode = () => {
     if (mode === "pin_drop") {
       setMode("idle");
-      // Set the marker to wherever the center was
+
       setMarkerLocation(viewport.center);
     } else {
       setMode("pin_drop");
-      setMarkerLocation(null); // Clear selected marker when re-targeting
+      setMarkerLocation(null);
       setIsFormOpen(false);
     }
   };
@@ -299,18 +331,17 @@ export default function CitizenDashboard() {
 
   return (
     <div className="relative w-full h-full bg-gray-100 flex overflow-hidden">
-      
-      {/* Map Segment */}
+
       <div className="flex-1 relative h-full rounded-r-3xl md:rounded-none overflow-hidden">
         <Map
           viewport={viewport}
           onViewportChange={setViewport}
+          theme="light"
           className="w-full h-full"
         >
-          {/* Hide default controls if they clash, or provide them smartly */}
-          <MapControls position="top-right" showZoom showLocate />
           
-          {/* Dynamic Center Marker for Target Mode */}
+          <MapControls position="top-right" showZoom showLocate />
+
           {mode === "pin_drop" && (
             <MapMarker longitude={viewport.center[0]} latitude={viewport.center[1]}>
                <MarkerContent>
@@ -326,7 +357,6 @@ export default function CitizenDashboard() {
             </MapMarker>
           )}
 
-          {/* Draggable Locked Marker */}
           {markerLocation && mode === "idle" && (
             <MapMarker 
                longitude={markerLocation[0]} 
@@ -347,7 +377,6 @@ export default function CitizenDashboard() {
             </MapMarker>
           )}
 
-          {/* Existing Mock Markers */}
           {MOCK_REPORTS.map((report) => (
            <MapMarker key={report.id} longitude={report.lng} latitude={report.lat}>
               <MarkerPopup closeButton>
@@ -363,7 +392,36 @@ export default function CitizenDashboard() {
            </MapMarker>
           ))}
 
-          {/* Searched Location Marker */}
+          {/* Agency Location Markers */}
+          {MOCK_AGENCIES.map((agency, idx) => (
+            <MapMarker key={`agency-${idx}`} longitude={agency.lng} latitude={agency.lat}>
+               <MarkerPopup closeButton>
+                 <div className="w-[200px] flex flex-col overflow-hidden -m-[10px] -mb-[15px]">
+                   {agency.images && agency.images.length > 0 && (
+                     <div className="w-full h-[100px] bg-gray-100 flex overflow-x-auto snap-x hide-scrollbar">
+                       {agency.images.map((img, i) => (
+                         <img key={i} src={img} alt={`Foto ${agency.name}`} className="w-full h-full object-cover shrink-0 snap-center" />
+                       ))}
+                     </div>
+                   )}
+                   <div className="p-3 pb-4 flex flex-col gap-1.5">
+                     <div className="text-[9px] font-black uppercase text-indigo-600 tracking-wider bg-indigo-50 px-2 py-0.5 rounded-sm w-fit truncate max-w-full">
+                       {agency.type.replace(/_/g, ' ')}
+                     </div>
+                     <div className="text-xs font-bold text-gray-900 leading-tight">
+                       {agency.name}
+                     </div>
+                   </div>
+                 </div>
+               </MarkerPopup>
+               <MarkerContent>
+                 <div className="w-8 h-8 rounded-full bg-indigo-50 border-2 border-indigo-200 shadow-lg flex items-center justify-center -mt-4 text-indigo-600 hover:scale-110 hover:bg-indigo-600 hover:text-white hover:border-transparent transition-all cursor-pointer">
+                   <Building2 size={14} strokeWidth={2.5} />
+                 </div>
+               </MarkerContent>
+            </MapMarker>
+          ))}
+
           {searchedLocation && (
             <MapMarker longitude={searchedLocation.coords[0]} latitude={searchedLocation.coords[1]}>
               <MarkerContent>
@@ -380,23 +438,19 @@ export default function CitizenDashboard() {
             </MapMarker>
           )}
 
-          {/* User's Live GPS Location */}
           {userLocation && (
             <MapMarker longitude={userLocation[0]} latitude={userLocation[1]}>
               <MarkerContent>
                 <div className="flex flex-col items-center -mt-6 pointer-events-none">
-                  {/* Custom person SVG */}
+                  
                   <div className="relative">
                     <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center animate-ping absolute inset-0" />
-                    <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-lg border-2 border-emerald-500 relative z-10">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        {/* Head */}
-                        <circle cx="12" cy="5" r="3" fill="#10b981" />
-                        {/* Body */}
-                        <path d="M12 9c-3 0-5 2-5 4v1a1 1 0 001 1h8a1 1 0 001-1v-1c0-2-2-4-5-4z" fill="#10b981" />
-                        {/* Legs */}
-                        <path d="M10 15v4.5a1 1 0 002 0V15M12 15v4.5a1 1 0 002 0V15" stroke="#10b981" strokeWidth="1.5" strokeLinecap="round" />
-                      </svg>
+                    <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-lg border-2 border-emerald-500 relative z-10 overflow-hidden text-emerald-500">
+                      {session?.user?.image ? (
+                        <img src={session.user.image} alt="Profil Anda" referrerPolicy="no-referrer" crossOrigin="anonymous" className="w-full h-full object-cover" />
+                      ) : (
+                        <User size={20} strokeWidth={2.5} />
+                      )}
                     </div>
                   </div>
                   <span className="text-[9px] font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full mt-1 border border-emerald-200 shadow-sm">
@@ -408,7 +462,6 @@ export default function CitizenDashboard() {
           )}
         </Map>
 
-        {/* Floating Bottom Toolbar (Dock) */}
         <div className="absolute bottom-5 left-0 right-0 z-20 flex flex-col items-center gap-2 px-4 pointer-events-none">
 
           {/* Search Results Dropdown */}
@@ -451,11 +504,9 @@ export default function CitizenDashboard() {
             )}
           </AnimatePresence>
 
-          {/* Toolbar Bar */}
           <div ref={searchRef} className="w-full max-w-sm pointer-events-auto">
             <div className="bg-white rounded-full shadow-[0_8px_32px_-8px_rgba(0,0,0,0.18)] border border-gray-100 flex items-center px-2 py-1.5 gap-1">
 
-              {/* Search — always open */}
               <div className="flex items-center flex-1 gap-1 bg-gray-50 border border-gray-200 rounded-full px-3 py-1 min-w-0">
                 <Search
                   size={15}
@@ -477,7 +528,6 @@ export default function CitizenDashboard() {
 
               <div className="w-px h-5 bg-gray-200 shrink-0 mx-0.5" />
 
-              {/* Pin mode toggle */}
               <button
                 onClick={togglePinMode}
                 className={`flex items-center gap-1.5 px-3 py-2.5 rounded-full transition-all duration-300 font-bold shrink-0 ${
@@ -494,7 +544,6 @@ export default function CitizenDashboard() {
 
               <div className="w-px h-5 bg-gray-200 shrink-0 mx-0.5" />
 
-              {/* Create report */}
               <button
                 onClick={handleCreateReport}
                 className={`flex items-center gap-1.5 px-3.5 py-2.5 rounded-full transition-all duration-300 font-bold shrink-0 ${
@@ -515,7 +564,6 @@ export default function CitizenDashboard() {
 
       </div>
 
-      {/* Sliding Drawer for the Form */}
       <AnimatePresence>
         {isFormOpen && (
           <motion.div
@@ -523,13 +571,13 @@ export default function CitizenDashboard() {
             animate={isDesktop ? { x: 0, opacity: 1 } : { y: 0, opacity: 1 }}
             exit={isDesktop ? { x: "100%", opacity: 0 } : { y: "100%", opacity: 0 }}
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className={`absolute z-30 bg-white flex flex-col
+            className={`absolute z-30 bg-white flex flex-col overflow-hidden
               ${isDesktop 
-                ? "top-24 right-6 bottom-6 w-[400px] shadow-2xl rounded-sm border border-gray-100" 
-                : "bottom-0 left-0 w-full rounded-t-sm h-[85vh] shadow-[0_-20px_40px_rgba(0,0,0,0.1)]"
+                ? "top-24 right-6 bottom-6 w-[400px] shadow-2xl rounded-xl border border-gray-100" 
+                : "bottom-0 left-0 w-full rounded-t-3xl h-[85vh] shadow-[0_-20px_40px_rgba(0,0,0,0.1)]"
               }`}
           >
-            {/* Drawer Header */}
+            
             <div className="px-7 py-6 flex justify-between items-center bg-white pb-2 relative z-10">
                <div>
                   <h3 className="font-heading font-black text-2xl text-gray-900 tracking-tight">
@@ -545,7 +593,6 @@ export default function CitizenDashboard() {
                </button>
             </div>
 
-            {/* Drawer Body (Scrollable) */}
             <div className="flex-1 overflow-y-auto px-7 space-y-7 bg-white pb-6 pt-2 hide-scrollbar">
               <div className="space-y-2">
                 <Label htmlFor="title" className="text-xs font-black text-gray-300 tracking-widest leading-none">JUDUL LAPORAN</Label>
@@ -604,11 +651,22 @@ export default function CitizenDashboard() {
                     Ubah
                   </button>
                 </div>
+                {userLocation && (selectedLocation[0] !== userLocation[0] || selectedLocation[1] !== userLocation[1]) && (
+                  <button
+                    onClick={() => {
+                      setMarkerLocation(userLocation);
+                      setViewport(v => ({ ...v, center: userLocation }));
+                    }}
+                    className="w-full mt-3 flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-red-100 bg-red-50 hover:bg-red-100/80 text-[#db2744] text-[11px] font-black tracking-widest uppercase transition-colors shadow-sm"
+                  >
+                    <Navigation size={15} strokeWidth={2.5} />
+                    Gunakan Lokasi GPS Saya
+                  </button>
+                )}
               </div>
 
             </div>
 
-             {/* Drawer Footer */}
              <div className="px-7 py-5 bg-white border-t border-gray-100">
                 <Button className="w-full bg-[#db2744] hover:bg-[#b01e33] rounded-sm h-12 text-white font-black tracking-widest text-sm active:scale-[0.98] transition-all">
                   KIRIM LAPORAN

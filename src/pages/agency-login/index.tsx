@@ -8,13 +8,6 @@ import { authClient } from "@/lib/auth-client";
 import { clearOAuthAttemptPortal, getOAuthAttemptPortal, setOAuthAttemptPortal } from "@/lib/oauth-attempt";
 import { consumePortalError } from "@/lib/portal-error";
 
-const AGENCY_OPTIONS = [
-  { value: "dinas_pu", label: "Dinas Pekerjaan Umum" },
-  { value: "dinas_dlhk", label: "Dinas Lingkungan Hidup & Kebersihan" },
-  { value: "dinas_bpbd", label: "Badan Penanggulangan Bencana Daerah" },
-  { value: "dinas_dishub", label: "Dinas Perhubungan" },
-  { value: "dinas_pln", label: "PLN / Dinas Energi" },
-] as const;
 
 export default function AgencyLogin() {
   const navigate = useNavigate();
@@ -22,7 +15,6 @@ export default function AgencyLogin() {
   const { data: session, isPending: isSessionPending } = authClient.useSession();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
-  const [agencyRole, setAgencyRole] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -57,7 +49,8 @@ export default function AgencyLogin() {
   useEffect(() => {
     if (isSessionPending || !session?.user) {
       if (!isSessionPending && !session?.user && getOAuthAttemptPortal() === "agency") {
-        const nextError = "Akun Anda adalah akun warga. Silakan login melalui portal warga.";
+        const nextError =
+          "Login berhasil diproses, tetapi sesi akun belum terbaca. Coba ulangi login atau refresh halaman.";
         clearOAuthAttemptPortal();
         setError(nextError);
         toast.error(nextError);
@@ -104,11 +97,6 @@ export default function AgencyLogin() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-
-    if (!agencyRole) {
-      setError("Pilih kategori dinas terlebih dahulu.");
-      return;
-    }
 
     if (!identifier.includes("@")) {
       setError("Untuk sementara login agency masih menggunakan email resmi instansi.");
@@ -178,26 +166,6 @@ export default function AgencyLogin() {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-1.5">
-          <label className="text-xs font-bold text-gray-800 ml-1 block" htmlFor="agency-role">
-            Kategori Dinas
-          </label>
-          <select
-            id="agency-role"
-            value={agencyRole}
-            onChange={(e) => setAgencyRole(e.target.value)}
-            required
-            className="w-full bg-white border border-gray-200 hover:border-gray-300 text-gray-900 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/20 transition-all shadow-sm"
-          >
-            <option value="">Pilih dinas</option>
-            {AGENCY_OPTIONS.map((agency) => (
-              <option key={agency.value} value={agency.value}>
-                {agency.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="space-y-1.5">
           <label className="text-xs font-bold text-gray-800 ml-1 block" htmlFor="agency-identifier">
             Email / Username
           </label>
@@ -208,7 +176,7 @@ export default function AgencyLogin() {
             value={identifier}
             onChange={(e) => setIdentifier(e.target.value)}
             required
-            className="w-full bg-white border border-gray-200 hover:border-gray-300 text-gray-900 placeholder:text-gray-400 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/20 transition-all shadow-sm"
+            className="w-full bg-white border border-gray-200 hover:border-gray-300 text-gray-900 placeholder:text-gray-400 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#db2744] focus:ring-1 focus:ring-[#db2744] transition-all"
           />
         </div>
 
@@ -224,7 +192,7 @@ export default function AgencyLogin() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full bg-white border border-gray-200 hover:border-gray-300 text-gray-900 placeholder:text-gray-400 rounded-xl px-4 py-3 pr-12 text-sm focus:outline-none focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/20 transition-all shadow-sm"
+              className="w-full bg-white border border-gray-200 hover:border-gray-300 text-gray-900 placeholder:text-gray-400 rounded-xl px-4 py-3 pr-12 text-sm focus:outline-none focus:border-[#db2744] focus:ring-1 focus:ring-[#db2744] transition-all"
             />
             <button
               type="button"
@@ -249,12 +217,12 @@ export default function AgencyLogin() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full flex items-center justify-center gap-2 bg-[#db2744] text-white font-bold tracking-wide py-3.5 rounded-xl hover:bg-[#b01e33] hover:shadow-lg hover:shadow-[#db2744]/20 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all duration-200 mt-10 disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:shadow-none"
+          className="w-full flex items-center justify-center gap-2 bg-[#db2744] text-white font-bold tracking-wide py-3.5 rounded-xl hover:bg-[#b01e33] transition-all mt-10 disabled:opacity-60"
         >
           {loading ? (
             <div className="w-5 h-5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
           ) : (
-            "Masuk ke Portal Agency"
+            "Masuk"
           )}
         </button>
       </form>

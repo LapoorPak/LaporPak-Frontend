@@ -588,10 +588,10 @@ function MarkerPopup({
         <button
           type="button"
           onClick={handleClose}
-          className="ring-offset-background focus:ring-ring absolute top-1 right-1 z-10 rounded-sm opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-none"
+          className="absolute top-2 right-2 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-black/40 text-white opacity-80 backdrop-blur-sm transition-all hover:bg-black/60 hover:opacity-100 outline-none"
           aria-label="Close popup"
         >
-          <X className="h-4 w-4" />
+          <X className="h-3.5 w-3.5" strokeWidth={3} />
           <span className="sr-only">Close</span>
         </button>
       )}

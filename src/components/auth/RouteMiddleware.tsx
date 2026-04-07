@@ -32,22 +32,21 @@ export function RouteMiddleware() {
     (r) => !r.isPublic && !r.isUnguarded && r.isEnabled
   );
 
-  // Split protected routes by agency vs citizen
   const citizenRoutes = protectedRoutes.filter((r) => !r.path?.startsWith("/agency/"));
 
   return (
     <Routes>
-      {/* Unguarded: no auth check, no layout */}
+      {/* Unguarded */}
       {unguardedRoutes.map(renderRoute)}
 
-      {/* Public: redirect to dashboard if already logged in */}
+      {/* Public */}
       <ReactRoute element={<GuestGuard />}>
         <ReactRoute element={<AuthLayout />}>
           {publicRoutes.map(renderRoute)}
         </ReactRoute>
       </ReactRoute>
 
-      {/* Protected: citizen routes */}
+      {/* Protected */}
       <ReactRoute element={<AuthGuard />}>
         <ReactRoute element={<DashboardLayout />}>
           {citizenRoutes.map(renderRoute)}
