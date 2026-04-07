@@ -514,14 +514,19 @@ export default function CitizenDashboard() {
             animate={isDesktop ? { x: 0, opacity: 1 } : { y: 0, opacity: 1 }}
             exit={isDesktop ? { x: "100%", opacity: 0 } : { y: "100%", opacity: 0 }}
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className={`absolute z-30 bg-white flex flex-col overflow-hidden
-              ${isDesktop 
-                ? "top-24 right-6 bottom-6 w-[400px] shadow-2xl rounded-xl border border-gray-100" 
-                : "bottom-0 left-0 w-full rounded-t-3xl h-[85vh] shadow-[0_-20px_40px_rgba(0,0,0,0.1)]"
-              }`}
+            className={`absolute z-30 pointer-events-none ${isDesktop ? "top-24 right-6" : "bottom-0 left-0 w-full"}`}
           >
+            <motion.div
+              drag={isDesktop}
+              dragMomentum={false}
+              className={`bg-white flex flex-col overflow-hidden resize pointer-events-auto
+                ${isDesktop 
+                  ? "h-[calc(100vh-120px)] min-h-[400px] w-[400px] min-w-[320px] max-w-[600px] shadow-2xl rounded-xl border border-gray-100" 
+                  : "w-full rounded-t-3xl h-[85vh] shadow-[0_-20px_40px_rgba(0,0,0,0.1)]"
+                }`}
+            >
             
-            <div className="px-7 py-6 flex justify-between items-center bg-white pb-2 relative z-10">
+            <div className="px-7 py-6 flex justify-between items-center bg-white pb-2 relative z-10 cursor-move active:cursor-grabbing">
                <div>
                   <h3 className="font-heading font-black text-2xl text-gray-900 tracking-tight">
                     Laporan Baru
@@ -620,6 +625,7 @@ export default function CitizenDashboard() {
                 </Button>
              </div>
 
+            </motion.div>
           </motion.div>
         )}
 
@@ -630,13 +636,18 @@ export default function CitizenDashboard() {
             animate={isDesktop ? { x: 0, opacity: 1 } : { y: 0, opacity: 1 }}
             exit={isDesktop ? { x: "-100%", opacity: 0 } : { y: "100%", opacity: 0 }}
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className={`absolute z-30 bg-white flex flex-col overflow-hidden
-              ${isDesktop 
-                ? "top-24 left-6 bottom-6 w-[380px] shadow-2xl rounded-xl border border-gray-100" 
-                : "bottom-0 left-0 w-full rounded-t-3xl h-[85vh] shadow-[0_-20px_40px_rgba(0,0,0,0.1)]"
-              }`}
+            className={`absolute z-30 pointer-events-none ${isDesktop ? "top-24 left-6" : "bottom-0 left-0 w-full"}`}
           >
-            <div className="px-7 py-6 flex justify-between items-center bg-white border-b border-gray-100 relative z-10">
+            <motion.div
+              drag={isDesktop}
+              dragMomentum={false}
+              className={`bg-white flex flex-col overflow-hidden resize pointer-events-auto
+                ${isDesktop 
+                  ? "h-[calc(100vh-120px)] min-h-[400px] w-[380px] min-w-[320px] max-w-[600px] shadow-2xl rounded-xl border border-gray-100" 
+                  : "w-full rounded-t-3xl h-[85vh] shadow-[0_-20px_40px_rgba(0,0,0,0.1)]"
+                }`}
+            >
+            <div className="px-7 py-6 flex justify-between items-center bg-white border-b border-gray-100 relative z-10 cursor-move active:cursor-grabbing">
                <div>
                   <h3 className="font-heading font-black text-2xl text-gray-900 tracking-tight">
                     Laporanku
@@ -720,6 +731,7 @@ export default function CitizenDashboard() {
                 })
               )}
             </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
