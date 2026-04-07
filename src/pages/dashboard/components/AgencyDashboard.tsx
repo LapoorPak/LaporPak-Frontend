@@ -4,12 +4,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import { 
   FileText, CheckCircle2, Clock, AlertCircle, MapPin, 
   Search, Settings, ListFilter,
-  X, ChevronLeft, ChevronRight, User, Navigation, ArrowRight
+  X, User, Navigation, ArrowRight
 } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useGetReportLocations } from "@/hooks/reports/useGetReportLocations";
 
 const SUMMARY_STATS = [
   { label: "Total Target", value: 124, icon: FileText, color: "text-blue-600", bg: "bg-blue-100", border: "border-blue-200" },
@@ -18,26 +19,26 @@ const SUMMARY_STATS = [
   { label: "Tuntas", value: 67, icon: CheckCircle2, color: "text-emerald-600", bg: "bg-emerald-100", border: "border-emerald-200" },
 ];
 
-const MOCK_REPORTS = [
-  { id: 1, title: "Jalan Berlubang di Sudirman", description: "Terdapat lubang jalan selebar 1 meter yang membahayakan pengendara motor.", status: "baru", time: "10m lalu", loc: "Jakarta Selatan", lat: -6.2250, lng: 106.8040, reporter: "Budi Santoso", images: ["https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?w=400&h=250&fit=crop"] },
-  { id: 2, title: "Lampu Penyebrangan Rusak", description: "Lampu lalu lintas di persimpangan utama mati total.", status: "proses", time: "1j lalu", loc: "Jakarta Pusat", lat: -6.1944, lng: 106.8229, reporter: "Sarah Dina", images: ["https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=400&h=250&fit=crop", "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=250&fit=crop"] },
-  { id: 3, title: "Pohon Tumbang Halangi Rute", description: "Pohon besar tumbang menutup lajur lambat dekat pintu masuk tol.", status: "baru", time: "2j lalu", loc: "Jakarta Barat", lat: -6.1750, lng: 106.7900, reporter: "Andi R.", images: ["https://images.unsplash.com/photo-1605725658213-4c5720351cdd?w=400&h=250&fit=crop"] },
-  { id: 4, title: "Jembatan Penyebrangan Ambruk", description: "Atap JPO lepas tertiup angin kencang kemarin sore.", status: "selesai", time: "1h lalu", loc: "Jakarta Timur", lat: -6.2000, lng: 106.8700, reporter: "Hilda", images: ["https://images.unsplash.com/photo-1530587191325-3db32d826c18?w=400&h=250&fit=crop"] },
-  { id: 5, title: "Banjir Genangan 50cm", description: "Genangan air tidak kunjung surut meskipun hujan sudah berhenti 3 jam lalu.", status: "proses", time: "2h lalu", loc: "Jakarta Utara", lat: -6.1200, lng: 106.8900, reporter: "Tigor Siregar", images: [] },
-];
+const STATUS_MAP: Record<string, { label: string; color: string }> = {
+  pending: { label: "Menunggu", color: "bg-amber-100 text-amber-700 border-amber-200" },
+  verified: { label: "Terverifikasi", color: "bg-blue-100 text-blue-700 border-blue-200" },
+  in_progress: { label: "Diproses", color: "bg-orange-100 text-orange-700 border-orange-200" },
+  resolved: { label: "Selesai", color: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+  rejected: { label: "Ditolak", color: "bg-red-100 text-[#C01D33] border-red-200" },
+};
 
 export default function AgencyDashboard() {
   const { data: _session } = authClient.useSession();
   const [activeTab, setActiveTab] = useState("Semua");
-  const [selectedMarkerId, setSelectedMarkerId] = useState<number | null>(null);
+  const [selectedMarkerId, setSelectedMarkerId] = useState<string | null>(null);
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 768);
-  const [currentImg, setCurrentImg] = useState(0);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [reports, setReports] = useState(MOCK_REPORTS);
   const [draftStatus, setDraftStatus] = useState<string | null>(null);
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
+  const { data: reportsData } = useGetReportLocations();
+  const reports = reportsData?.data || [];
 
   const [viewport, setViewport] = useState({
     center: [106.8229, -6.1944] as [number, number],
@@ -73,14 +74,14 @@ export default function AgencyDashboard() {
         center: [selectedReport.lng, selectedReport.lat],
         zoom: 15
       }));
-      setCurrentImg(0);
       setDraftStatus(selectedReport.status);
     }
-  }, [selectedMarkerId]);
+  }, [selectedMarkerId, selectedReport]);
 
   const handleSaveStatus = () => {
     if (draftStatus && selectedMarkerId) {
-      setReports(prev => prev.map(r => r.id === selectedMarkerId ? { ...r, status: draftStatus } : r));
+      // TODO: Call API to update status
+      console.warn("Update status not implemented yet (needs API integration)");
       setSelectedMarkerId(null);
     }
   };
@@ -96,35 +97,39 @@ export default function AgencyDashboard() {
 
   const getBadgeStyle = (status: string) => {
     switch(status) {
-      case "baru": return "bg-red-100 text-[#C01D33] border border-red-200";
-      case "proses": return "bg-orange-100 text-orange-700 border border-orange-200";
-      case "selesai": return "bg-emerald-100 text-emerald-700 border border-emerald-200";
+      case "pending": return "bg-red-100 text-[#C01D33] border border-red-200";
+      case "verified":
+      case "in_progress": return "bg-orange-100 text-orange-700 border border-orange-200";
+      case "resolved": return "bg-emerald-100 text-emerald-700 border border-emerald-200";
+      case "rejected": return "bg-gray-100 text-gray-700 border border-gray-200";
       default: return "bg-gray-100 text-gray-700 border border-gray-200";
     }
   };
 
   const getMarkerColor = (status: string) => {
     switch(status) {
-      case "baru": return "bg-[#C01D33] shadow-red-500/50 text-white";
-      case "proses": return "bg-orange-500 shadow-orange-500/50 text-white";
-      case "selesai": return "bg-emerald-500 shadow-emerald-500/50 text-white";
+      case "pending": return "bg-[#C01D33] shadow-red-500/50 text-white";
+      case "verified":
+      case "in_progress": return "bg-orange-500 shadow-orange-500/50 text-white";
+      case "resolved": return "bg-emerald-500 shadow-emerald-500/50 text-white";
       default: return "bg-gray-500 shadow-gray-500/50 text-white";
     }
   };
 
   const filteredReports = reports.filter(r => {
     // Tab filter
-    if (activeTab === "Baru" && r.status !== "baru") return false;
-    if (activeTab === "Diproses" && r.status !== "proses") return false;
-    if (activeTab === "Tuntas" && r.status !== "selesai") return false;
+    if (activeTab === "Baru" && r.status !== "pending") return false;
+    if (activeTab === "Diproses" && r.status !== "verified" && r.status !== "in_progress") return false;
+    if (activeTab === "Tuntas" && r.status !== "resolved") return false;
     
     // Search filter
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
+      const locName = r.cabangDinas?.name || r.dinas?.name || "Pusat";
       const matchesSearch = 
         r.id.toString().includes(q) || 
         r.title.toLowerCase().includes(q) || 
-        r.loc.toLowerCase().includes(q);
+        locName.toLowerCase().includes(q);
       if (!matchesSearch) return false;
     }
     
@@ -150,7 +155,7 @@ export default function AgencyDashboard() {
                 <MarkerPopup closeButton={false} anchor="top">
                   <div className="p-1 min-w-[120px] pointer-events-none">
                     <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-widest ${getBadgeStyle(report.status)}`}>
-                      {report.status}
+                      {STATUS_MAP[report.status]?.label || report.status}
                     </span>
                     <h4 className="font-extrabold text-[#111827] text-[11px] mt-1 leading-tight truncate">{report.title}</h4>
                   </div>
@@ -161,15 +166,15 @@ export default function AgencyDashboard() {
                   onClick={(e) => { e.stopPropagation(); setSelectedMarkerId(report.id); }}
                   className="relative group transition-transform hover:scale-110 focus:outline-none"
                 >
-                  {(report.status === "baru" || selectedMarkerId === report.id) && (
+                  {(report.status === "pending" || selectedMarkerId === report.id) && (
                     <div className={`absolute inset-0 rounded-full animate-ping opacity-75 ${
                       selectedMarkerId === report.id ? "bg-indigo-500" : "bg-[#C01D33]"
                     }`}></div>
                   )}
                   <div className={`relative w-8 h-8 rounded-full flex items-center justify-center shadow-xl border-2 transition-all z-10 
                     ${selectedMarkerId === report.id ? 'bg-gray-900 border-white text-white scale-110' : getMarkerColor(report.status) + ' border-white'}`}>
-                    {report.status === "baru" ? <AlertCircle size={16} strokeWidth={selectedMarkerId === report.id ? 3 : 2.5} /> :
-                     report.status === "proses" ? <Clock size={16} strokeWidth={selectedMarkerId === report.id ? 3 : 2.5} /> :
+                    {report.status === "pending" ? <AlertCircle size={16} strokeWidth={selectedMarkerId === report.id ? 3 : 2.5} /> :
+                     (report.status === "verified" || report.status === "in_progress") ? <Clock size={16} strokeWidth={selectedMarkerId === report.id ? 3 : 2.5} /> :
                      <CheckCircle2 size={16} strokeWidth={selectedMarkerId === report.id ? 3 : 2.5} />}
                   </div>
                   <div className="absolute -bottom-2 left-1/2 w-4 h-1 bg-black/20 blur-sm rounded-full -translate-x-1/2"></div>
@@ -277,16 +282,16 @@ export default function AgencyDashboard() {
                 >
                   <div className="flex justify-between items-start mb-2">
                     <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${getBadgeStyle(report.status)}`}>
-                      {report.status}
+                      {STATUS_MAP[report.status]?.label || report.status}
                     </span>
-                    <span className="text-[10px] font-medium text-gray-400">{report.time}</span>
+                    <span className="text-[10px] font-medium text-gray-400">{new Date(report.createdAt).toLocaleDateString()}</span>
                   </div>
                   <h4 className="font-bold text-[#111827] text-sm leading-snug line-clamp-1 mb-1.5">{report.title}</h4>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1 text-gray-400 text-[11px]">
-                      <MapPin size={10} /> {report.loc}
+                      <MapPin size={10} /> {report.cabangDinas?.name || report.dinas?.name || "Pusat"}
                     </div>
-                    <span className="text-[10px] font-black text-gray-300">#{report.id.toString().padStart(3,'0')}</span>
+                    <span className="text-[10px] font-black text-gray-300">#{report.id.substring(0,8)}</span>
                   </div>
                 </button>
               ))}
@@ -363,16 +368,16 @@ export default function AgencyDashboard() {
                   >
                     <div className="flex justify-between items-start mb-2">
                       <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${getBadgeStyle(report.status)}`}>
-                        {report.status}
+                        {STATUS_MAP[report.status]?.label || report.status}
                       </span>
-                      <span className="text-[10px] font-medium text-gray-400">{report.time}</span>
+                      <span className="text-[10px] font-medium text-gray-400">{new Date(report.createdAt).toLocaleDateString()}</span>
                     </div>
                     <h4 className="font-bold text-[#111827] text-sm leading-snug line-clamp-1 mb-1.5">{report.title}</h4>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1 text-gray-400 text-[11px]">
-                        <MapPin size={10} /> {report.loc}
+                        <MapPin size={10} /> {report.cabangDinas?.name || report.dinas?.name || "Pusat"}
                       </div>
-                      <span className="text-[10px] font-black text-gray-300">#{report.id.toString().padStart(3,'0')}</span>
+                      <span className="text-[10px] font-black text-gray-300">#{report.id.substring(0,8)}</span>
                     </div>
                   </button>
                 ))}
@@ -409,7 +414,7 @@ export default function AgencyDashboard() {
                   Tinjauan Tiket
                 </h3>
                 <p className="text-[10px] font-bold text-gray-400 mt-0.5 uppercase tracking-widest">
-                  #TCK-{selectedReport.id.toString().padStart(3, '0')}
+                  #TCK-{selectedReport.id.substring(0, 8)}
                 </p>
               </div>
               <button 
@@ -423,52 +428,26 @@ export default function AgencyDashboard() {
             <div className="flex-1 overflow-y-auto flex flex-col">
               
               <div className="bg-white px-6 pt-5 pb-5 space-y-5">
-                {selectedReport.images.length > 0 ? (
-                  <div className="relative w-full h-[180px] bg-gray-100 rounded-2xl overflow-hidden group">
-                    <img 
-                      src={selectedReport.images[currentImg] || selectedReport.images[0]} 
-                      alt="Laporan" 
-                      className="w-full h-full object-cover" 
-                    />
-                    <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/20 text-white text-[9px] font-black tracking-widest">
-                      BUKTI LAPANGAN
-                    </div>
-                    {selectedReport.images.length > 1 && (
-                      <>
-                        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/60 text-white text-[10px] font-bold px-2.5 py-1 rounded-full">
-                          {currentImg + 1} / {selectedReport.images.length}
-                        </div>
-                        <button onClick={(e) => { e.stopPropagation(); setCurrentImg((p) => (p === 0 ? selectedReport.images.length - 1 : p - 1)); }} className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 bg-white/90 rounded-full flex items-center justify-center shadow opacity-0 group-hover:opacity-100 transition-opacity">
-                          <ChevronLeft size={14} className="text-gray-900" strokeWidth={3} />
-                        </button>
-                        <button onClick={(e) => { e.stopPropagation(); setCurrentImg((p) => (p === selectedReport.images.length - 1 ? 0 : p + 1)); }} className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 bg-white/90 rounded-full flex items-center justify-center shadow opacity-0 group-hover:opacity-100 transition-opacity">
-                          <ChevronRight size={14} className="text-gray-900" strokeWidth={3} />
-                        </button>
-                      </>
-                    )}
-                  </div>
-                ) : (
-                  <div className="w-full h-[100px] bg-gray-50 border border-dashed border-gray-200 rounded-2xl flex flex-col items-center justify-center text-gray-400">
-                    <AlertCircle size={22} className="mb-1.5 opacity-50" />
-                    <span className="text-[10px] uppercase font-black tracking-widest">Tidak Ada Foto</span>
-                  </div>
-                )}
+                <div className="w-full h-[100px] bg-gray-50 border border-dashed border-gray-200 rounded-2xl flex flex-col items-center justify-center text-gray-400">
+                  <AlertCircle size={22} className="mb-1.5 opacity-50" />
+                  <span className="text-[10px] uppercase font-black tracking-widest">Tidak Ada Foto</span>
+                </div>
 
                 <div>
                   <h2 className="text-base font-black text-gray-900 leading-tight mb-1.5">{selectedReport.title}</h2>
-                  <p className="text-sm text-gray-500 leading-relaxed mb-4">{selectedReport.description}</p>
+                  <p className="text-sm text-gray-500 leading-relaxed mb-4">{selectedReport.kategori?.name || "Laporan Warga"}</p>
                   
                   <div className="grid grid-cols-2 gap-2 p-3 bg-gray-50 rounded-xl border border-gray-100">
                     <div className="flex flex-col gap-0.5">
                       <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Pelapor</span>
                       <div className="flex items-center gap-1.5 text-xs font-bold text-gray-900">
-                        <User size={11} className="text-[#C01D33]" /> {selectedReport.reporter}
+                        <User size={11} className="text-[#C01D33]" /> Anonim
                       </div>
                     </div>
                     <div className="flex flex-col gap-0.5">
                       <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Waktu</span>
                       <div className="flex items-center gap-1.5 text-xs font-bold text-gray-900">
-                        <Clock size={11} className="text-[#C01D33]" /> {selectedReport.time}
+                        <Clock size={11} className="text-[#C01D33]" /> {new Date(selectedReport.createdAt).toLocaleDateString()}
                       </div>
                     </div>
                     <div className="flex flex-col gap-0.5 col-span-2 pt-2 border-t border-gray-200/50">

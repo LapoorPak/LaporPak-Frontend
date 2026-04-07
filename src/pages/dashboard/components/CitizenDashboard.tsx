@@ -6,135 +6,34 @@ import { Textarea } from "@/components/ui/textarea";
 import { Map, MapControls, MapMarker, MarkerContent, MarkerPopup } from "@/components/ui/map";
 import { motion, AnimatePresence } from "framer-motion";
 import { authClient } from "@/lib/auth-client";
-import { MOCK_AGENCIES } from "@/data/agencies";
-import { MapPin, ImagePlus, X, AlertTriangle, Plus, Target, Check, Trash2, ChevronLeft, ChevronRight, Clock, User, Search, Navigation, Building2 } from "lucide-react";
+import { type ReportLocation } from "@/api/reports/reports-queries";
+import { useGetAgencyLocations } from "@/hooks/agencies/useGetAgencyLocations";
+import { useQueryGetMyReports } from "@/api/reports/reports-queries";
+import { useGetReportLocations } from "@/hooks/reports/useGetReportLocations";
+import { useCreateReport } from "@/hooks/reports/useCreateReport";
+import { useQuerySearchLocation, type SearchResult } from "@/hooks/search/useSearchLocation";
+import { useQueryClient } from "@tanstack/react-query";
+import { QUERY_KEYS } from "@/api/queryKeys";
+import { toast } from "sonner";
+import { MapPin, ImagePlus, X, AlertTriangle, Plus, Target, Check, Trash2, Clock, User, Navigation, Building2, ListFilter, Search, Loader2 } from "lucide-react";
 
 type InteractionMode = "idle" | "pin_drop";
 
-interface MockReport {
-  id: number;
-  title: string;
-  description: string;
-  status: "menunggu" | "proses" | "selesai";
-  reporter: string;
-  time: string;
-  images: string[];
-  lat: number;
-  lng: number;
-  address: string;
-  agency?: string;
-}
-
-const STATUS_MAP = {
-  menunggu: { label: "Menunggu", color: "bg-amber-50 text-amber-700 border-amber-200" },
-  proses: { label: "Diproses", color: "bg-sky-50 text-sky-700 border-sky-200" },
-  selesai: { label: "Selesai", color: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+const STATUS_MAP: Record<string, { label: string; color: string }> = {
+  pending: { label: "Menunggu", color: "bg-amber-50 text-amber-700 border-amber-200" },
+  verified: { label: "Terverifikasi", color: "bg-blue-50 text-blue-700 border-blue-200" },
+  in_progress: { label: "Diproses", color: "bg-sky-50 text-sky-700 border-sky-200" },
+  resolved: { label: "Selesai", color: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+  rejected: { label: "Ditolak", color: "bg-red-50 text-red-700 border-red-200" },
 };
 
-const MOCK_REPORTS: MockReport[] = [
-  {
-    id: 1,
-    title: "Jalan Berlubang Parah",
-    description: "Lubang sedalam 10cm di bahu jalan, membahayakan pengendara motor terutama saat malam hari.",
-    status: "proses",
-    reporter: "Ahmad R.",
-    time: "2 jam lalu",
-    images: [
-      "https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?w=400&h=250&fit=crop",
-      "https://images.unsplash.com/photo-1605725658213-4c5720351cdd?w=400&h=250&fit=crop",
-    ],
-    lat: -6.1950,
-    lng: 106.8229,
-    address: "Jl. Jend. Sudirman, Jakarta Pusat",
-    agency: "Dinas Bina Marga DKI Jakarta",
-  },
-  {
-    id: 2,
-    title: "Sampah Menumpuk di Trotoar",
-    description: "Tumpukan sampah sudah 3 hari tidak diangkut. Menimbulkan bau tidak sedap dan menghalangi jalur pejalan kaki.",
-    status: "menunggu",
-    reporter: "Siti M.",
-    time: "5 jam lalu",
-    images: [
-      "https://images.unsplash.com/photo-1530587191325-3db32d826c18?w=400&h=250&fit=crop",
-    ],
-    lat: -6.2010,
-    lng: 106.8160,
-    address: "Trotoar Pasar Senen, Jakarta Pusat",
-  },
-  {
-    id: 3,
-    title: "Lampu Jalan Mati",
-    description: "Lampu penerangan jalan sudah mati selama 1 minggu. Rawan kriminalitas.",
-    status: "selesai",
-    reporter: "Budi K.",
-    time: "1 hari lalu",
-    images: [
-      "https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=400&h=250&fit=crop",
-      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=250&fit=crop",
-      "https://images.unsplash.com/photo-1517594422361-5eeb8ae275a9?w=400&h=250&fit=crop",
-    ],
-    lat: -6.1880,
-    lng: 106.8320,
-    address: "Kawasan Menteng Indah, Jakarta Pusat",
-    agency: "Dinas Lingkungan Hidup DKI",
-  },
-];
-
-function ReportPopup({ report }: { report: MockReport }) {
-  const [currentImg, setCurrentImg] = useState(0);
+function ReportPopup({ report }: { report: ReportLocation }) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const status = STATUS_MAP[report.status];
-  const hasMultiple = report.images.length > 1;
+  const status = STATUS_MAP[report.status] || { label: report.status, color: "bg-gray-50 text-gray-700 border-gray-200" };
+  const description = report.kategori?.name || "Laporan Warga";
 
   return (
     <div className="w-[300px] overflow-hidden -m-[10px] -mb-[15px]">
-      
-      {report.images.length > 0 && (
-        <div className="relative w-full h-[160px] bg-gray-100">
-          <img
-            src={report.images[currentImg]}
-            alt={report.title}
-            className="w-full h-full object-cover"
-          />
-
-          {hasMultiple && (
-            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-1 rounded-full">
-              {currentImg + 1} / {report.images.length}
-            </div>
-          )}
-
-          {hasMultiple && (
-            <>
-              <button
-                onClick={(e) => { e.stopPropagation(); setCurrentImg((p) => (p === 0 ? report.images.length - 1 : p - 1)); }}
-                className="absolute left-1.5 top-1/2 -translate-y-1/2 w-7 h-7 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow transition-colors"
-              >
-                <ChevronLeft size={14} className="text-gray-700" />
-              </button>
-              <button
-                onClick={(e) => { e.stopPropagation(); setCurrentImg((p) => (p === report.images.length - 1 ? 0 : p + 1)); }}
-                className="absolute right-1.5 top-1/2 -translate-y-1/2 w-7 h-7 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow transition-colors"
-              >
-                <ChevronRight size={14} className="text-gray-700" />
-              </button>
-            </>
-          )}
-
-          {hasMultiple && (
-            <div className="absolute bottom-2 right-2 flex gap-1">
-              {report.images.map((_, i) => (
-                <button
-                  key={i}
-                  onClick={(e) => { e.stopPropagation(); setCurrentImg(i); }}
-                  className={`w-1.5 h-1.5 rounded-full transition-all ${i === currentImg ? "bg-white scale-125" : "bg-white/50"}`}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
       <div className="p-4">
         <div className="flex items-center gap-2 mb-2">
           <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${status.color} uppercase tracking-wide`}>
@@ -147,9 +46,9 @@ function ReportPopup({ report }: { report: MockReport }) {
         </h4>
         <div className="mb-3">
           <p className={`text-[12px] text-gray-500 leading-relaxed transition-all duration-300 ${!isExpanded ? "line-clamp-2" : ""}`}>
-            {report.description}
+            {description}
           </p>
-          {report.description.length > 65 && (
+          {description.length > 65 && (
             <button 
               onClick={(e) => { e.stopPropagation(); setIsExpanded(!isExpanded); }}
               className="text-[10px] font-bold text-gray-900 hover:text-[#db2744] transition-colors mt-0.5"
@@ -160,11 +59,7 @@ function ReportPopup({ report }: { report: MockReport }) {
         </div>
 
         <div className="bg-gray-50 p-2.5 rounded-lg border border-gray-100 mb-3">
-          <div className="flex items-start gap-1.5 text-[11px] font-bold text-gray-700 mb-1">
-             <MapPin size={12} className="text-[#db2744] shrink-0 mt-0.5" strokeWidth={2.5} />
-             <span className="leading-tight">{report.address}</span>
-          </div>
-          <div className="flex items-center gap-1.5 text-[10px] font-mono text-gray-400 ml-[18px]">
+          <div className="flex items-center gap-1.5 text-[10px] font-mono text-gray-400">
             <Navigation size={10} className="shrink-0" />
             {report.lat.toFixed(5)}, {report.lng.toFixed(5)}
           </div>
@@ -173,18 +68,18 @@ function ReportPopup({ report }: { report: MockReport }) {
         <div className="flex items-center justify-between pt-2 border-t border-gray-100">
           <div className="flex items-center gap-1.5 text-gray-400">
             <User size={12} />
-            <span className="text-[11px] font-semibold">{report.reporter}</span>
+            <span className="text-[11px] font-semibold">User</span>
           </div>
           <div className="flex items-center gap-1 text-gray-400">
             <Clock size={11} />
-            <span className="text-[10px] font-medium">{report.time}</span>
+            <span className="text-[10px] font-medium">{new Date(report.createdAt).toLocaleDateString()}</span>
           </div>
         </div>
 
         <div className="flex items-center gap-1.5 mt-2.5 pt-1.5 border-t border-dashed border-gray-100">
-          <Building2 size={11} className={report.agency ? "text-[#db2744]" : "text-gray-400"} />
-          <span className={`text-[10px] uppercase tracking-wide font-black ${report.agency ? "text-[#db2744]" : "text-gray-400"}`}>
-            {report.agency ? report.agency : "Menunggu Instansi"}
+          <Building2 size={11} className={report.dinas ? "text-[#db2744]" : "text-gray-400"} />
+          <span className={`text-[10px] uppercase tracking-wide font-black ${report.dinas ? "text-[#db2744]" : "text-gray-400"}`}>
+            {report.dinas ? report.dinas.name : "Menunggu Instansi"}
           </span>
         </div>
       </div>
@@ -192,28 +87,83 @@ function ReportPopup({ report }: { report: MockReport }) {
   );
 }
 
-interface SearchResult {
-  name: string;
-  sub: string;
-  lng: number;
-  lat: number;
-}
 
 export default function CitizenDashboard() {
   const { data: session } = authClient.useSession();
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isMyReportsOpen, setIsMyReportsOpen] = useState(false);
   const [mode, setMode] = useState<InteractionMode>("idle");
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 768);
   const [markerLocation, setMarkerLocation] = useState<[number, number] | null>(null);
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
+  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
+  const [myReportsSearch, setMyReportsSearch] = useState("");
+  const [debouncedMyReportsSearch, setDebouncedMyReportsSearch] = useState("");
   const [showSearch, setShowSearch] = useState(false);
-  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
   const [searchedLocation, setSearchedLocation] = useState<{ name: string; coords: [number, number] } | null>(null);
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const searchRef = useRef<HTMLDivElement>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  
+  // API Queries
+  const { data: publicReportsData } = useGetReportLocations();
+  const { data: myReportsData } = useQueryGetMyReports({ search: debouncedMyReportsSearch }, { enabled: !!session?.user });
+  const { data: agenciesData } = useGetAgencyLocations();
+  const { data: searchResults = [], isFetching: isSearching } = useQuerySearchLocation(debouncedSearchQuery);
+  const queryClient = useQueryClient();
+
+  const publicReports = publicReportsData?.data || [];
+  const myReports = myReportsData?.data || [];
+  const agencies = agenciesData?.data || [];
+  
+  const createReport = useCreateReport({
+    onSuccess: (res) => {
+      setIsFormOpen(false);
+      setMode("idle");
+      setTitle("");
+      setDescription("");
+      setPhotoPreviews([]);
+      setPhotoFiles([]);
+      setMarkerLocation(null);
+      queryClient.invalidateQueries({ queryKey: ["my-reports"] });
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.REPORTS_LOCATIONS] });
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.MY_REPORTS_LOCATIONS] });
+      
+      const aiReview = res.data?.aiReview;
+      if (res.data?.status === "rejected" || aiReview?.statusAi === "ditolak") {
+        toast.error("Laporan Ditolak AI", {
+           description: aiReview?.alasanAi || "Laporan ambigu atau tidak relevan.",
+           duration: 5000,
+        });
+      } else {
+        toast.success("Laporan Berhasil Dibuat!", {
+           description: "Laporan Anda telah masuk dan sedang diproses.",
+        });
+      }
+    },
+    onError: (error: any) => {
+      console.error("Failed to create report", error);
+      toast.error("Gagal", {
+         description: error.response?.data?.message || error.message || "Gagal membuat laporan terbaru.",
+      });
+    }
+  });
+
+  const handleSubmitReport = () => {
+    if (!title.trim() || !description.trim() || !markerLocation) return;
+    
+    createReport.mutate({
+      title,
+      description,
+      latitude: selectedLocation[1],
+      longitude: selectedLocation[0],
+      address: searchedLocation?.name, 
+      images: photoFiles
+    });
+  };
   
   const [viewport, setViewport] = useState({
     center: [106.8229, -6.1944] as [number, number],
@@ -252,38 +202,20 @@ export default function CitizenDashboard() {
   }, [showSearch]);
 
   useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    
-    if (!searchQuery.trim() || searchQuery.trim().length < 2) {
-      setSearchResults([]);
-      setIsSearching(false);
-      return;
-    }
-
-    setIsSearching(true);
-    debounceRef.current = setTimeout(async () => {
-      try {
-        const res = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&countrycodes=id&limit=6&addressdetails=1`,
-          { headers: { "Accept-Language": "id" } }
-        );
-        const data = await res.json();
-        const mapped: SearchResult[] = data.map((item: any) => ({
-          name: item.display_name.split(",")[0],
-          sub: item.display_name.split(",").slice(1, 3).join(",").trim(),
-          lng: parseFloat(item.lon),
-          lat: parseFloat(item.lat),
-        }));
-        setSearchResults(mapped);
-      } catch {
-        setSearchResults([]);
-      } finally {
-        setIsSearching(false);
-      }
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
     }, 400);
 
-    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+    return () => clearTimeout(timer);
   }, [searchQuery]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedMyReportsSearch(myReportsSearch);
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [myReportsSearch]);
 
   const handleSelectPlace = (place: SearchResult) => {
     setViewport((prev) => ({ ...prev, center: [place.lng, place.lat], zoom: 15 }));
@@ -313,20 +245,28 @@ export default function CitizenDashboard() {
     if (!markerLocation) {
        setMarkerLocation(viewport.center);
     }
+    setIsMyReportsOpen(false);
     setIsFormOpen(true);
     setMode("idle"); 
   };
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
+    if (e.target.files && e.target.files.length > 0) {
        const newFiles = Array.from(e.target.files);
+       // Check maximum 5 files
+       if (photoFiles.length + newFiles.length > 5) {
+         toast.error("Maksimal 5 foto per laporan");
+         return;
+       }
        const urls = newFiles.map(file => URL.createObjectURL(file));
+       setPhotoFiles(prev => [...prev, ...newFiles]);
        setPhotoPreviews(prev => [...prev, ...urls]);
     }
   };
 
   const removePhoto = (index: number) => {
     setPhotoPreviews(prev => prev.filter((_, i) => i !== index));
+    setPhotoFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   return (
@@ -362,7 +302,7 @@ export default function CitizenDashboard() {
                longitude={markerLocation[0]} 
                latitude={markerLocation[1]}
                draggable={true}
-               onDragEnd={(e: any) => setMarkerLocation([e.lng, e.lat])}
+               onDragEnd={(e: { lng: number; lat: number }) => setMarkerLocation([e.lng, e.lat])}
             >
                <MarkerContent>
                   <div className="flex flex-col items-center -mt-8 cursor-grab active:cursor-grabbing">
@@ -377,7 +317,7 @@ export default function CitizenDashboard() {
             </MapMarker>
           )}
 
-          {MOCK_REPORTS.map((report) => (
+          {publicReports.map((report) => (
            <MapMarker key={report.id} longitude={report.lng} latitude={report.lat}>
               <MarkerPopup closeButton>
                  <ReportPopup report={report} />
@@ -393,20 +333,13 @@ export default function CitizenDashboard() {
           ))}
 
           {/* Agency Location Markers */}
-          {MOCK_AGENCIES.map((agency, idx) => (
-            <MapMarker key={`agency-${idx}`} longitude={agency.lng} latitude={agency.lat}>
+          {agencies.map((agency, idx) => (
+            <MapMarker key={`agency-${agency.id || idx}`} longitude={agency.lng} latitude={agency.lat}>
                <MarkerPopup closeButton>
                  <div className="w-[200px] flex flex-col overflow-hidden -m-[10px] -mb-[15px]">
-                   {agency.images && agency.images.length > 0 && (
-                     <div className="w-full h-[100px] bg-gray-100 flex overflow-x-auto snap-x hide-scrollbar">
-                       {agency.images.map((img, i) => (
-                         <img key={i} src={img} alt={`Foto ${agency.name}`} className="w-full h-full object-cover shrink-0 snap-center" />
-                       ))}
-                     </div>
-                   )}
                    <div className="p-3 pb-4 flex flex-col gap-1.5">
                      <div className="text-[9px] font-black uppercase text-indigo-600 tracking-wider bg-indigo-50 px-2 py-0.5 rounded-sm w-fit truncate max-w-full">
-                       {agency.type.replace(/_/g, ' ')}
+                       {agency.type?.replace(/_/g, ' ') || 'Dinas'}
                      </div>
                      <div className="text-xs font-bold text-gray-900 leading-tight">
                        {agency.name}
@@ -472,7 +405,7 @@ export default function CitizenDashboard() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 8 }}
                 transition={{ duration: 0.15 }}
-                className="w-full max-w-sm bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden max-h-[240px] overflow-y-auto pointer-events-auto"
+                className="w-full max-w-[460px] md:max-w-[600px] bg-white rounded-sm shadow-xl border border-gray-200 overflow-hidden max-h-[240px] overflow-y-auto pointer-events-auto"
               >
                 {isSearching ? (
                   <div className="px-4 py-6 text-center">
@@ -504,7 +437,7 @@ export default function CitizenDashboard() {
             )}
           </AnimatePresence>
 
-          <div ref={searchRef} className="w-full max-w-sm pointer-events-auto">
+          <div ref={searchRef} className="w-full max-w-[460px] md:max-w-[600px] pointer-events-auto">
             <div className="bg-white rounded-full shadow-[0_8px_32px_-8px_rgba(0,0,0,0.18)] border border-gray-100 flex items-center px-2 py-1.5 gap-1">
 
               <div className="flex items-center flex-1 gap-1 bg-gray-50 border border-gray-200 rounded-full px-3 py-1 min-w-0">
@@ -540,6 +473,16 @@ export default function CitizenDashboard() {
                 <span className="text-xs hidden sm:inline">
                   {mode === "pin_drop" ? "Pilih" : "Tandai"}
                 </span>
+              </button>
+
+              <div className="w-px h-5 bg-gray-200 shrink-0 mx-0.5" />
+
+              <button
+                onClick={() => setIsMyReportsOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-2.5 rounded-full transition-all duration-300 font-bold shrink-0 text-gray-600 hover:bg-gray-100"
+              >
+                <ListFilter size={16} />
+                <span className="text-xs hidden sm:inline">Laporanku</span>
               </button>
 
               <div className="w-px h-5 bg-gray-200 shrink-0 mx-0.5" />
@@ -596,12 +539,12 @@ export default function CitizenDashboard() {
             <div className="flex-1 overflow-y-auto px-7 space-y-7 bg-white pb-6 pt-2 hide-scrollbar">
               <div className="space-y-2">
                 <Label htmlFor="title" className="text-xs font-black text-gray-300 tracking-widest leading-none">JUDUL LAPORAN</Label>
-                <Input id="title" placeholder="Contoh: Lampu lalu lintas mati" className="rounded-sm h-14 bg-white border border-gray-200 focus:bg-gray-50 focus:border-[#db2744] focus:ring-0 transition-all font-bold text-gray-900 text-sm shadow-none" />
+                <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Contoh: Lampu lalu lintas mati" className="rounded-sm h-14 bg-white border border-gray-200 focus:bg-gray-50 focus:border-[#db2744] focus:ring-0 transition-all font-bold text-gray-900 text-sm shadow-none" />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="description" className="text-xs font-black text-gray-300 tracking-widest leading-none">DETAIL KRONOLOGI</Label>
-                <Textarea id="description" placeholder="Ceritakan urutan dan kondisi yang terjadi..." className="rounded-sm min-h-[120px] bg-white border border-gray-200 focus:bg-gray-50 focus:border-[#db2744] focus:ring-0 transition-all font-bold text-gray-900 text-sm resize-none p-5 shadow-none leading-relaxed" />
+                <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Ceritakan urutan dan kondisi yang terjadi..." className="rounded-sm min-h-[120px] bg-white border border-gray-200 focus:bg-gray-50 focus:border-[#db2744] focus:ring-0 transition-all font-bold text-gray-900 text-sm resize-none p-5 shadow-none leading-relaxed" />
               </div>
 
               <div className="space-y-2">
@@ -668,11 +611,115 @@ export default function CitizenDashboard() {
             </div>
 
              <div className="px-7 py-5 bg-white border-t border-gray-100">
-                <Button className="w-full bg-[#db2744] hover:bg-[#b01e33] rounded-sm h-12 text-white font-black tracking-widest text-sm active:scale-[0.98] transition-all">
-                  KIRIM LAPORAN
+                <Button 
+                  onClick={handleSubmitReport}
+                  disabled={createReport.isPending || !title.trim() || !description.trim()}
+                  className="w-full bg-[#db2744] hover:bg-[#b01e33] disabled:opacity-50 rounded-sm h-12 text-white font-black tracking-widest text-sm active:scale-[0.98] transition-all"
+                >
+                  {createReport.isPending ? <Loader2 className="animate-spin w-5 h-5 mx-auto" /> : "KIRIM LAPORAN"}
                 </Button>
              </div>
 
+          </motion.div>
+        )}
+
+        {/* My Reports Drawer/Panel */}
+        {isMyReportsOpen && (
+          <motion.div
+            initial={isDesktop ? { x: "-100%", opacity: 0 } : { y: "100%", opacity: 0 }}
+            animate={isDesktop ? { x: 0, opacity: 1 } : { y: 0, opacity: 1 }}
+            exit={isDesktop ? { x: "-100%", opacity: 0 } : { y: "100%", opacity: 0 }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            className={`absolute z-30 bg-white flex flex-col overflow-hidden
+              ${isDesktop 
+                ? "top-24 left-6 bottom-6 w-[380px] shadow-2xl rounded-xl border border-gray-100" 
+                : "bottom-0 left-0 w-full rounded-t-3xl h-[85vh] shadow-[0_-20px_40px_rgba(0,0,0,0.1)]"
+              }`}
+          >
+            <div className="px-7 py-6 flex justify-between items-center bg-white border-b border-gray-100 relative z-10">
+               <div>
+                  <h3 className="font-heading font-black text-2xl text-gray-900 tracking-tight">
+                    Laporanku
+                  </h3>
+                  <p className="text-xs font-bold text-gray-400 mt-1 uppercase tracking-wide">
+                    {myReports.length} Laporan Anda
+                  </p>
+               </div>
+               <button 
+                 onClick={() => setIsMyReportsOpen(false)}
+                 className="text-gray-400 hover:text-gray-900 transition-colors p-2 -mr-2"
+               >
+                  <X size={20} strokeWidth={2.5} />
+               </button>
+            </div>
+
+            <div className="px-5 py-3 border-b border-gray-100 bg-white">
+              <div className="relative">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                <Input
+                  value={myReportsSearch}
+                  onChange={(e) => setMyReportsSearch(e.target.value)}
+                  placeholder="Cari laporan saya..."
+                  className="w-full bg-gray-50 border-transparent focus:bg-white focus:border-[#db2744] focus:ring-[#db2744] pl-10 h-10 rounded-lg text-sm transition-all"
+                />
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto bg-gray-50 p-4 space-y-3">
+              {myReports.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-center p-6 pb-20">
+                  <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center text-[#db2744] mb-4">
+                    <AlertTriangle size={32} />
+                  </div>
+                  <h4 className="font-bold text-gray-900 mb-1">Belum Ada Laporan</h4>
+                  <p className="text-sm text-gray-500">Anda belum membuat laporan apapun.</p>
+                </div>
+              ) : (
+                myReports.map((report) => {
+                  const status = STATUS_MAP[report.status] || { label: report.status, color: "bg-gray-100 text-gray-700" };
+                  return (
+                    <div 
+                      key={report.id} 
+                      className={`bg-white p-4 rounded-xl border border-gray-100 shadow-sm ${report.status !== "rejected" ? "cursor-pointer hover:border-gray-200" : ""} transition-colors`}
+                      onClick={() => {
+                        if (report.status !== "rejected") setViewport({ ...viewport, center: [report.lng, report.lat], zoom: 15 });
+                      }}
+                    >
+                      <div className="flex justify-between items-start mb-2">
+                        <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${status.color}`}>
+                          {status.label}
+                        </span>
+                        <span className="text-[10px] font-medium text-gray-400">{new Date(report.createdAt).toLocaleDateString()}</span>
+                      </div>
+                      <h4 className="font-bold text-[#111827] text-sm leading-snug line-clamp-1 mb-1.5">{report.title}</h4>
+                      <p className="text-xs text-gray-500 line-clamp-2 mb-3">{report.description || report.kategori?.name}</p>
+                      
+                      {report.status === "rejected" && report.aiReview && (
+                        <div className="mb-3 p-2.5 bg-red-50/80 rounded-lg border border-red-100/50">
+                          <p className="text-[11px] font-bold text-[#db2744] mb-1">Feedback AI:</p>
+                          <p className="text-[10px] text-gray-600 leading-relaxed mb-1">{report.aiReview.alasanAi}</p>
+                          {report.aiReview.saranPerbaikanAi && (
+                            <p className="text-[10px] text-gray-600 leading-relaxed">Saran: <span className="font-medium text-gray-800">{report.aiReview.saranPerbaikanAi}</span></p>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between border-t border-gray-50 mt-2 pt-2">
+                        <div className="flex items-center gap-1.5">
+                          <Building2 size={11} className={report.dinas ? "text-[#db2744]" : "text-gray-400"} />
+                          <span className={`text-[10px] uppercase tracking-wide font-black ${report.dinas ? "text-[#db2744]" : "text-gray-400"}`}>
+                            {report.dinas ? report.dinas.name : "Menunggu Instansi"}
+                          </span>
+                        </div>
+                        {report.routingStatus === "auto_assigned" && (
+                          <span className="text-[9px] bg-green-50 text-green-600 px-1.5 py-0.5 rounded font-black uppercase tracking-wider">AI Assigned</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
