@@ -245,7 +245,6 @@ export default function CitizenDashboard() {
     if (!markerLocation) {
        setMarkerLocation(viewport.center);
     }
-    setIsMyReportsOpen(false);
     setIsFormOpen(true);
     setMode("idle"); 
   };
@@ -478,8 +477,10 @@ export default function CitizenDashboard() {
               <div className="w-px h-5 bg-gray-200 shrink-0 mx-0.5" />
 
               <button
-                onClick={() => setIsMyReportsOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-2.5 rounded-full transition-all duration-300 font-bold shrink-0 text-gray-600 hover:bg-gray-100"
+                onClick={() => setIsMyReportsOpen(open => !open)}
+                className={`flex items-center gap-1.5 px-3 py-2.5 rounded-full transition-all duration-300 font-bold shrink-0 ${
+                  isMyReportsOpen ? "bg-[#db2744] text-white shadow-md shadow-red-500/20" : "text-gray-600 hover:bg-gray-100"
+                }`}
               >
                 <ListFilter size={16} />
                 <span className="text-xs hidden sm:inline">Laporanku</span>
@@ -628,8 +629,10 @@ export default function CitizenDashboard() {
             </motion.div>
           </motion.div>
         )}
+      </AnimatePresence>
 
         {/* My Reports Drawer/Panel */}
+      <AnimatePresence>
         {isMyReportsOpen && (
           <motion.div
             initial={isDesktop ? { x: "-100%", opacity: 0 } : { y: "100%", opacity: 0 }}

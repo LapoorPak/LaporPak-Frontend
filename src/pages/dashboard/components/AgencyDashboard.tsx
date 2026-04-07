@@ -215,12 +215,17 @@ export default function AgencyDashboard() {
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: -400, opacity: 0 }}
             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            className="absolute top-20 left-5 bottom-5 z-20 w-[380px] flex flex-col bg-white shadow-2xl border border-gray-100 rounded-2xl overflow-hidden"
+            className="absolute top-20 left-5 z-20 pointer-events-none"
           >
-            <div className="p-5 border-b border-gray-100">
+            <motion.div
+              drag
+              dragMomentum={false}
+              className="pointer-events-auto h-[calc(100vh-120px)] min-h-[400px] w-[380px] min-w-[320px] max-w-[600px] flex flex-col bg-white shadow-2xl border border-gray-100 rounded-2xl overflow-hidden resize"
+            >
+            <div className="p-5 border-b border-gray-100 cursor-move active:cursor-grabbing">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-heading font-black text-xl text-gray-900 tracking-tight">Dashboard</h3>
-                <button onClick={() => setIsSidebarOpen(false)} className="text-gray-400 hover:text-gray-900 transition-colors p-1.5">
+                <button onPointerDown={(e) => e.stopPropagation()} onClick={() => setIsSidebarOpen(false)} className="text-gray-400 hover:text-gray-900 transition-colors p-1.5 z-10">
                   <X size={20} strokeWidth={2.5} />
                 </button>
               </div>
@@ -296,6 +301,7 @@ export default function AgencyDashboard() {
                 </button>
               ))}
             </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -395,12 +401,21 @@ export default function AgencyDashboard() {
             animate={isDesktop ? { x: 0, opacity: 1 } : { y: 0, opacity: 1 }}
             exit={isDesktop ? { x: "100%", opacity: 0 } : { y: "100%", opacity: 0 }}
             transition={{ type: "spring", stiffness: 350, damping: 35 }}
-            className={`absolute z-30 bg-white flex flex-col
+            className={`absolute z-30 pointer-events-none
               ${isDesktop 
-                ? "top-20 right-5 bottom-5 w-[420px] shadow-2xl rounded-2xl border border-gray-100" 
-                : "bottom-0 left-0 right-0 h-[88vh] rounded-t-3xl shadow-2xl"
+                ? "top-20 right-5" 
+                : "bottom-0 left-0 right-0 h-[88vh]"
               }`}
           >
+            <motion.div
+              drag={isDesktop}
+              dragMomentum={false}
+              className={`bg-white flex flex-col resize pointer-events-auto
+                ${isDesktop 
+                  ? "h-[calc(100vh-100px)] min-h-[400px] w-[420px] min-w-[320px] max-w-[600px] shadow-2xl rounded-2xl border border-gray-100 overflow-hidden" 
+                  : "w-full h-full rounded-t-3xl shadow-2xl overflow-hidden"
+                }`}
+            >
             {/* Handle bar on mobile */}
             {!isDesktop && (
               <div className="flex items-center justify-center pt-3 pb-1 shrink-0">
@@ -408,7 +423,7 @@ export default function AgencyDashboard() {
               </div>
             )}
 
-            <div className={`px-6 py-4 flex justify-between items-center bg-white border-b border-gray-100 shrink-0 ${isDesktop ? "rounded-t-2xl" : ""}`}>
+            <div className={`px-6 py-4 flex justify-between items-center bg-white border-b border-gray-100 shrink-0 ${isDesktop ? "rounded-t-2xl cursor-move active:cursor-grabbing" : ""}`}>
               <div>
                 <h3 className="font-heading font-black text-lg text-gray-900 tracking-tight leading-none">
                   Tinjauan Tiket
@@ -418,8 +433,9 @@ export default function AgencyDashboard() {
                 </p>
               </div>
               <button 
+                onPointerDown={(e) => e.stopPropagation()}
                 onClick={() => setSelectedMarkerId(null)}
-                className="text-gray-400 hover:text-gray-900 transition-colors p-1.5"
+                className="text-gray-400 hover:text-gray-900 transition-colors p-1.5 z-10"
               >
                 <X size={20} strokeWidth={2.5} />
               </button>
@@ -500,6 +516,7 @@ export default function AgencyDashboard() {
                 SIMPAN <ArrowRight size={15} strokeWidth={3} className="opacity-60" />
               </Button>
             </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
