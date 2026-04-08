@@ -1,7 +1,8 @@
 export const Api = {
   authSessionDetail: "/auth/session-detail",
   reports: "/reports",
-  reportAgency: (id: string) => `/reports/${id}/agency`,
+  reportStatus: (id: string) => `/reports/${id}/status`,
+  reportResolve: (id: string) => `/reports/${id}/resolve`,
   myReports: "/reports/me",
   reportsDashboard: "/reports/dashboard",
   reportLocations: "/reports/locations",

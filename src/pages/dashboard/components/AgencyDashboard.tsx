@@ -24,7 +24,10 @@ import type {
   ReportLocation,
   ReportsScope,
 } from "@/api/reports/reports-queries";
-import { useMutationUpdateAgencyReport } from "@/api/reports/reports-queries";
+import {
+  useMutationResolveReport,
+  useMutationUpdateReportStatus,
+} from "@/api/reports/reports-queries";
 import { useGetReportLocations } from "@/hooks/reports/useGetReportLocations";
 import { useGetReportsDashboard } from "@/hooks/reports/useGetReportsDashboard";
 import {
@@ -218,30 +221,39 @@ export default function AgencyDashboard() {
     !draftStatus ||
     !canEditSelectedReport ||
     !hasDraftChanges;
-  const updateAgencyReport = useMutationUpdateAgencyReport({
-    onSuccess: async (response) => {
-      setDraftStatus(response.data.status);
-      setAgencyNote(response.data.agencyNote ?? "");
-      setResolutionNote(response.data.resolutionNote ?? "");
+  const handleAgencyMutationSuccess = async (status: ReportLocation["status"]) => {
+    await Promise.allSettled([
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.REPORTS_LOCATIONS] }),
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.REPORTS_DASHBOARD] }),
+    ]);
 
-      await Promise.allSettled([
-        queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.REPORTS_LOCATIONS] }),
-        queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.REPORTS_DASHBOARD] }),
-      ]);
+    toast.success("Tiket berhasil diperbarui", {
+      description:
+        status === "resolved"
+          ? "Laporan ditandai selesai dan perubahan sudah tersimpan."
+          : "Perubahan tiket sudah tersimpan.",
+    });
+    setSelectedMarkerId(null);
+  };
 
-      toast.success("Tiket berhasil diperbarui", {
-        description:
-          response.data.status === "resolved"
-            ? "Laporan ditandai selesai dan perubahan sudah tersimpan."
-            : "Perubahan tiket sudah tersimpan.",
-      });
-      setSelectedMarkerId(null);
+  const handleAgencyMutationError = (error: unknown) => {
+    toast.error("Gagal menyimpan tiket", {
+      description: getAgencyUpdateErrorMessage(error),
+    });
+  };
+
+  const updateReportStatus = useMutationUpdateReportStatus({
+    onSuccess: async () => {
+      await handleAgencyMutationSuccess((draftStatus as ReportLocation["status"]) || "verified");
     },
-    onError: (error) => {
-      toast.error("Gagal menyimpan tiket", {
-        description: getAgencyUpdateErrorMessage(error),
-      });
+    onError: handleAgencyMutationError,
+  });
+
+  const resolveReport = useMutationResolveReport({
+    onSuccess: async () => {
+      await handleAgencyMutationSuccess("resolved");
     },
+    onError: handleAgencyMutationError,
   });
 
   const [viewport, setViewport] = useState({
@@ -339,15 +351,28 @@ export default function AgencyDashboard() {
       return;
     }
 
-    updateAgencyReport.mutate({
+    const trimmedAgencyNote = agencyNote.trim() || null;
+    const trimmedResolutionNote = resolutionNote.trim() || null;
+
+    if (draftStatus === "resolved") {
+      resolveReport.mutate({
+        id: selectedMarkerId,
+        payload: {
+          agencyNote: trimmedAgencyNote,
+          catatanDinas: trimmedAgencyNote,
+          resolutionNote: trimmedResolutionNote,
+        },
+      });
+      return;
+    }
+
+    updateReportStatus.mutate({
       id: selectedMarkerId,
       payload: {
         status: draftStatus as ReportLocation["status"],
-        agencyNote: agencyNote.trim() || null,
-        resolutionNote:
-          draftStatus === "resolved" || resolutionNote.trim().length > 0
-            ? resolutionNote.trim() || null
-            : null,
+        agencyNote: trimmedAgencyNote,
+        catatanDinas: trimmedAgencyNote,
+        resolutionNote: null,
       },
     });
   };
@@ -606,7 +631,7 @@ export default function AgencyDashboard() {
         agencyNote={agencyNote}
         resolutionNote={resolutionNote}
         canEdit={canEditSelectedReport}
-        isSaving={updateAgencyReport.isPending}
+        isSaving={updateReportStatus.isPending || resolveReport.isPending}
         isSaveDisabled={isSaveDisabled}
         onClose={() => setSelectedMarkerId(null)}
         onDraftStatusChange={setDraftStatus}

@@ -187,18 +187,26 @@ export interface GetReportsDashboardResponse {
   };
 }
 
-export interface UpdateAgencyReportRequest {
+export interface UpdateReportStatusRequest {
   status: ReportLocation["status"];
   agencyNote?: string | null;
+  catatanDinas?: string | null;
   resolutionNote?: string | null;
-  assignedToId?: string | null;
 }
 
-export interface UpdateAgencyReportResponse {
+export interface ResolveReportRequest {
+  agencyNote?: string | null;
+  catatanDinas?: string | null;
+  resolutionNote?: string | null;
+}
+
+export interface UpdateReportMutationResponse {
   data: Pick<
     ReportLocation,
     "id" | "status" | "agencyNote" | "resolutionNote" | "assignedTo" | "canEdit" | "ownership"
-  >;
+  > & {
+    resolvedAt?: string | null;
+  };
 }
 
 export function useQueryGetMyReports<TData = GetReportLocationsResponse, TError = Error>(
@@ -287,19 +295,38 @@ export function useMutationCreateReport(
   });
 }
 
-export function useMutationUpdateAgencyReport(
+export function useMutationUpdateReportStatus(
   options?: Omit<
     UseMutationOptions<
-      UpdateAgencyReportResponse,
+      UpdateReportMutationResponse,
       Error,
-      { id: string; payload: UpdateAgencyReportRequest }
+      { id: string; payload: UpdateReportStatusRequest }
     >,
     "mutationFn"
   >
 ) {
   return useMutation({
-    mutationFn: async ({ id, payload }: { id: string; payload: UpdateAgencyReportRequest }) => {
-      const response = await apiClient.patch<UpdateAgencyReportResponse>(Api.reportAgency(id), payload);
+    mutationFn: async ({ id, payload }: { id: string; payload: UpdateReportStatusRequest }) => {
+      const response = await apiClient.post<UpdateReportMutationResponse>(Api.reportStatus(id), payload);
+      return response.data;
+    },
+    ...options,
+  });
+}
+
+export function useMutationResolveReport(
+  options?: Omit<
+    UseMutationOptions<
+      UpdateReportMutationResponse,
+      Error,
+      { id: string; payload: ResolveReportRequest }
+    >,
+    "mutationFn"
+  >
+) {
+  return useMutation({
+    mutationFn: async ({ id, payload }: { id: string; payload: ResolveReportRequest }) => {
+      const response = await apiClient.post<UpdateReportMutationResponse>(Api.reportResolve(id), payload);
       return response.data;
     },
     ...options,
