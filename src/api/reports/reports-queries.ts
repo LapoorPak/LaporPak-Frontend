@@ -117,6 +117,61 @@ export interface GetMyReportsRequest {
   search?: string;
 }
 
+export type ReportsDashboardTabKey = "semua" | "baru" | "diproses" | "tuntas";
+export type ReportStatusTone = "success" | "warning" | "danger" | "info";
+
+export interface DashboardReportItem {
+  id: string;
+  referenceCode: string;
+  title: string;
+  status: ReportLocation["status"];
+  statusLabel: string;
+  statusTone: ReportStatusTone;
+  dashboardGroup: Exclude<ReportsDashboardTabKey, "semua">;
+  date: string;
+  dateLabel: string;
+  agencyName: string;
+  dinas?: ReportLocation["dinas"];
+  cabangDinas?: ReportLocation["cabangDinas"];
+  kategori?: Pick<ReportCategory, "id" | "code" | "name"> | null;
+}
+
+export interface ReportsDashboardSummary {
+  totalTarget: number;
+  laporanBaru: number;
+  diproses: number;
+  tuntas: number;
+  byStatusRaw: Record<string, number>;
+}
+
+export interface ReportsDashboardTab {
+  key: ReportsDashboardTabKey;
+  label: string;
+  total: number;
+}
+
+export interface GetReportsDashboardRequest {
+  tab?: ReportsDashboardTabKey;
+  page?: number;
+  limit?: number;
+  take?: number;
+  search?: string;
+  dinasId?: string;
+  cabangDinasId?: string;
+  kategoriId?: string;
+}
+
+export interface GetReportsDashboardResponse {
+  data: DashboardReportItem[];
+  meta: NonNullable<GetReportLocationsResponse["meta"]>;
+  stats: {
+    total: number;
+    activeTab: ReportsDashboardTabKey;
+    summary: ReportsDashboardSummary;
+    tabs: ReportsDashboardTab[];
+  };
+}
+
 export function useQueryGetMyReports<TData = GetReportLocationsResponse, TError = Error>(
   params?: GetMyReportsRequest,
   options?: Omit<
@@ -125,11 +180,31 @@ export function useQueryGetMyReports<TData = GetReportLocationsResponse, TError 
   >
 ) {
   return useQuery({
-    queryKey: ["my-reports", params],
+    queryKey: [QUERY_KEYS.MY_REPORTS, params],
     queryFn: async () => {
       const response = await apiClient.get<GetReportLocationsResponse>(Api.myReports, {
         params,
       });
+      return response.data;
+    },
+    ...options,
+  });
+}
+
+export function useQueryGetReportsDashboard<TData = GetReportsDashboardResponse, TError = Error>(
+  params?: GetReportsDashboardRequest,
+  options?: Omit<
+    UseQueryOptions<GetReportsDashboardResponse, TError, TData, [string, GetReportsDashboardRequest | undefined]>,
+    "queryKey" | "queryFn"
+  >
+) {
+  return useQuery({
+    queryKey: [QUERY_KEYS.REPORTS_DASHBOARD, params],
+    queryFn: async () => {
+      const response = await apiClient.get<GetReportsDashboardResponse>(Api.reportsDashboard, {
+        params,
+      });
+
       return response.data;
     },
     ...options,
@@ -148,26 +223,6 @@ export function useQueryGetReportLocations<TData = GetReportLocationsResponse, T
     queryKey: [QUERY_KEYS.REPORTS_LOCATIONS, params],
     queryFn: async () => {
       const response = await apiClient.get<GetReportLocationsResponse>(Api.reportLocations, {
-        params,
-      });
-      return response.data;
-    },
-    ...options,
-  });
-}
-
-// Hook for GET /api/reports/me/locations
-export function useQueryGetMyReportLocations<TData = GetReportLocationsResponse, TError = Error>(
-  params?: Omit<GetReportLocationsRequest, "createdById">,
-  options?: Omit<
-    UseQueryOptions<GetReportLocationsResponse, TError, TData, [string, Omit<GetReportLocationsRequest, "createdById"> | undefined]>,
-    "queryKey" | "queryFn"
-  >
-) {
-  return useQuery({
-    queryKey: [QUERY_KEYS.MY_REPORTS_LOCATIONS, params],
-    queryFn: async () => {
-      const response = await apiClient.get<GetReportLocationsResponse>(Api.myReportsLocations, {
         params,
       });
       return response.data;
