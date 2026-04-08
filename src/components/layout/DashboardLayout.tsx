@@ -1,65 +1,40 @@
 import { Outlet, Link, useNavigate } from "react-router";
+import axios from "axios";
 import { authClient } from "@/lib/auth-client";
-import { LogOut, User, Bell, Megaphone, X, CheckCircle2, Clock, AlertTriangle, ArrowUpRight, Info } from "lucide-react";
+import { useGetNotifications, useGetUnreadNotificationCount, useMarkAllNotificationsRead, useMarkNotificationRead } from "@/hooks/notifications";
+import { QUERY_KEYS } from "@/api/queryKeys";
+import type { NotificationItem, NotificationType } from "@/api/notifications/notifications-queries";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { LogOut, User, Bell, Megaphone, X, CheckCircle2, Clock, AlertTriangle, ArrowUpRight, Info, type LucideIcon } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
-const NOTIFICATIONS = [
-  {
-    id: 1,
-    type: "success" as const,
-    title: "Laporan Diselesaikan",
-    message: "Jalan berlubang di Jl. Sudirman telah diperbaiki oleh Dinas PU.",
-    time: "12 menit lalu",
-    read: false,
-    tag: "Selesai",
-  },
-  {
-    id: 2,
-    type: "warning" as const,
-    title: "Menunggu Verifikasi",
-    message: "Laporan banjir Anda di kawasan Kelapa Gading sedang ditinjau petugas.",
-    time: "1 jam lalu",
-    read: false,
-    tag: "Proses",
-  },
-  {
-    id: 3,
-    type: "info" as const,
-    title: "Pembaruan Sistem",
-    message: "Fitur pelacakan real-time kini tersedia untuk semua laporan aktif.",
-    time: "3 jam lalu",
-    read: true,
-    tag: "Info",
-  },
-  {
-    id: 4,
-    type: "success" as const,
-    title: "Laporan Diverifikasi",
-    message: "Laporan sampah menumpuk di Pasar Minggu berhasil dikonfirmasi.",
-    time: "5 jam lalu",
-    read: true,
-    tag: "Selesai",
-  },
-  {
-    id: 5,
-    type: "info" as const,
-    title: "Tips Pelaporan",
-    message: "Sertakan foto dan koordinat GPS untuk mempercepat proses verifikasi laporan Anda.",
-    time: "1 hari lalu",
-    read: true,
-    tag: "Info",
-  },
-];
+const getNotificationErrorMessage = (error: unknown, fallback: string) => {
+  if (axios.isAxiosError<{ error?: string; message?: string }>(error)) {
+    return error.response?.data?.error ?? error.response?.data?.message ?? error.message ?? fallback;
+  }
 
-const iconMap = {
+  return error instanceof Error ? error.message : fallback;
+};
+
+const iconMap: Record<NotificationType, LucideIcon> = {
   success: CheckCircle2,
   warning: Clock,
   danger: AlertTriangle,
   info: Info,
 };
 
-const colorMap = {
+const colorMap: Record<
+  NotificationType,
+  {
+    bg: string;
+    text: string;
+    border: string;
+    dot: string;
+    tagBg: string;
+  }
+> = {
   success: {
     bg: "bg-emerald-50",
     text: "text-emerald-600",
@@ -93,14 +68,66 @@ const colorMap = {
 export default function DashboardLayout() {
   const { data: session } = authClient.useSession();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [activeTab, setActiveTab] = useState<"all" | "unread">("all");
   const panelRef = useRef<HTMLDivElement>(null);
   const bellRef = useRef<HTMLButtonElement>(null);
 
-  const unreadCount = NOTIFICATIONS.filter((n) => !n.read).length;
-  const filteredNotifications = activeTab === "unread" ? NOTIFICATIONS.filter((n) => !n.read) : NOTIFICATIONS;
+  const notificationParams = activeTab === "unread" ? { page: 1, limit: 10, unread: true } : { page: 1, limit: 10 };
+  const {
+    data: notificationsResponse,
+    isLoading: isNotificationsLoading,
+    isFetching: isNotificationsFetching,
+    error: notificationsError,
+    refetch: refetchNotifications,
+  } = useGetNotifications(notificationParams, {
+    enabled: !!session?.user && showNotifications,
+  });
+  const { data: unreadCountResponse, refetch: refetchUnreadCount } = useGetUnreadNotificationCount({
+    enabled: !!session?.user,
+    refetchInterval: session?.user ? 60_000 : false,
+  });
+
+  const notifications = notificationsResponse?.data ?? [];
+  const unreadCount = unreadCountResponse?.data.unreadCount ?? notificationsResponse?.stats.unreadCount ?? 0;
+  const notificationsErrorMessage = notificationsError
+    ? getNotificationErrorMessage(notificationsError, "Gagal memuat notifikasi.")
+    : null;
+
+  const invalidateNotificationQueries = () => {
+    void queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.NOTIFICATIONS] });
+    void queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.NOTIFICATIONS_UNREAD_COUNT] });
+  };
+
+  const markNotificationRead = useMarkNotificationRead({
+    onSuccess: () => {
+      invalidateNotificationQueries();
+    },
+    onError: (error) => {
+      toast.error("Gagal menandai notifikasi", {
+        description: getNotificationErrorMessage(error, "Notifikasi tidak bisa diperbarui."),
+      });
+    },
+  });
+
+  const markAllNotificationsRead = useMarkAllNotificationsRead({
+    onSuccess: (response) => {
+      invalidateNotificationQueries();
+
+      if (response.count > 0) {
+        toast.success("Semua notifikasi diperbarui", {
+          description: `${response.count} notifikasi ditandai sudah dibaca.`,
+        });
+      }
+    },
+    onError: (error) => {
+      toast.error("Gagal menandai semua notifikasi", {
+        description: getNotificationErrorMessage(error, "Silakan coba lagi beberapa saat lagi."),
+      });
+    },
+  });
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -113,6 +140,40 @@ export default function DashboardLayout() {
     if (showNotifications) document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [showNotifications]);
+
+  const handleToggleNotifications = () => {
+    if (!showNotifications) {
+      void refetchUnreadCount();
+    }
+
+    setShowNotifications((previous) => !previous);
+  };
+
+  const handleNotificationClick = (notification: NotificationItem) => {
+    if (notification.read) {
+      return;
+    }
+
+    markNotificationRead.mutate(notification.id);
+  };
+
+  const handleMarkAllAsRead = () => {
+    if (unreadCount === 0 || markAllNotificationsRead.isPending) {
+      return;
+    }
+
+    markAllNotificationsRead.mutate();
+  };
+
+  const handleViewAllNotifications = () => {
+    if (activeTab !== "all") {
+      setActiveTab("all");
+      return;
+    }
+
+    void refetchNotifications();
+    void refetchUnreadCount();
+  };
 
   const handleLogout = async () => {
     if (isSigningOut) {
@@ -138,7 +199,7 @@ export default function DashboardLayout() {
           <div className="flex items-center gap-2 relative" ref={panelRef}>
              <button 
                 ref={bellRef}
-                onClick={() => setShowNotifications(!showNotifications)}
+                onClick={handleToggleNotifications}
                 className={`transition-all w-8 h-8 flex items-center justify-center rounded-full relative border ${
                   showNotifications 
                     ? "bg-red-50 border-red-200 text-[#db2744]" 
@@ -164,7 +225,12 @@ export default function DashboardLayout() {
                    >
                      <div className="px-5 pt-4 pb-3 bg-white border-b border-gray-100">
                        <div className="flex justify-between items-center mb-3">
-                         <h4 className="font-heading font-black text-base text-gray-900 tracking-tight leading-none">Notifikasi</h4>
+                         <div>
+                           <h4 className="font-heading font-black text-base text-gray-900 tracking-tight leading-none">Notifikasi</h4>
+                           {isNotificationsFetching && !isNotificationsLoading && (
+                             <p className="text-[10px] font-bold text-gray-400 mt-1">Memperbarui...</p>
+                           )}
+                         </div>
                          <button 
                            onClick={() => setShowNotifications(false)} 
                            className="text-gray-400 hover:text-gray-900 transition-colors"
@@ -198,47 +264,84 @@ export default function DashboardLayout() {
                      </div>
                      
                      <div className="max-h-[380px] overflow-y-auto">
-                       {filteredNotifications.length === 0 ? (
+                        {isNotificationsLoading ? (
+                          <div className="w-full animate-pulse">
+                            {[1, 2, 3, 4].map((i) => (
+                              <div key={i} className="px-4 py-3.5 flex gap-3.5 border-b border-gray-100 last:border-b-0">
+                                <div className="w-10 h-10 rounded-full bg-gray-100 shrink-0"></div>
+                                <div className="flex-1 min-w-0 space-y-2.5 py-1">
+                                  <div className="flex items-center justify-between gap-4">
+                                    <div className="h-3 bg-gray-200 rounded-full w-1/2"></div>
+                                    <div className="h-3 bg-gray-100 rounded-full w-10 shrink-0"></div>
+                                  </div>
+                                  <div className="h-2 bg-gray-100 rounded-full w-full mt-2"></div>
+                                  <div className="h-2 bg-gray-100 rounded-full w-3/4"></div>
+                                  <div className="h-1.5 bg-gray-100 rounded-full w-1/4 mt-2"></div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : notificationsErrorMessage ? (
+                         <div className="py-12 text-center px-6">
+                           <AlertTriangle size={28} className="text-red-200 mx-auto mb-2" />
+                           <p className="text-xs font-bold text-gray-500">{notificationsErrorMessage}</p>
+                         </div>
+                       ) : notifications.length === 0 ? (
                          <div className="py-12 text-center">
                            <Bell size={28} className="text-gray-200 mx-auto mb-2" />
-                           <p className="text-xs font-bold text-gray-400">Tidak ada notifikasi</p>
+                           <p className="text-xs font-bold text-gray-400">
+                             {activeTab === "unread" ? "Tidak ada notifikasi yang belum dibaca" : "Tidak ada notifikasi"}
+                           </p>
                          </div>
                        ) : (
                          <div>
-                           {filteredNotifications.map((notif, idx) => {
+                           {notifications.map((notif, idx) => {
                              const Icon = iconMap[notif.type];
                              const colors = colorMap[notif.type];
+                             const isUpdatingCurrent =
+                               markNotificationRead.isPending && markNotificationRead.variables === notif.id;
                              return (
                                <motion.div
                                  key={notif.id}
                                  initial={{ opacity: 0 }}
                                  animate={{ opacity: 1 }}
                                  transition={{ delay: idx * 0.03, duration: 0.2 }}
-                                 className={`group px-4 py-3.5 flex gap-3.5 cursor-pointer transition-colors border-b border-gray-50 last:border-b-0 ${
+                                 onClick={() => handleNotificationClick(notif)}
+                                 className={`group relative px-4 py-3.5 flex gap-3.5 transition-colors border-b border-gray-100 last:border-b-0 ${
                                    !notif.read
-                                     ? "bg-red-50/30 hover:bg-red-50/60"
+                                     ? "bg-rose-50 border-l-4 border-l-[#db2744] hover:bg-rose-100/80"
                                      : "hover:bg-gray-50/80"
-                                 }`}
+                                 } ${!notif.read ? "cursor-pointer" : "cursor-default"} ${isUpdatingCurrent ? "opacity-70" : ""}`}
                                >
-                                 <div className={`w-10 h-10 rounded-full ${colors.bg} ${colors.text} flex items-center justify-center shrink-0`}>
+                                 <div className={`w-10 h-10 rounded-full ${colors.bg} ${colors.text} flex items-center justify-center shrink-0 ${
+                                   !notif.read ? "ring-2 ring-white shadow-sm" : ""
+                                 }`}>
                                    <Icon size={18} strokeWidth={2.5} />
                                  </div>
 
                                  <div className="flex-1 min-w-0">
                                    <div className="flex items-start justify-between gap-2 mb-0.5">
-                                     <p className={`text-[13px] leading-tight ${
+                                     <div className="min-w-0">
+                                       <p className={`text-[13px] leading-tight ${
                                        !notif.read ? "font-extrabold text-gray-900" : "font-semibold text-gray-600"
-                                     }`}>
-                                       {notif.title}
-                                     </p>
+                                       }`}>
+                                         {notif.title}
+                                       </p>
+                                     </div>
                                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0 ${colors.tagBg}`}>
                                        {notif.tag}
                                      </span>
                                    </div>
-                                   <p className="text-[12px] text-gray-500 leading-relaxed line-clamp-2">
+                                   <p className={`text-[12px] leading-relaxed line-clamp-2 ${
+                                     !notif.read ? "text-gray-700" : "text-gray-500"
+                                   }`}>
                                      {notif.message}
                                    </p>
-                                   <span className="text-[10px] text-gray-400 font-medium mt-1 block">{notif.time}</span>
+                                   <span className={`text-[10px] font-medium mt-1 block ${
+                                     !notif.read ? "text-rose-700" : "text-gray-400"
+                                   }`}>
+                                     {notif.time}
+                                   </span>
                                  </div>
                                </motion.div>
                              );
@@ -248,10 +351,21 @@ export default function DashboardLayout() {
                      </div>
 
                      <div className="px-4 py-2.5 border-t border-gray-100 flex items-center justify-between">
-                       <button className="text-[11px] font-bold text-gray-400 hover:text-gray-700 transition-colors">
-                         Tandai semua dibaca
+                       <button
+                         onClick={handleMarkAllAsRead}
+                         disabled={unreadCount === 0 || markAllNotificationsRead.isPending}
+                         className={`text-[11px] font-bold transition-colors ${
+                           unreadCount === 0 || markAllNotificationsRead.isPending
+                             ? "text-gray-300 cursor-not-allowed"
+                             : "text-gray-400 hover:text-gray-700"
+                         }`}
+                       >
+                         {markAllNotificationsRead.isPending ? "Memproses..." : "Tandai semua dibaca"}
                        </button>
-                       <button className="text-[11px] font-bold text-[#db2744] hover:text-rose-700 transition-colors flex items-center gap-1">
+                       <button
+                         onClick={handleViewAllNotifications}
+                         className="text-[11px] font-bold text-[#db2744] hover:text-rose-700 transition-colors flex items-center gap-1"
+                       >
                          Lihat semua
                          <ArrowUpRight size={11} />
                        </button>
