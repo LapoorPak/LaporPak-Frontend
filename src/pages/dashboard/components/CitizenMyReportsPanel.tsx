@@ -84,6 +84,8 @@ export function CitizenMyReportsPanel({
               ) : (
                 myReports.map((report) => {
                   const status = statusMap[report.status] || { label: report.status, color: "bg-gray-100 text-gray-700" };
+                  const agencyNote = report.agencyNote?.trim();
+                  const resolutionNote = report.resolutionNote?.trim();
 
                   return (
                     <div
@@ -110,6 +112,32 @@ export function CitizenMyReportsPanel({
                             <p className="text-[10px] text-gray-600 leading-relaxed">
                               Saran: <span className="font-medium text-gray-800">{report.aiReview.saranPerbaikanAi}</span>
                             </p>
+                          )}
+                        </div>
+                      )}
+
+                      {(agencyNote || resolutionNote) && (
+                        <div className="mb-3 space-y-2">
+                          {agencyNote && (
+                            <div className="rounded-lg border border-sky-100 bg-sky-50 px-3 py-2.5">
+                              <p className="text-[10px] font-black uppercase tracking-widest text-sky-700 mb-1">
+                                Update Dinas
+                              </p>
+                              <p className="text-[11px] leading-relaxed text-sky-950">
+                                {agencyNote}
+                              </p>
+                            </div>
+                          )}
+
+                          {resolutionNote && (
+                            <div className="rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2.5">
+                              <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700 mb-1">
+                                Hasil Penanganan
+                              </p>
+                              <p className="text-[11px] leading-relaxed text-emerald-950">
+                                {resolutionNote}
+                              </p>
+                            </div>
                           )}
                         </div>
                       )}

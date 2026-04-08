@@ -23,6 +23,8 @@ function ReportPopup({ report }: { report: ReportLocation }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const status = CITIZEN_REPORT_STATUS_MAP[report.status] || { label: report.status, color: "bg-gray-50 text-gray-700 border-gray-200" };
   const description = report.kategori?.name || "Laporan Warga";
+  const agencyNote = report.agencyNote?.trim();
+  const resolutionNote = report.resolutionNote?.trim();
 
   return (
     <div className="w-[300px] overflow-hidden -m-[10px] -mb-[15px]">
@@ -56,6 +58,32 @@ function ReportPopup({ report }: { report: ReportLocation }) {
             {report.lat.toFixed(5)}, {report.lng.toFixed(5)}
           </div>
         </div>
+
+        {(agencyNote || resolutionNote) && (
+          <div className="space-y-2 mb-3">
+            {agencyNote && (
+              <div className="rounded-lg border border-sky-100 bg-sky-50 p-2.5">
+                <p className="text-[9px] font-black uppercase tracking-widest text-sky-700 mb-1">
+                  Update Dinas
+                </p>
+                <p className="text-[11px] leading-relaxed text-sky-950">
+                  {agencyNote}
+                </p>
+              </div>
+            )}
+
+            {resolutionNote && (
+              <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-2.5">
+                <p className="text-[9px] font-black uppercase tracking-widest text-emerald-700 mb-1">
+                  Hasil Penanganan
+                </p>
+                <p className="text-[11px] leading-relaxed text-emerald-950">
+                  {resolutionNote}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="flex items-center justify-between pt-2 border-t border-gray-100">
           <div className="flex items-center gap-1.5 text-gray-400">
@@ -411,11 +439,13 @@ export default function CitizenDashboard() {
                   
                   <div className="relative">
                     <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center animate-ping absolute inset-0" />
-                    <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-lg border-2 border-emerald-500 relative z-10 overflow-hidden text-emerald-500">
+                    <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-lg border-2 border-emerald-500 relative z-10 overflow-hidden">
                       {session?.user?.image ? (
                         <img src={session.user.image} alt="Profil Anda" referrerPolicy="no-referrer" crossOrigin="anonymous" className="w-full h-full object-cover" />
                       ) : (
-                        <User size={20} strokeWidth={2.5} />
+                        <div className="w-full h-full rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center">
+                          <User size={18} className="text-emerald-600" strokeWidth={2.5} />
+                        </div>
                       )}
                     </div>
                   </div>
