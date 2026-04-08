@@ -1,7 +1,10 @@
-import { useQuery, useMutation, type UseQueryOptions, type UseMutationOptions } from "@tanstack/react-query";
+import { keepPreviousData, useQuery, useMutation, type UseQueryOptions, type UseMutationOptions } from "@tanstack/react-query";
 import { QUERY_KEYS } from "../queryKeys";
 import { apiClient } from "@/config/api-client";
 import { Api } from "@/constants/api";
+
+export type ReportsScope = "mine" | "all";
+export type ReportOwnership = "mine" | "other";
 
 // Base Types Based on the contract
 export interface ReportCategory {
@@ -54,6 +57,14 @@ export interface ReportLocation {
     name: string;
     wilayah: string;
   } | null;
+  canEdit?: boolean;
+  ownership?: ReportOwnership;
+  agencyNote?: string | null;
+  resolutionNote?: string | null;
+  assignedTo?: {
+    id: string;
+    name: string;
+  } | null;
   aiReview?: AiReview | null;
 }
 
@@ -97,6 +108,7 @@ export interface CreateReportResponse {
 }
 
 export interface GetReportLocationsRequest {
+  scope?: ReportsScope;
   status?: string;
   kategoriId?: string;
   dinasId?: string;
@@ -131,6 +143,8 @@ export interface DashboardReportItem {
   date: string;
   dateLabel: string;
   agencyName: string;
+  canEdit?: boolean;
+  ownership?: ReportOwnership;
   dinas?: ReportLocation["dinas"];
   cabangDinas?: ReportLocation["cabangDinas"];
   kategori?: Pick<ReportCategory, "id" | "code" | "name"> | null;
@@ -151,6 +165,7 @@ export interface ReportsDashboardTab {
 }
 
 export interface GetReportsDashboardRequest {
+  scope?: ReportsScope;
   tab?: ReportsDashboardTabKey;
   page?: number;
   limit?: number;
@@ -170,6 +185,20 @@ export interface GetReportsDashboardResponse {
     summary: ReportsDashboardSummary;
     tabs: ReportsDashboardTab[];
   };
+}
+
+export interface UpdateAgencyReportRequest {
+  status: ReportLocation["status"];
+  agencyNote?: string | null;
+  resolutionNote?: string | null;
+  assignedToId?: string | null;
+}
+
+export interface UpdateAgencyReportResponse {
+  data: Pick<
+    ReportLocation,
+    "id" | "status" | "agencyNote" | "resolutionNote" | "assignedTo" | "canEdit" | "ownership"
+  >;
 }
 
 export function useQueryGetMyReports<TData = GetReportLocationsResponse, TError = Error>(
@@ -200,6 +229,7 @@ export function useQueryGetReportsDashboard<TData = GetReportsDashboardResponse,
 ) {
   return useQuery({
     queryKey: [QUERY_KEYS.REPORTS_DASHBOARD, params],
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const response = await apiClient.get<GetReportsDashboardResponse>(Api.reportsDashboard, {
         params,
@@ -221,6 +251,7 @@ export function useQueryGetReportLocations<TData = GetReportLocationsResponse, T
 ) {
   return useQuery({
     queryKey: [QUERY_KEYS.REPORTS_LOCATIONS, params],
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const response = await apiClient.get<GetReportLocationsResponse>(Api.reportLocations, {
         params,
@@ -253,5 +284,24 @@ export function useMutationCreateReport(
       return response.data;
     },
     ...options
+  });
+}
+
+export function useMutationUpdateAgencyReport(
+  options?: Omit<
+    UseMutationOptions<
+      UpdateAgencyReportResponse,
+      Error,
+      { id: string; payload: UpdateAgencyReportRequest }
+    >,
+    "mutationFn"
+  >
+) {
+  return useMutation({
+    mutationFn: async ({ id, payload }: { id: string; payload: UpdateAgencyReportRequest }) => {
+      const response = await apiClient.patch<UpdateAgencyReportResponse>(Api.reportAgency(id), payload);
+      return response.data;
+    },
+    ...options,
   });
 }

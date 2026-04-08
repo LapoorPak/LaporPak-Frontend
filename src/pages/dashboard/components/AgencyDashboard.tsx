@@ -15,19 +15,26 @@ import {
   Search,
   ListFilter,
   Navigation,
+  User,
 } from "lucide-react";
 import type {
   ReportsDashboardSummary,
   ReportsDashboardTab,
   ReportsDashboardTabKey,
   ReportLocation,
+  ReportsScope,
 } from "@/api/reports/reports-queries";
+import { useMutationUpdateAgencyReport } from "@/api/reports/reports-queries";
 import { useGetReportLocations } from "@/hooks/reports/useGetReportLocations";
 import { useGetReportsDashboard } from "@/hooks/reports/useGetReportsDashboard";
 import {
   useQuerySearchLocation,
   type SearchResult,
 } from "@/hooks/search/useSearchLocation";
+import { QUERY_KEYS } from "@/api/queryKeys";
+import { useQueryClient } from "@tanstack/react-query";
+import axios from "axios";
+import { toast } from "sonner";
 import { AgencyReportDetailDrawer } from "./AgencyReportDetailDrawer";
 import { AgencyReportsBottomSheet } from "./AgencyReportsBottomSheet";
 import { AgencyReportsSidebar } from "./AgencyReportsSidebar";
@@ -93,6 +100,19 @@ const SUMMARY_CARD_META = [
   },
 ] as const;
 
+const REPORT_SCOPE_OPTIONS: { value: ReportsScope; label: string; shortLabel: string }[] = [
+  { value: "mine", label: "Milik Saya", shortLabel: "Saya" },
+  { value: "all", label: "Semua Tiket", shortLabel: "Semua" },
+];
+
+const getAgencyUpdateErrorMessage = (error: unknown) => {
+  if (axios.isAxiosError<{ error?: string; message?: string }>(error)) {
+    return error.response?.data?.error ?? error.response?.data?.message ?? error.message;
+  }
+
+  return error instanceof Error ? error.message : "Gagal memperbarui tiket.";
+};
+
 const matchesAgencyDashboardTab = (
   status: ReportLocation["status"],
   tab: ReportsDashboardTabKey,
@@ -124,10 +144,13 @@ const matchesAgencyDashboardSearch = (
 
 export default function AgencyDashboard() {
   const [activeTab, setActiveTab] = useState<ReportsDashboardTabKey>("semua");
+  const [scope, setScope] = useState<ReportsScope>("mine");
   const [selectedMarkerId, setSelectedMarkerId] = useState<string | null>(null);
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 768);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [draftStatus, setDraftStatus] = useState<string | null>(null);
+  const [agencyNote, setAgencyNote] = useState("");
+  const [resolutionNote, setResolutionNote] = useState("");
   const [userLocation, setUserLocation] = useState<[number, number] | null>(
     null,
   );
@@ -144,13 +167,14 @@ export default function AgencyDashboard() {
   } | null>(null);
   const searchRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapRef | null>(null);
+  const queryClient = useQueryClient();
 
-  const { data: reportLocationsData } = useGetReportLocations();
+  const { data: reportLocationsData } = useGetReportLocations({ scope });
   const {
     data: reportsDashboardData,
-    isFetching: isReportsDashboardFetching,
     isLoading: isReportsDashboardLoading,
   } = useGetReportsDashboard({
+    scope,
     tab: activeTab,
     search: debouncedReportSearchQuery || undefined,
     limit: 100,
@@ -166,6 +190,8 @@ export default function AgencyDashboard() {
     reportsDashboardData?.stats.summary || DEFAULT_REPORTS_DASHBOARD_SUMMARY;
   const totalDashboardReports =
     reportsDashboardData?.meta.total ?? dashboardReports.length;
+  const isDashboardListLoading =
+    isReportsDashboardLoading && dashboardReports.length === 0;
   const summaryStats = SUMMARY_CARD_META.map((item) => ({
     ...item,
     value: dashboardSummary[item.key],
@@ -179,6 +205,44 @@ export default function AgencyDashboard() {
   const selectedReport = locationReports.find(
     (report) => report.id === selectedMarkerId,
   );
+  const canEditSelectedReport = selectedReport?.canEdit ?? scope === "mine";
+  const hasDraftChanges = selectedReport
+    ? (
+        draftStatus !== selectedReport.status ||
+        agencyNote.trim() !== (selectedReport.agencyNote ?? "").trim() ||
+        resolutionNote.trim() !== (selectedReport.resolutionNote ?? "").trim()
+      )
+    : false;
+  const isSaveDisabled =
+    !selectedReport ||
+    !draftStatus ||
+    !canEditSelectedReport ||
+    !hasDraftChanges;
+  const updateAgencyReport = useMutationUpdateAgencyReport({
+    onSuccess: async (response) => {
+      setDraftStatus(response.data.status);
+      setAgencyNote(response.data.agencyNote ?? "");
+      setResolutionNote(response.data.resolutionNote ?? "");
+
+      await Promise.allSettled([
+        queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.REPORTS_LOCATIONS] }),
+        queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.REPORTS_DASHBOARD] }),
+      ]);
+
+      toast.success("Tiket berhasil diperbarui", {
+        description:
+          response.data.status === "resolved"
+            ? "Laporan ditandai selesai dan perubahan sudah tersimpan."
+            : "Perubahan tiket sudah tersimpan.",
+      });
+      setSelectedMarkerId(null);
+    },
+    onError: (error) => {
+      toast.error("Gagal menyimpan tiket", {
+        description: getAgencyUpdateErrorMessage(error),
+      });
+    },
+  });
 
   const [viewport, setViewport] = useState({
     center: [106.8229, -6.1944] as [number, number],
@@ -246,6 +310,12 @@ export default function AgencyDashboard() {
     );
   }, []);
 
+  useEffect(() => {
+    if (selectedMarkerId && !selectedReport) {
+      setSelectedMarkerId(null);
+    }
+  }, [selectedMarkerId, selectedReport]);
+
   const focusMapOnCoordinates = (coords: [number, number], zoom = 15) => {
     if (mapRef.current) {
       mapRef.current.flyTo({
@@ -265,11 +335,21 @@ export default function AgencyDashboard() {
   };
 
   const handleSaveStatus = () => {
-    if (draftStatus && selectedMarkerId) {
-      // TODO: Call API to update status
-      console.warn("Update status not implemented yet (needs API integration)");
-      setSelectedMarkerId(null);
+    if (!draftStatus || !selectedMarkerId || !selectedReport || isSaveDisabled) {
+      return;
     }
+
+    updateAgencyReport.mutate({
+      id: selectedMarkerId,
+      payload: {
+        status: draftStatus as ReportLocation["status"],
+        agencyNote: agencyNote.trim() || null,
+        resolutionNote:
+          draftStatus === "resolved" || resolutionNote.trim().length > 0
+            ? resolutionNote.trim() || null
+            : null,
+      },
+    });
   };
 
   const handleSelectReport = (reportId: string) => {
@@ -283,11 +363,15 @@ export default function AgencyDashboard() {
     if (locationReport) {
       focusMapOnCoordinates([locationReport.lng, locationReport.lat], 15);
       setDraftStatus(locationReport.status);
+      setAgencyNote(locationReport.agencyNote ?? "");
+      setResolutionNote(locationReport.resolutionNote ?? "");
       return;
     }
 
     if (dashboardReport) {
       setDraftStatus(dashboardReport.status);
+      setAgencyNote("");
+      setResolutionNote("");
     }
   };
 
@@ -436,26 +520,10 @@ export default function AgencyDashboard() {
                 <div className="flex flex-col items-center -mt-6 pointer-events-none">
                   <div className="relative">
                     <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center animate-ping absolute inset-0" />
-                    <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-lg border-2 border-emerald-500 relative z-10">
-                      <svg
-                        width="20"
-                        height="20"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <circle cx="12" cy="5" r="3" fill="#10b981" />
-                        <path
-                          d="M12 9c-3 0-5 2-5 4v1a1 1 0 001 1h8a1 1 0 001-1v-1c0-2-2-4-5-4z"
-                          fill="#10b981"
-                        />
-                        <path
-                          d="M10 15v4.5a1 1 0 002 0V15M12 15v4.5a1 1 0 002 0V15"
-                          stroke="#10b981"
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                        />
-                      </svg>
+                    <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-lg border-2 border-emerald-500 relative z-10 overflow-hidden">
+                      <div className="w-full h-full rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center">
+                        <User size={18} className="text-emerald-600" strokeWidth={2.5} />
+                      </div>
                     </div>
                   </div>
                   <span className="text-[9px] font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full mt-1 border border-emerald-200 shadow-sm">
@@ -502,7 +570,7 @@ export default function AgencyDashboard() {
         stats={summaryStats}
         tabs={dashboardTabs}
         totalCount={totalDashboardReports}
-        isLoading={isReportsDashboardLoading || isReportsDashboardFetching}
+        isLoading={isDashboardListLoading}
         onTabChange={setActiveTab}
         onSearchChange={setReportSearchQuery}
         onClose={() => setIsSidebarOpen(false)}
@@ -514,12 +582,14 @@ export default function AgencyDashboard() {
         isOpen={isSidebarOpen && !isDesktop}
         activeTab={activeTab}
         reports={dashboardReports}
+        searchQuery={reportSearchQuery}
         selectedMarkerId={selectedMarkerId}
         stats={summaryStats}
         tabs={dashboardTabs}
         totalCount={totalDashboardReports}
-        isLoading={isReportsDashboardLoading || isReportsDashboardFetching}
+        isLoading={isDashboardListLoading}
         onTabChange={setActiveTab}
+        onSearchChange={setReportSearchQuery}
         onClose={() => setIsSidebarOpen(false)}
         onSelectReport={(reportId) => {
           handleSelectReport(reportId);
@@ -533,8 +603,15 @@ export default function AgencyDashboard() {
         isDesktop={isDesktop}
         report={selectedReport || null}
         draftStatus={draftStatus}
+        agencyNote={agencyNote}
+        resolutionNote={resolutionNote}
+        canEdit={canEditSelectedReport}
+        isSaving={updateAgencyReport.isPending}
+        isSaveDisabled={isSaveDisabled}
         onClose={() => setSelectedMarkerId(null)}
         onDraftStatusChange={setDraftStatus}
+        onAgencyNoteChange={setAgencyNote}
+        onResolutionNoteChange={setResolutionNote}
         onSave={handleSaveStatus}
       />
 
@@ -555,7 +632,7 @@ export default function AgencyDashboard() {
           className="max-w-sm md:max-w-md"
         />
 
-        <div className="bg-white rounded-full shadow-[0_8px_32px_-8px_rgba(0,0,0,0.18)] border border-gray-100 flex items-center px-2 py-1.5 gap-1 w-full max-w-sm md:max-w-md pointer-events-auto">
+        <div className="bg-white rounded-full shadow-[0_8px_32px_-8px_rgba(0,0,0,0.18)] border border-gray-100 flex items-center px-2 py-1.5 gap-1 w-full max-w-xl md:max-w-2xl pointer-events-auto">
           {/* Search — always open */}
           <div className="flex items-center flex-1 gap-1 bg-gray-50 border border-gray-200 rounded-full px-3 py-1 min-w-0">
             <Search
@@ -574,6 +651,26 @@ export default function AgencyDashboard() {
               placeholder="Cari lokasi..."
               className="bg-transparent border-none outline-none text-xs font-bold text-gray-900 placeholder:text-gray-400 w-full py-1.5"
             />
+          </div>
+
+          <div className="w-px h-5 bg-gray-200 shrink-0 mx-0.5" />
+
+          <div className="flex items-center gap-1 rounded-full bg-gray-50 border border-gray-200 p-1 shrink-0">
+            {REPORT_SCOPE_OPTIONS.map((scopeOption) => (
+              <button
+                key={scopeOption.value}
+                type="button"
+                onClick={() => setScope(scopeOption.value)}
+                className={`rounded-full px-3 py-1.5 text-[11px] font-black tracking-wide transition-all ${
+                  scope === scopeOption.value
+                    ? "bg-[#db2744] text-white shadow-sm"
+                    : "text-gray-500 hover:bg-white hover:text-gray-800"
+                }`}
+              >
+                <span className="sm:hidden">{scopeOption.shortLabel}</span>
+                <span className="hidden sm:inline">{scopeOption.label}</span>
+              </button>
+            ))}
           </div>
 
           <div className="w-px h-5 bg-gray-200 shrink-0 mx-0.5" />

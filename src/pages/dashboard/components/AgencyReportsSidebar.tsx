@@ -1,11 +1,12 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { ListFilter, MapPin, Search, X, type LucideIcon } from "lucide-react";
+import { MapPin, Search, X, type LucideIcon } from "lucide-react";
 import type {
   DashboardReportItem,
   ReportsDashboardTab,
   ReportsDashboardTabKey,
 } from "@/api/reports/reports-queries";
 import { getDashboardStatusToneStyle } from "../utils/reportStatus";
+import { AnimatedCount } from "./AnimatedCount";
 
 interface SummaryStat {
   label: string;
@@ -32,6 +33,7 @@ interface AgencyReportsSidebarProps {
   onSelectReport: (reportId: string) => void;
 }
 
+const SIDEBAR_LIST_SKELETONS = Array.from({ length: 4 });
 export function AgencyReportsSidebar({
   isOpen,
   activeTab,
@@ -80,7 +82,10 @@ export function AgencyReportsSidebar({
                       <stat.icon size={40} className={stat.color} />
                     </div>
                     <div className="relative z-10">
-                      <div className="text-2xl font-black text-[#111827] mb-0.5 leading-none">{stat.value}</div>
+                      <AnimatedCount
+                        value={stat.value}
+                        className="text-2xl font-black text-[#111827] mb-0.5 leading-none"
+                      />
                       <div className="text-[10px] font-extrabold text-gray-500 uppercase tracking-wider">{stat.label}</div>
                     </div>
                   </div>
@@ -103,13 +108,13 @@ export function AgencyReportsSidebar({
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-2.5 bg-gray-50/50">
-              <div className="flex items-center justify-between px-1 mb-2">
+              <div className="px-1 mb-2">
                 <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
-                  Tickets <span className="bg-white text-gray-900 px-2 py-0.5 rounded-full text-[10px] border border-gray-200">{totalCount}</span>
+                  Tickets
+                  <span className="bg-white text-gray-900 px-2 py-0.5 rounded-full text-[10px] border border-gray-200">
+                    <AnimatedCount value={totalCount} />
+                  </span>
                 </h3>
-                <button className="text-gray-400 hover:text-gray-900">
-                  <ListFilter size={13} strokeWidth={3} />
-                </button>
               </div>
 
               <div className="relative mb-3">
@@ -124,7 +129,25 @@ export function AgencyReportsSidebar({
               </div>
 
               {isLoading ? (
-                <div className="px-4 py-10 text-center text-sm font-semibold text-gray-400">Memuat laporan...</div>
+                <div className="space-y-3">
+                  {SIDEBAR_LIST_SKELETONS.map((_, index) => (
+                    <div
+                      key={`report-skeleton-${index}`}
+                      className="rounded-xl border border-gray-100 bg-white p-4 animate-pulse"
+                    >
+                      <div className="flex items-start justify-between gap-3 mb-3">
+                        <div className="h-5 w-24 rounded-full bg-gray-200" />
+                        <div className="h-3 w-16 rounded-full bg-gray-100" />
+                      </div>
+                      <div className="h-4 w-4/5 rounded-full bg-gray-200 mb-2" />
+                      <div className="h-3 w-3/5 rounded-full bg-gray-100 mb-4" />
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="h-3 w-32 rounded-full bg-gray-100" />
+                        <div className="h-3 w-16 rounded-full bg-gray-100" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
               ) : reports.length === 0 ? (
                 <div className="px-4 py-10 text-center text-sm font-semibold text-gray-400">Belum ada laporan untuk filter ini.</div>
               ) : (
@@ -146,9 +169,14 @@ export function AgencyReportsSidebar({
                     </div>
                     <h4 className="font-bold text-[#111827] text-sm leading-snug line-clamp-1 mb-1.5">{report.title}</h4>
                     <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-1 text-gray-400 text-[11px] min-w-0">
+                      <div className="flex items-center gap-2 text-gray-400 text-[11px] min-w-0">
                         <MapPin size={10} className="shrink-0" />
                         <span className="truncate">{report.agencyName}</span>
+                        {report.canEdit === false && (
+                          <span className="rounded-full border border-gray-200 bg-gray-100 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-gray-500 shrink-0">
+                            Lihat Saja
+                          </span>
+                        )}
                       </div>
                       <span className="text-[10px] font-black text-gray-300 shrink-0">{report.referenceCode}</span>
                     </div>

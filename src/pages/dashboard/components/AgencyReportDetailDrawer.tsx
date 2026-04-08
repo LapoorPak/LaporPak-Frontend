@@ -4,14 +4,40 @@ import type { ReportLocation } from "@/api/reports/reports-queries";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { AGENCY_REPORT_STATUS_MAP } from "../utils/reportStatus";
+
+const STATUS_OPTIONS = [
+  {
+    value: "verified",
+    label: "Verifikasi",
+    activeClass: "border-blue-500 bg-blue-50 text-blue-600",
+  },
+  {
+    value: "in_progress",
+    label: "Proses",
+    activeClass: "border-orange-500 bg-orange-50 text-orange-600",
+  },
+  {
+    value: "resolved",
+    label: "Selesai",
+    activeClass: "border-emerald-500 bg-emerald-50 text-emerald-600",
+  },
+] as const;
 
 interface AgencyReportDetailDrawerProps {
   isOpen: boolean;
   isDesktop: boolean;
   report: ReportLocation | null;
   draftStatus: string | null;
+  agencyNote: string;
+  resolutionNote: string;
+  canEdit: boolean;
+  isSaving: boolean;
+  isSaveDisabled: boolean;
   onClose: () => void;
   onDraftStatusChange: (status: string) => void;
+  onAgencyNoteChange: (value: string) => void;
+  onResolutionNoteChange: (value: string) => void;
   onSave: () => void;
 }
 
@@ -20,10 +46,28 @@ export function AgencyReportDetailDrawer({
   isDesktop,
   report,
   draftStatus,
+  agencyNote,
+  resolutionNote,
+  canEdit,
+  isSaving,
+  isSaveDisabled,
   onClose,
   onDraftStatusChange,
+  onAgencyNoteChange,
+  onResolutionNoteChange,
   onSave,
 }: AgencyReportDetailDrawerProps) {
+  const currentStatusMeta = report
+    ? AGENCY_REPORT_STATUS_MAP[report.status] || {
+        label: report.status,
+        color: "bg-gray-100 text-gray-700 border-gray-200",
+      }
+    : null;
+  const shouldShowResolutionNote =
+    draftStatus === "resolved" ||
+    Boolean(report?.resolutionNote) ||
+    Boolean(resolutionNote.trim());
+
   return (
     <AnimatePresence>
       {isOpen && report && (
@@ -76,7 +120,21 @@ export function AgencyReportDetailDrawer({
 
                 <div>
                   <h2 className="text-base font-black text-gray-900 leading-tight mb-1.5">{report.title}</h2>
-                  <p className="text-sm text-gray-500 leading-relaxed mb-4">{report.kategori?.name || "Laporan Warga"}</p>
+                  <div className="flex flex-wrap items-center gap-2 mb-3">
+                    {currentStatusMeta && (
+                      <span
+                        className={`text-[10px] font-black px-2.5 py-1 rounded-full border uppercase tracking-widest ${currentStatusMeta.color}`}
+                      >
+                        {currentStatusMeta.label}
+                      </span>
+                    )}
+                    <span className="text-[10px] font-black px-2.5 py-1 rounded-full border uppercase tracking-widest bg-gray-100 text-gray-500 border-gray-200">
+                      {canEdit ? "Bisa Diedit" : "Lihat Saja"}
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-500 leading-relaxed mb-4">
+                    {report.kategori?.name || "Laporan Warga"}
+                  </p>
 
                   <div className="grid grid-cols-2 gap-2 p-3 bg-gray-50 rounded-xl border border-gray-100">
                     <div className="flex flex-col gap-0.5">
@@ -113,49 +171,56 @@ export function AgencyReportDetailDrawer({
                 </h4>
 
                 <div className="space-y-4">
+                  {!canEdit && (
+                    <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                      Tiket ini tetap bisa dilihat, tapi hanya laporan milik instansi Anda yang dapat diubah.
+                    </div>
+                  )}
+
                   <div className="space-y-2">
                     <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Ubah Status</Label>
                     <div className="grid grid-cols-3 gap-2">
-                      <button
-                        onClick={() => onDraftStatusChange("baru")}
-                        className={`py-2.5 rounded-xl border-2 text-xs font-black uppercase tracking-wider transition-all ${
-                          draftStatus === "baru"
-                            ? "border-[#C01D33] bg-red-50 text-[#C01D33]"
-                            : "border-gray-100 text-gray-400 hover:border-gray-200 bg-white"
-                        }`}
-                      >
-                        Baru
-                      </button>
-                      <button
-                        onClick={() => onDraftStatusChange("proses")}
-                        className={`py-2.5 rounded-xl border-2 text-xs font-black uppercase tracking-wider transition-all ${
-                          draftStatus === "proses"
-                            ? "border-orange-500 bg-orange-50 text-orange-600"
-                            : "border-gray-100 text-gray-400 hover:border-gray-200 bg-white"
-                        }`}
-                      >
-                        Proses
-                      </button>
-                      <button
-                        onClick={() => onDraftStatusChange("selesai")}
-                        className={`py-2.5 rounded-xl border-2 text-xs font-black uppercase tracking-wider transition-all ${
-                          draftStatus === "selesai"
-                            ? "border-emerald-500 bg-emerald-50 text-emerald-600"
-                            : "border-gray-100 text-gray-400 hover:border-gray-200 bg-white"
-                        }`}
-                      >
-                        Selesai
-                      </button>
+                      {STATUS_OPTIONS.map((statusOption) => (
+                        <button
+                          key={statusOption.value}
+                          type="button"
+                          disabled={!canEdit}
+                          onClick={() => onDraftStatusChange(statusOption.value)}
+                          className={`py-2.5 rounded-xl border-2 text-xs font-black uppercase tracking-wider transition-all ${
+                            draftStatus === statusOption.value
+                              ? statusOption.activeClass
+                              : "border-gray-100 text-gray-400 hover:border-gray-200 bg-white"
+                          } ${!canEdit ? "cursor-not-allowed opacity-60 hover:border-gray-100" : ""}`}
+                        >
+                          {statusOption.label}
+                        </button>
+                      ))}
                     </div>
                   </div>
 
                   <div className="space-y-2">
                     <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Catatan Dinas</Label>
                     <Textarea
+                      value={agencyNote}
+                      disabled={!canEdit}
+                      onChange={(event) => onAgencyNoteChange(event.target.value)}
                       placeholder="Langkah penanganan yang sudah/akan diambil..."
                       className="rounded-xl min-h-[80px] bg-white border-2 border-gray-100 focus:border-[#C01D33] focus:ring-0 text-gray-900 text-sm resize-none p-3 shadow-none"
                     />
                   </div>
+
+                  {shouldShowResolutionNote && (
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Catatan Penyelesaian</Label>
+                      <Textarea
+                        value={resolutionNote}
+                        disabled={!canEdit}
+                        onChange={(event) => onResolutionNoteChange(event.target.value)}
+                        placeholder="Ringkasan penanganan akhir atau hasil penyelesaian..."
+                        className="rounded-xl min-h-[80px] bg-white border-2 border-gray-100 focus:border-emerald-500 focus:ring-0 text-gray-900 text-sm resize-none p-3 shadow-none"
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -163,9 +228,11 @@ export function AgencyReportDetailDrawer({
             <div className="p-4 bg-white border-t border-gray-100 shrink-0">
               <Button
                 onClick={onSave}
+                disabled={!canEdit || isSaving || isSaveDisabled}
                 className="w-full bg-[#111827] hover:bg-gray-800 rounded-xl h-12 text-white font-black tracking-widest text-sm active:scale-[0.98] transition-all flex items-center justify-center gap-2"
               >
-                SIMPAN <ArrowRight size={15} strokeWidth={3} className="opacity-60" />
+                {canEdit ? (isSaving ? "MENYIMPAN..." : "SIMPAN") : "LIHAT SAJA"}
+                <ArrowRight size={15} strokeWidth={3} className="opacity-60" />
               </Button>
             </div>
           </motion.div>

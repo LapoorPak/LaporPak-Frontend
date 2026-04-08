@@ -1,5 +1,6 @@
 export const Api = {
   reports: "/reports",
+  reportAgency: (id: string) => `/reports/${id}/agency`,
   myReports: "/reports/me",
   reportsDashboard: "/reports/dashboard",
   reportLocations: "/reports/locations",
