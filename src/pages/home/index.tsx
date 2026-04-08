@@ -4,6 +4,22 @@ import { Lightbulb, Megaphone } from "lucide-react";
 import { Navbar, Footer } from "@/components/layout";
 import { useAuth } from "@/hooks";
 
+const IDEA_SPARKS = [
+  { id: "spark-1", className: "left-3 top-5 h-2.5 w-2.5 bg-yellow-300", delay: 0.1, duration: 2.8, x: -6 },
+  { id: "spark-2", className: "left-10 top-1 h-3.5 w-3.5 bg-amber-300", delay: 0.5, duration: 3.1, x: 8 },
+  { id: "spark-3", className: "right-6 top-4 h-2.5 w-2.5 bg-yellow-200", delay: 0.2, duration: 2.6, x: 6 },
+  { id: "spark-4", className: "right-0 top-11 h-3 w-3 bg-amber-200", delay: 0.8, duration: 3.3, x: -10 },
+  { id: "spark-5", className: "left-14 bottom-6 h-2 w-2 bg-yellow-300", delay: 0.4, duration: 2.9, x: 12 },
+  { id: "spark-6", className: "right-12 bottom-3 h-2.5 w-2.5 bg-amber-300", delay: 0.9, duration: 2.7, x: -8 },
+] as const;
+
+const IDEA_RAYS = [
+  { id: "ray-1", className: "left-9 top-12 w-10 rotate-[-18deg]", delay: 0.1 },
+  { id: "ray-2", className: "left-0 top-20 w-12 rotate-[-8deg]", delay: 0.35 },
+  { id: "ray-3", className: "right-4 top-10 w-12 rotate-[16deg]", delay: 0.55 },
+  { id: "ray-4", className: "right-0 top-20 w-10 rotate-[8deg]", delay: 0.8 },
+] as const;
+
 export default function Home() {
   const { data: session } = useAuth();
   const dashboardPath = "/dashboard";
@@ -162,14 +178,70 @@ export default function Home() {
                 3 kemudahan
              </h2>
           </div>
-          <div className="flex items-center relative mt-6 md:mt-0 md:ml-4">
-             <div className="relative -mr-6 rotate-[-15deg] z-10">
-               <Lightbulb size={96} className="text-yellow-400 " strokeWidth={1.5} fill="#facc15" />
-             </div>
-             <div className="relative rotate-[5deg] z-20">
-               <Lightbulb size={112} className="text-yellow-400 " strokeWidth={1.5} fill="#facc15" />
-             </div>
-          </div>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.92, y: 12 }}
+            whileInView={{ opacity: 1, scale: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.7, ease: "easeOut", delay: 0.15 }}
+            className="relative mt-6 md:mt-0 md:ml-4 flex h-[150px] w-[210px] items-center justify-center"
+          >
+            <motion.div
+              className="absolute left-5 top-8 h-20 w-20 rounded-full bg-yellow-300/40 blur-3xl"
+              animate={{ scale: [0.92, 1.12, 0.95], opacity: [0.35, 0.75, 0.45] }}
+              transition={{ repeat: Infinity, duration: 3.2, ease: "easeInOut" }}
+            />
+            <motion.div
+              className="absolute right-4 top-2 h-24 w-24 rounded-full bg-amber-300/45 blur-3xl"
+              animate={{ scale: [0.9, 1.08, 0.94], opacity: [0.3, 0.7, 0.4] }}
+              transition={{ repeat: Infinity, duration: 3.6, ease: "easeInOut", delay: 0.35 }}
+            />
+
+            {IDEA_RAYS.map((ray) => (
+              <motion.span
+                key={ray.id}
+                className={`absolute h-1.5 rounded-full bg-gradient-to-r from-yellow-200 via-yellow-300 to-amber-400 shadow-[0_0_18px_rgba(250,204,21,0.45)] ${ray.className}`}
+                animate={{ opacity: [0.35, 1, 0.35], scaleX: [0.8, 1.08, 0.84] }}
+                transition={{ repeat: Infinity, duration: 2.2, delay: ray.delay, ease: "easeInOut" }}
+              />
+            ))}
+
+            {IDEA_SPARKS.map((spark) => (
+              <motion.span
+                key={spark.id}
+                className={`absolute rounded-full shadow-[0_0_14px_rgba(250,204,21,0.5)] ${spark.className}`}
+                animate={{
+                  y: [0, -12, 0],
+                  x: [0, spark.x, 0],
+                  opacity: [0.2, 1, 0.25],
+                  scale: [0.9, 1.2, 0.95],
+                }}
+                transition={{
+                  repeat: Infinity,
+                  duration: spark.duration,
+                  delay: spark.delay,
+                  ease: "easeInOut",
+                }}
+              />
+            ))}
+
+            <motion.div
+              animate={{ y: [0, -7, 0], rotate: [-15, -12, -15], scale: [1, 1.03, 1] }}
+              transition={{ repeat: Infinity, duration: 3.1, ease: "easeInOut" }}
+              className="relative -mr-6 z-10"
+            >
+              <div className="absolute inset-2 rounded-full bg-yellow-200/50 blur-2xl" />
+              <Lightbulb size={96} className="relative text-yellow-400 drop-shadow-[0_8px_16px_rgba(250,204,21,0.3)]" strokeWidth={1.5} fill="#facc15" />
+            </motion.div>
+
+            <motion.div
+              animate={{ y: [0, -10, 0], rotate: [5, 8, 5], scale: [1, 1.04, 1] }}
+              transition={{ repeat: Infinity, duration: 3.4, ease: "easeInOut", delay: 0.25 }}
+              className="relative z-20"
+            >
+              <div className="absolute inset-2 rounded-full bg-amber-200/50 blur-2xl" />
+              <Lightbulb size={112} className="relative text-yellow-400 drop-shadow-[0_12px_22px_rgba(250,204,21,0.36)]" strokeWidth={1.5} fill="#facc15" />
+            </motion.div>
+          </motion.div>
         </motion.div>
       </section>
 
