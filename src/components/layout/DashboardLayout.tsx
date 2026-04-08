@@ -1,6 +1,7 @@
 import { Outlet, Link, useNavigate } from "react-router";
 import axios from "axios";
 import { authClient } from "@/lib/auth-client";
+import { useGetSessionDetail } from "@/hooks/useGetSessionDetail";
 import { useGetNotifications, useGetUnreadNotificationCount, useMarkAllNotificationsRead, useMarkNotificationRead } from "@/hooks/notifications";
 import { QUERY_KEYS } from "@/api/queryKeys";
 import type { NotificationItem, NotificationType } from "@/api/notifications/notifications-queries";
@@ -65,15 +66,51 @@ const colorMap: Record<
   },
 };
 
+const formatRoleLabel = (role?: string | null) => {
+  if (!role) {
+    return "Warga";
+  }
+
+  return role
+    .toLowerCase()
+    .split("_")
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+};
+
+const getDashboardIdentityLabel = ({
+  role,
+  branchName,
+  agencyName,
+}: {
+  role?: string | null;
+  branchName?: string | null;
+  agencyName?: string | null;
+}) => {
+  if (role === "warga") {
+    return "Warga";
+  }
+
+  return branchName || agencyName || formatRoleLabel(role);
+};
+
 export default function DashboardLayout() {
   const { data: session } = authClient.useSession();
+  const { data: sessionDetailResponse } = useGetSessionDetail({
+    enabled: !!session?.user && session.user.role !== "warga",
+    staleTime: 5 * 60 * 1000,
+  });
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
   const [activeTab, setActiveTab] = useState<"all" | "unread">("all");
   const panelRef = useRef<HTMLDivElement>(null);
   const bellRef = useRef<HTMLButtonElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+  const userButtonRef = useRef<HTMLButtonElement>(null);
 
   const notificationParams = activeTab === "unread" ? { page: 1, limit: 10, unread: true } : { page: 1, limit: 10 };
   const {
@@ -95,6 +132,19 @@ export default function DashboardLayout() {
   const notificationsErrorMessage = notificationsError
     ? getNotificationErrorMessage(notificationsError, "Gagal memuat notifikasi.")
     : null;
+  const userFullName = session?.user?.name || "Pengguna";
+  const userDisplayName = session?.user?.name?.split(" ")[0] || "Pengguna";
+  const userBranchName =
+    sessionDetailResponse?.data.petugas?.cabangDinas?.name || null;
+  const userAgencyName =
+    sessionDetailResponse?.data.petugas?.dinas?.name ||
+    sessionDetailResponse?.data.petugas?.cabangDinas?.dinas?.name ||
+    null;
+  const userIdentityLabel = getDashboardIdentityLabel({
+    role: session?.user?.role,
+    branchName: userBranchName,
+    agencyName: userAgencyName,
+  });
 
   const invalidateNotificationQueries = () => {
     void queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.NOTIFICATIONS] });
@@ -132,21 +182,37 @@ export default function DashboardLayout() {
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       const target = e.target as Node;
-      if (bellRef.current?.contains(target)) return;
-      if (panelRef.current && !panelRef.current.contains(target)) {
+      const isNotificationTrigger = bellRef.current?.contains(target);
+      const isUserTrigger = userButtonRef.current?.contains(target);
+
+      if (!isNotificationTrigger && panelRef.current && !panelRef.current.contains(target)) {
         setShowNotifications(false);
       }
+
+      if (!isUserTrigger && userMenuRef.current && !userMenuRef.current.contains(target)) {
+        setShowUserMenu(false);
+      }
     };
-    if (showNotifications) document.addEventListener("mousedown", handler);
+
+    if (showNotifications || showUserMenu) document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, [showNotifications]);
+  }, [showNotifications, showUserMenu]);
 
   const handleToggleNotifications = () => {
     if (!showNotifications) {
       void refetchUnreadCount();
+      setShowUserMenu(false);
     }
 
     setShowNotifications((previous) => !previous);
+  };
+
+  const handleToggleUserMenu = () => {
+    if (!showUserMenu) {
+      setShowNotifications(false);
+    }
+
+    setShowUserMenu((previous) => !previous);
   };
 
   const handleNotificationClick = (notification: NotificationItem) => {
@@ -181,21 +247,22 @@ export default function DashboardLayout() {
     }
 
     setIsSigningOut(true);
+    setShowUserMenu(false);
     await authClient.signOut();
     navigate("/login");
   };
 
   return (
     <div className="h-[100dvh] w-full flex flex-col bg-gray-50 overflow-hidden relative font-sans">
-      <header className="absolute top-4 left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-5xl rounded-full bg-white shadow-lg px-4 py-2.5 flex items-center justify-between">
-        <Link to="/dashboard" className="flex items-center gap-2.5 group hover:opacity-80 transition-opacity shrink-0">
-           <Megaphone size={24} className="text-[#db2744] shrink-0" strokeWidth={1.5} fill="#db2744" />
-           <span className="text-lg font-black font-heading tracking-tight text-gray-900 leading-none">
+      <header className="absolute top-3 sm:top-4 left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-5xl rounded-[26px] sm:rounded-full bg-white shadow-lg px-3 sm:px-4 py-2 sm:py-2.5 flex items-center justify-between gap-3">
+        <Link to="/dashboard" className="flex items-center gap-2 sm:gap-2.5 group hover:opacity-80 transition-opacity shrink-0 min-w-0">
+           <Megaphone size={22} className="text-[#db2744] shrink-0 sm:w-6 sm:h-6" strokeWidth={1.5} fill="#db2744" />
+           <span className="text-base sm:text-lg font-black font-heading tracking-tight text-gray-900 leading-none">
              Lapor<span className="text-[#db2744]">Pak</span>
            </span>
         </Link>
         
-        <div className="flex items-center gap-3 md:gap-5">
+        <div className="flex items-center gap-2 sm:gap-3 md:gap-5 min-w-0">
           <div className="flex items-center gap-2 relative" ref={panelRef}>
              <button 
                 ref={bellRef}
@@ -377,8 +444,8 @@ export default function DashboardLayout() {
           
           <div className="h-8 w-[1px] bg-gray-200 hidden sm:block mx-1" />
           
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2 cursor-pointer group">
+          <div className="hidden sm:flex items-center gap-1.5 sm:gap-2 min-w-0">
+            <div className="flex items-center gap-1.5 sm:gap-2 cursor-pointer group min-w-0">
                <div className="w-8 h-8 rounded-full bg-red-50 group-hover:bg-red-100 flex items-center justify-center transition-colors overflow-hidden border border-red-100 shrink-0">
                  {session?.user?.image ? (
                    <img src={session.user.image} alt={session.user.name} referrerPolicy="no-referrer" crossOrigin="anonymous" className="w-full h-full object-cover" />
@@ -386,12 +453,15 @@ export default function DashboardLayout() {
                    <User size={15} className="text-[#db2744]" strokeWidth={2.5} />
                  )}
                </div>
-               <div className="flex flex-col max-w-[100px] sm:max-w-none">
+               <div className="flex flex-col min-w-0 max-w-[110px] sm:max-w-[150px]">
                  <span className="text-xs font-bold text-gray-900 tracking-wide leading-none mb-0.5 truncate">
-                   {session?.user?.name?.split(" ")[0] || "Pengguna"}
+                   {userDisplayName}
                  </span>
-                 <span className="text-[9px] font-black text-[#db2744] uppercase tracking-widest leading-none">
-                   {session?.user?.role || "Warga"}
+                 <span
+                   className="text-[8px] sm:text-[9px] font-black text-[#db2744] leading-tight whitespace-normal break-normal text-left"
+                   title={userIdentityLabel}
+                 >
+                   {userIdentityLabel}
                  </span>
                </div>
             </div>
@@ -399,15 +469,77 @@ export default function DashboardLayout() {
             <button 
                onClick={handleLogout}
                disabled={isSigningOut}
-               className="p-2 rounded-full hover:bg-red-50 text-gray-400 hover:text-[#db2744] transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed"
+               className="p-1.5 sm:p-2 rounded-full hover:bg-red-50 text-gray-400 hover:text-[#db2744] transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed shrink-0"
                title="Keluar"
             >
               {isSigningOut ? (
                 <div className="w-4 h-4 rounded-full border-2 border-gray-300 border-t-[#db2744] animate-spin" />
               ) : (
                 <LogOut size={15} strokeWidth={2.5} />
+               )}
+             </button>
+           </div>
+
+          <div className="sm:hidden relative" ref={userMenuRef}>
+            <button
+              ref={userButtonRef}
+              onClick={handleToggleUserMenu}
+              aria-label="Buka menu akun"
+              aria-haspopup="menu"
+              aria-expanded={showUserMenu}
+              className="w-8 h-8 rounded-full bg-red-50 hover:bg-red-100 flex items-center justify-center transition-colors overflow-hidden border border-red-100 shrink-0"
+            >
+              {session?.user?.image ? (
+                <img src={session.user.image} alt={userFullName} referrerPolicy="no-referrer" crossOrigin="anonymous" className="w-full h-full object-cover" />
+              ) : (
+                <User size={15} className="text-[#db2744]" strokeWidth={2.5} />
               )}
             </button>
+
+            <AnimatePresence>
+              {showUserMenu && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95, y: 6 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: 6 }}
+                  transition={{ duration: 0.15, ease: "easeOut" }}
+                  className="fixed top-[75px] right-4 w-[220px] max-w-[calc(100vw-2rem)] rounded-2xl border border-gray-100 bg-white shadow-[0_16px_40px_rgba(0,0,0,0.14)] overflow-hidden origin-top-right z-50"
+                >
+                  <div className="px-4 py-3 border-b border-gray-100 bg-gradient-to-br from-white via-red-50/30 to-white">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center overflow-hidden border border-red-100 shrink-0">
+                        {session?.user?.image ? (
+                          <img src={session.user.image} alt={userFullName} referrerPolicy="no-referrer" crossOrigin="anonymous" className="w-full h-full object-cover" />
+                        ) : (
+                          <User size={18} className="text-[#db2744]" strokeWidth={2.5} />
+                        )}
+                      </div>
+                      <div className="min-w-0 max-w-[150px]">
+                        <p className="text-sm font-bold text-gray-900 break-normal">{userFullName}</p>
+                        <p className="text-[10px] font-black text-[#db2744] leading-tight whitespace-normal break-normal mt-1">
+                          {userIdentityLabel}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-2">
+                    <button
+                      onClick={handleLogout}
+                      disabled={isSigningOut}
+                      className="w-full flex items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-sm font-bold text-gray-600 hover:bg-red-50 hover:text-[#db2744] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      <span>{isSigningOut ? "Keluar..." : "Keluar"}</span>
+                      {isSigningOut ? (
+                        <div className="w-4 h-4 rounded-full border-2 border-gray-300 border-t-[#db2744] animate-spin shrink-0" />
+                      ) : (
+                        <LogOut size={15} strokeWidth={2.5} className="shrink-0" />
+                      )}
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
       </header>

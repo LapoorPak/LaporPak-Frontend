@@ -1,4 +1,5 @@
 export const Api = {
+  authSessionDetail: "/auth/session-detail",
   reports: "/reports",
   reportAgency: (id: string) => `/reports/${id}/agency`,
   myReports: "/reports/me",
