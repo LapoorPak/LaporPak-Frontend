@@ -1,10 +1,5 @@
-import { useState, useEffect, useRef } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Map, MapControls, MapMarker, MarkerContent, MarkerPopup } from "@/components/ui/map";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState, useEffect, useRef, type ChangeEvent } from "react";
+import { Map, MapControls, MapMarker, MarkerContent, MarkerPopup, type MapRef } from "@/components/ui/map";
 import { authClient } from "@/lib/auth-client";
 import { type ReportLocation } from "@/api/reports/reports-queries";
 import { useGetAgencyLocations } from "@/hooks/agencies/useGetAgencyLocations";
@@ -14,22 +9,19 @@ import { useCreateReport } from "@/hooks/reports/useCreateReport";
 import { useQuerySearchLocation, type SearchResult } from "@/hooks/search/useSearchLocation";
 import { useQueryClient } from "@tanstack/react-query";
 import { QUERY_KEYS } from "@/api/queryKeys";
+import axios from "axios";
 import { toast } from "sonner";
-import { MapPin, ImagePlus, X, AlertTriangle, Plus, Target, Check, Trash2, Clock, User, Navigation, Building2, ListFilter, Search, Loader2 } from "lucide-react";
+import { MapPin, X, AlertTriangle, Plus, Target, Check, Clock, User, Navigation, Building2, ListFilter, Search } from "lucide-react";
+import { CitizenMyReportsPanel } from "./CitizenMyReportsPanel";
+import { CitizenReportFormPanel } from "./CitizenReportFormPanel";
+import { LocationSearchResultsDropdown } from "./LocationSearchResultsDropdown";
+import { CITIZEN_REPORT_STATUS_MAP } from "../utils/reportStatus";
 
 type InteractionMode = "idle" | "pin_drop";
 
-const STATUS_MAP: Record<string, { label: string; color: string }> = {
-  pending: { label: "Menunggu", color: "bg-amber-50 text-amber-700 border-amber-200" },
-  verified: { label: "Terverifikasi", color: "bg-blue-50 text-blue-700 border-blue-200" },
-  in_progress: { label: "Diproses", color: "bg-sky-50 text-sky-700 border-sky-200" },
-  resolved: { label: "Selesai", color: "bg-emerald-50 text-emerald-700 border-emerald-200" },
-  rejected: { label: "Ditolak", color: "bg-red-50 text-red-700 border-red-200" },
-};
-
 function ReportPopup({ report }: { report: ReportLocation }) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const status = STATUS_MAP[report.status] || { label: report.status, color: "bg-gray-50 text-gray-700 border-gray-200" };
+  const status = CITIZEN_REPORT_STATUS_MAP[report.status] || { label: report.status, color: "bg-gray-50 text-gray-700 border-gray-200" };
   const description = report.kategori?.name || "Laporan Warga";
 
   return (
@@ -107,6 +99,7 @@ export default function CitizenDashboard() {
   const [searchedLocation, setSearchedLocation] = useState<{ name: string; coords: [number, number] } | null>(null);
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const searchRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<MapRef | null>(null);
   
   // API Queries
   const { data: publicReportsData } = useGetReportLocations();
@@ -118,9 +111,19 @@ export default function CitizenDashboard() {
   const publicReports = publicReportsData?.data || [];
   const myReports = myReportsData?.data || [];
   const agencies = agenciesData?.data || [];
+
+  const refreshDashboardData = async () => {
+    await Promise.allSettled([
+      queryClient.refetchQueries({ queryKey: [QUERY_KEYS.MY_REPORTS], type: "active" }),
+      queryClient.refetchQueries({ queryKey: [QUERY_KEYS.REPORTS_LOCATIONS], type: "active" }),
+      queryClient.refetchQueries({ queryKey: [QUERY_KEYS.NOTIFICATIONS_UNREAD_COUNT], type: "active" }),
+      queryClient.refetchQueries({ queryKey: [QUERY_KEYS.NOTIFICATIONS], type: "active" }),
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.NOTIFICATIONS] }),
+    ]);
+  };
   
   const createReport = useCreateReport({
-    onSuccess: (res) => {
+    onSuccess: async (res) => {
       setIsFormOpen(false);
       setMode("idle");
       setTitle("");
@@ -128,9 +131,7 @@ export default function CitizenDashboard() {
       setPhotoPreviews([]);
       setPhotoFiles([]);
       setMarkerLocation(null);
-      queryClient.invalidateQueries({ queryKey: ["my-reports"] });
-      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.REPORTS_LOCATIONS] });
-      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.MY_REPORTS_LOCATIONS] });
+      await refreshDashboardData();
       
       const aiReview = res.data?.aiReview;
       if (res.data?.status === "rejected" || aiReview?.statusAi === "ditolak") {
@@ -144,10 +145,16 @@ export default function CitizenDashboard() {
         });
       }
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       console.error("Failed to create report", error);
+      const errorMessage = axios.isAxiosError<{ message?: string }>(error)
+        ? error.response?.data?.message || error.message
+        : error instanceof Error
+          ? error.message
+          : "Gagal membuat laporan terbaru.";
+
       toast.error("Gagal", {
-         description: error.response?.data?.message || error.message || "Gagal membuat laporan terbaru.",
+         description: errorMessage,
       });
     }
   });
@@ -173,6 +180,23 @@ export default function CitizenDashboard() {
   });
 
   const selectedLocation = markerLocation || viewport.center;
+  const mapFocusPadding = isDesktop
+    ? { top: 32, bottom: 32, left: 32, right: 32 }
+    : { top: 112, bottom: 104, left: 20, right: 20 };
+
+  const focusMapOnCoordinates = (coords: [number, number], zoom = 15) => {
+    if (mapRef.current) {
+      mapRef.current.flyTo({
+        center: coords,
+        zoom,
+        duration: 1200,
+        padding: mapFocusPadding,
+      });
+      return;
+    }
+
+    setViewport((prev) => ({ ...prev, center: coords, zoom }));
+  };
 
   useEffect(() => {
     const handleResize = () => setIsDesktop(window.innerWidth >= 768);
@@ -218,7 +242,7 @@ export default function CitizenDashboard() {
   }, [myReportsSearch]);
 
   const handleSelectPlace = (place: SearchResult) => {
-    setViewport((prev) => ({ ...prev, center: [place.lng, place.lat], zoom: 15 }));
+    focusMapOnCoordinates([place.lng, place.lat], 15);
     setSearchedLocation({ name: place.name, coords: [place.lng, place.lat] });
     setSearchQuery("");
     setShowSearch(false);
@@ -249,7 +273,7 @@ export default function CitizenDashboard() {
     setMode("idle"); 
   };
 
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUpload = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
        const newFiles = Array.from(e.target.files);
        // Check maximum 5 files
@@ -273,13 +297,23 @@ export default function CitizenDashboard() {
 
       <div className="flex-1 relative h-full rounded-r-3xl md:rounded-none overflow-hidden">
         <Map
+          ref={mapRef}
           viewport={viewport}
           onViewportChange={setViewport}
           theme="light"
           className="w-full h-full"
         >
           
-          <MapControls position="top-right" showZoom showLocate />
+          <MapControls
+            position="top-right"
+            showZoom
+            showLocate
+            locateZoom={14}
+            locatePadding={mapFocusPadding}
+            onLocate={({ longitude, latitude }) => {
+              setUserLocation([longitude, latitude]);
+            }}
+          />
 
           {mode === "pin_drop" && (
             <MapMarker longitude={viewport.center[0]} latitude={viewport.center[1]}>
@@ -397,44 +431,14 @@ export default function CitizenDashboard() {
         <div className="absolute bottom-5 left-0 right-0 z-20 flex flex-col items-center gap-2 px-4 pointer-events-none">
 
           {/* Search Results Dropdown */}
-          <AnimatePresence>
-            {showSearch && searchQuery.trim().length >= 2 && (
-              <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 8 }}
-                transition={{ duration: 0.15 }}
-                className="w-full max-w-[460px] md:max-w-[600px] bg-white rounded-sm shadow-xl border border-gray-200 overflow-hidden max-h-[240px] overflow-y-auto pointer-events-auto"
-              >
-                {isSearching ? (
-                  <div className="px-4 py-6 text-center">
-                    <div className="w-5 h-5 border-2 border-gray-300 border-t-[#db2744] rounded-full animate-spin mx-auto mb-2" />
-                    <p className="text-xs font-bold text-gray-400">Mencari...</p>
-                  </div>
-                ) : searchResults.length === 0 ? (
-                  <div className="px-4 py-6 text-center">
-                    <p className="text-xs font-bold text-gray-400">Lokasi tidak ditemukan</p>
-                  </div>
-                ) : (
-                  searchResults.map((place: SearchResult, idx: number) => (
-                    <button
-                      key={idx}
-                      onClick={() => handleSelectPlace(place)}
-                      className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors text-left border-b border-gray-50 last:border-b-0"
-                    >
-                      <div className="w-8 h-8 rounded-full bg-red-50 text-[#db2744] flex items-center justify-center shrink-0">
-                        <MapPin size={14} strokeWidth={2.5} />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-[13px] font-bold text-gray-900 truncate">{place.name}</p>
-                        <p className="text-[11px] text-gray-400 font-medium truncate">{place.sub}</p>
-                      </div>
-                    </button>
-                  ))
-                )}
-              </motion.div>
-            )}
-          </AnimatePresence>
+          <LocationSearchResultsDropdown
+            isOpen={showSearch}
+            query={searchQuery}
+            isLoading={isSearching || searchQuery !== debouncedSearchQuery}
+            results={searchResults}
+            onSelectPlace={handleSelectPlace}
+            className="max-w-[460px] md:max-w-[600px]"
+          />
 
           <div ref={searchRef} className="w-full max-w-[460px] md:max-w-[600px] pointer-events-auto">
             <div className="bg-white rounded-full shadow-[0_8px_32px_-8px_rgba(0,0,0,0.18)] border border-gray-100 flex items-center px-2 py-1.5 gap-1">
@@ -508,236 +512,47 @@ export default function CitizenDashboard() {
 
       </div>
 
-      <AnimatePresence>
-        {isFormOpen && (
-          <motion.div
-            initial={isDesktop ? { x: "100%", opacity: 0 } : { y: "100%", opacity: 0 }}
-            animate={isDesktop ? { x: 0, opacity: 1 } : { y: 0, opacity: 1 }}
-            exit={isDesktop ? { x: "100%", opacity: 0 } : { y: "100%", opacity: 0 }}
-            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className={`absolute z-30 pointer-events-none ${isDesktop ? "top-24 right-6" : "bottom-0 left-0 w-full"}`}
-          >
-            <motion.div
-              drag={isDesktop}
-              dragMomentum={false}
-              className={`bg-white flex flex-col overflow-hidden resize pointer-events-auto
-                ${isDesktop 
-                  ? "h-[calc(100vh-120px)] min-h-[400px] w-[400px] min-w-[320px] max-w-[600px] shadow-2xl rounded-xl border border-gray-100" 
-                  : "w-full rounded-t-3xl h-[85vh] shadow-[0_-20px_40px_rgba(0,0,0,0.1)]"
-                }`}
-            >
-            
-            <div className="px-7 py-6 flex justify-between items-center bg-white pb-2 relative z-10 cursor-move active:cursor-grabbing">
-               <div>
-                  <h3 className="font-heading font-black text-2xl text-gray-900 tracking-tight">
-                    Laporan Baru
-                  </h3>
-                  <p className="text-xs font-bold text-gray-400 mt-1 uppercase tracking-wide">Isi detail lengkap</p>
-               </div>
-               <button 
-                 onClick={() => setIsFormOpen(false)}
-                 className="text-gray-400 hover:text-gray-900 transition-colors p-2 -mr-2"
-               >
-                  <X size={20} strokeWidth={2.5} />
-               </button>
-            </div>
+      <CitizenReportFormPanel
+        isOpen={isFormOpen}
+        isDesktop={isDesktop}
+        title={title}
+        description={description}
+        photoPreviews={photoPreviews}
+        selectedLocation={selectedLocation}
+        userLocation={userLocation}
+        isSubmitting={createReport.isPending}
+        onClose={() => setIsFormOpen(false)}
+        onTitleChange={setTitle}
+        onDescriptionChange={setDescription}
+        onPhotoUpload={handlePhotoUpload}
+        onRemovePhoto={removePhoto}
+        onEditLocation={() => {
+          setIsFormOpen(false);
+          setMode("idle");
+        }}
+        onUseGpsLocation={() => {
+          if (!userLocation) return;
+          setMarkerLocation(userLocation);
+          focusMapOnCoordinates(userLocation, 15);
+        }}
+        onSubmit={handleSubmitReport}
+      />
 
-            <div className="flex-1 overflow-y-auto px-7 space-y-7 bg-white pb-6 pt-2 hide-scrollbar">
-              <div className="space-y-2">
-                <Label htmlFor="title" className="text-xs font-black text-gray-300 tracking-widest leading-none">JUDUL LAPORAN</Label>
-                <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Contoh: Lampu lalu lintas mati" className="rounded-sm h-14 bg-white border border-gray-200 focus:bg-gray-50 focus:border-[#db2744] focus:ring-0 transition-all font-bold text-gray-900 text-sm shadow-none" />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="description" className="text-xs font-black text-gray-300 tracking-widest leading-none">DETAIL KRONOLOGI</Label>
-                <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Ceritakan urutan dan kondisi yang terjadi..." className="rounded-sm min-h-[120px] bg-white border border-gray-200 focus:bg-gray-50 focus:border-[#db2744] focus:ring-0 transition-all font-bold text-gray-900 text-sm resize-none p-5 shadow-none leading-relaxed" />
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-xs font-black text-gray-300 tracking-widest leading-none">UNGGAH BUKTI FOTO</Label>
-                
-                {photoPreviews.length > 0 && (
-                   <div className="grid grid-cols-2 gap-3 mb-3">
-                     {photoPreviews.map((url, idx) => (
-                       <div key={idx} className="relative w-full h-[100px] rounded-sm overflow-hidden group">
-                         <img src={url} alt={`Preview ${idx + 1}`} className="w-full h-full object-cover" />
-                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <button onClick={() => removePhoto(idx)} className="w-8 h-8 bg-white/20 backdrop-blur rounded-full flex items-center justify-center text-white hover:bg-red-500 hover:text-white transition-colors">
-                               <Trash2 size={14} />
-                            </button>
-                         </div>
-                       </div>
-                     ))}
-                   </div>
-                )}
-                
-                <div className="w-full h-[100px] rounded-sm border-2 border-dashed border-gray-200 bg-gray-50/50 hover:bg-gray-50 flex flex-col items-center justify-center text-gray-400 transition-all relative cursor-pointer group">
-                   <ImagePlus size={24} className="mb-2 text-gray-300 group-hover:text-gray-400 transition-colors" />
-                   <span className="text-[11px] font-bold font-sans uppercase tracking-widest">Pilih Foto</span>
-                   <input type="file" accept="image/*" multiple onChange={handlePhotoUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-xs font-black text-gray-300 tracking-widest leading-none">LOKASI TERPILIH</Label>
-                <div className="flex items-center justify-between p-1.5 border border-transparent">
-                  <div className="flex items-center gap-3">
-                    <div className="text-[#db2744]">
-                      <MapPin size={22} strokeWidth={2.5} />
-                    </div>
-                    <div className="text-[11px] text-gray-500 font-medium">
-                      Otomatis tersinkronisasi.<br/>
-                      <span className="text-gray-900 font-mono font-bold mt-0.5 block text-xs">{selectedLocation[1].toFixed(5)}, {selectedLocation[0].toFixed(5)}</span>
-                    </div>
-                  </div>
-                  <button 
-                    onClick={() => {
-                      setIsFormOpen(false);
-                      setMode("idle");
-                    }} 
-                    className="text-[10px] font-bold uppercase text-[#db2744] hover:text-rose-600 transition-colors"
-                  >
-                    Ubah
-                  </button>
-                </div>
-                {userLocation && (selectedLocation[0] !== userLocation[0] || selectedLocation[1] !== userLocation[1]) && (
-                  <button
-                    onClick={() => {
-                      setMarkerLocation(userLocation);
-                      setViewport(v => ({ ...v, center: userLocation }));
-                    }}
-                    className="w-full mt-3 flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-red-100 bg-red-50 hover:bg-red-100/80 text-[#db2744] text-[11px] font-black tracking-widest uppercase transition-colors shadow-sm"
-                  >
-                    <Navigation size={15} strokeWidth={2.5} />
-                    Gunakan Lokasi GPS Saya
-                  </button>
-                )}
-              </div>
-
-            </div>
-
-             <div className="px-7 py-5 bg-white border-t border-gray-100">
-                <Button 
-                  onClick={handleSubmitReport}
-                  disabled={createReport.isPending || !title.trim() || !description.trim()}
-                  className="w-full bg-[#db2744] hover:bg-[#b01e33] disabled:opacity-50 rounded-sm h-12 text-white font-black tracking-widest text-sm active:scale-[0.98] transition-all"
-                >
-                  {createReport.isPending ? <Loader2 className="animate-spin w-5 h-5 mx-auto" /> : "KIRIM LAPORAN"}
-                </Button>
-             </div>
-
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-        {/* My Reports Drawer/Panel */}
-      <AnimatePresence>
-        {isMyReportsOpen && (
-          <motion.div
-            initial={isDesktop ? { x: "-100%", opacity: 0 } : { y: "100%", opacity: 0 }}
-            animate={isDesktop ? { x: 0, opacity: 1 } : { y: 0, opacity: 1 }}
-            exit={isDesktop ? { x: "-100%", opacity: 0 } : { y: "100%", opacity: 0 }}
-            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className={`absolute z-30 pointer-events-none ${isDesktop ? "top-24 left-6" : "bottom-0 left-0 w-full"}`}
-          >
-            <motion.div
-              drag={isDesktop}
-              dragMomentum={false}
-              className={`bg-white flex flex-col overflow-hidden resize pointer-events-auto
-                ${isDesktop 
-                  ? "h-[calc(100vh-120px)] min-h-[400px] w-[380px] min-w-[320px] max-w-[600px] shadow-2xl rounded-xl border border-gray-100" 
-                  : "w-full rounded-t-3xl h-[85vh] shadow-[0_-20px_40px_rgba(0,0,0,0.1)]"
-                }`}
-            >
-            <div className="px-7 py-6 flex justify-between items-center bg-white border-b border-gray-100 relative z-10 cursor-move active:cursor-grabbing">
-               <div>
-                  <h3 className="font-heading font-black text-2xl text-gray-900 tracking-tight">
-                    Laporanku
-                  </h3>
-                  <p className="text-xs font-bold text-gray-400 mt-1 uppercase tracking-wide">
-                    {myReports.length} Laporan Anda
-                  </p>
-               </div>
-               <button 
-                 onClick={() => setIsMyReportsOpen(false)}
-                 className="text-gray-400 hover:text-gray-900 transition-colors p-2 -mr-2"
-               >
-                  <X size={20} strokeWidth={2.5} />
-               </button>
-            </div>
-
-            <div className="px-5 py-3 border-b border-gray-100 bg-white">
-              <div className="relative">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                <Input
-                  value={myReportsSearch}
-                  onChange={(e) => setMyReportsSearch(e.target.value)}
-                  placeholder="Cari laporan saya..."
-                  className="w-full bg-gray-50 border-transparent focus:bg-white focus:border-[#db2744] focus:ring-[#db2744] pl-10 h-10 rounded-lg text-sm transition-all"
-                />
-              </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto bg-gray-50 p-4 space-y-3">
-              {myReports.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-center p-6 pb-20">
-                  <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center text-[#db2744] mb-4">
-                    <AlertTriangle size={32} />
-                  </div>
-                  <h4 className="font-bold text-gray-900 mb-1">Belum Ada Laporan</h4>
-                  <p className="text-sm text-gray-500">Anda belum membuat laporan apapun.</p>
-                </div>
-              ) : (
-                myReports.map((report) => {
-                  const status = STATUS_MAP[report.status] || { label: report.status, color: "bg-gray-100 text-gray-700" };
-                  return (
-                    <div 
-                      key={report.id} 
-                      className={`bg-white p-4 rounded-xl border border-gray-100 shadow-sm ${report.status !== "rejected" ? "cursor-pointer hover:border-gray-200" : ""} transition-colors`}
-                      onClick={() => {
-                        if (report.status !== "rejected") setViewport({ ...viewport, center: [report.lng, report.lat], zoom: 15 });
-                      }}
-                    >
-                      <div className="flex justify-between items-start mb-2">
-                        <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${status.color}`}>
-                          {status.label}
-                        </span>
-                        <span className="text-[10px] font-medium text-gray-400">{new Date(report.createdAt).toLocaleDateString()}</span>
-                      </div>
-                      <h4 className="font-bold text-[#111827] text-sm leading-snug line-clamp-1 mb-1.5">{report.title}</h4>
-                      <p className="text-xs text-gray-500 line-clamp-2 mb-3">{report.description || report.kategori?.name}</p>
-                      
-                      {report.status === "rejected" && report.aiReview && (
-                        <div className="mb-3 p-2.5 bg-red-50/80 rounded-lg border border-red-100/50">
-                          <p className="text-[11px] font-bold text-[#db2744] mb-1">Feedback AI:</p>
-                          <p className="text-[10px] text-gray-600 leading-relaxed mb-1">{report.aiReview.alasanAi}</p>
-                          {report.aiReview.saranPerbaikanAi && (
-                            <p className="text-[10px] text-gray-600 leading-relaxed">Saran: <span className="font-medium text-gray-800">{report.aiReview.saranPerbaikanAi}</span></p>
-                          )}
-                        </div>
-                      )}
-
-                      <div className="flex items-center justify-between border-t border-gray-50 mt-2 pt-2">
-                        <div className="flex items-center gap-1.5">
-                          <Building2 size={11} className={report.dinas ? "text-[#db2744]" : "text-gray-400"} />
-                          <span className={`text-[10px] uppercase tracking-wide font-black ${report.dinas ? "text-[#db2744]" : "text-gray-400"}`}>
-                            {report.dinas ? report.dinas.name : "Menunggu Instansi"}
-                          </span>
-                        </div>
-                        {report.routingStatus === "auto_assigned" && (
-                          <span className="text-[9px] bg-green-50 text-green-600 px-1.5 py-0.5 rounded font-black uppercase tracking-wider">AI Assigned</span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* My Reports Drawer/Panel */}
+      <CitizenMyReportsPanel
+        isOpen={isMyReportsOpen}
+        isDesktop={isDesktop}
+        myReports={myReports}
+        myReportsSearch={myReportsSearch}
+        statusMap={CITIZEN_REPORT_STATUS_MAP}
+        onSearchChange={setMyReportsSearch}
+        onClose={() => setIsMyReportsOpen(false)}
+        onFocusReport={(report) => {
+          if (report.status !== "rejected") {
+            focusMapOnCoordinates([report.lng, report.lat], 15);
+          }
+        }}
+      />
     </div>
   );
 }
