@@ -286,9 +286,9 @@ export default function Home() {
               Tidak perlu bingung mencari instansi yang berwenang. Teknologi kami akan memproses
               dan meneruskan laporan Anda ke dinas terkait secara otomatis.
             </p>
-            <div className="inline-block bg-[#db2744] text-white font-bold px-8 py-3 rounded-full hover:bg-[#b01e33] transition-colors cursor-pointer shadow-sm text-lg mt-2">
+            <Link to="/cara-kerja" className="inline-block bg-[#db2744] text-white font-bold px-8 py-3 rounded-full hover:bg-[#b01e33] transition-colors cursor-pointer shadow-sm text-lg mt-2">
               Lihat cara kerja!
-            </div>
+            </Link>
           </div>
           <div className="md:w-1/2 flex justify-center order-1 md:order-2">
              <img 
