@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable react-refresh/only-export-components */
 
 import MapLibreGL, { type PopupOptions, type MarkerOptions } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -724,6 +725,12 @@ type MapControlsProps = {
   className?: string;
   /** Callback with user coordinates when located */
   onLocate?: (coords: { longitude: number; latitude: number }) => void;
+  /** Zoom level used when centering on user location */
+  locateZoom?: number;
+  /** Animation duration used when centering on user location */
+  locateDuration?: number;
+  /** Optional padding so the located point stays visible around overlays */
+  locatePadding?: MapLibreGL.FlyToOptions["padding"];
 };
 
 const positionClasses = {
@@ -776,6 +783,9 @@ function MapControls({
   showFullscreen = false,
   className,
   onLocate,
+  locateZoom = 14,
+  locateDuration = 1500,
+  locatePadding,
 }: MapControlsProps) {
   const { map } = useMap();
   const [waitingForLocation, setWaitingForLocation] = useState(false);
@@ -803,8 +813,9 @@ function MapControls({
           };
           map?.flyTo({
             center: [coords.longitude, coords.latitude],
-            zoom: 14,
-            duration: 1500,
+            zoom: locateZoom,
+            duration: locateDuration,
+            padding: locatePadding,
           });
           onLocate?.(coords);
           setWaitingForLocation(false);
@@ -815,7 +826,7 @@ function MapControls({
         },
       );
     }
-  }, [map, onLocate]);
+  }, [locateDuration, locatePadding, locateZoom, map, onLocate]);
 
   const handleFullscreen = useCallback(() => {
     const container = map?.getContainer();
