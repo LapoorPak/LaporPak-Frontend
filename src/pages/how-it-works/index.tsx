@@ -28,7 +28,7 @@ export default function HowItWorks() {
   const targetUrl = session ? "/dashboard" : "/login";
 
   return (
-    <div className="min-h-screen bg-white font-sans selection:bg-[#C01D33]/20 selection:text-[#C01D33]">
+    <div className="min-h-screen bg-white font-sans">
       <Navbar />
 
       {/* Hero */}

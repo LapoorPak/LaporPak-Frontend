@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 
 export default function NotFound() {
   return (
-    <div className="min-h-screen bg-[#F9FAFB] flex items-center justify-center relative overflow-hidden font-sans selection:bg-[#C01D33]/20 selection:text-[#C01D33]">
+    <div className="min-h-screen bg-[#F9FAFB] flex items-center justify-center relative overflow-hidden font-sans">
       
       {/* Background Map Grid Pattern & Giant Watermark */}
       <div className="absolute inset-0 z-0 opacity-[0.03] pointer-events-none stroke-gray-900" 

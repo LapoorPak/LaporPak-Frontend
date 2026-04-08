@@ -5,7 +5,7 @@ import { Mail, Send } from "lucide-react";
 
 export default function HelpCenter() {
   return (
-    <div className="min-h-screen bg-white font-sans selection:bg-[#C01D33]/20 selection:text-[#C01D33]">
+    <div className="min-h-screen bg-white font-sans">
       <Navbar />
 
       <main className="max-w-7xl mx-auto px-6 pt-4 pb-32 relative overflow-hidden">
