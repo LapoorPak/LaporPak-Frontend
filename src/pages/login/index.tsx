@@ -85,6 +85,10 @@ export default function Login() {
     const { error } = await authClient.signIn.email({ email, password });
 
     if (error) {
+      if (error.status === 403 && error.message?.includes("Email not verified")) {
+        navigate(`/verify-email?email=${encodeURIComponent(email)}`, { replace: true });
+        return;
+      }
       setError(error.message || "Login gagal");
       setLoading(false);
       return;

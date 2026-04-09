@@ -4,6 +4,7 @@ import type { Route } from "@/types/route";
 const Home = lazy(() => import("@/pages/home"));
 const Login = lazy(() => import("@/pages/login"));
 const Register = lazy(() => import("@/pages/register"));
+const VerifyEmail = lazy(() => import("@/pages/verify-email"));
 const AgencyLogin = lazy(() => import("@/pages/agency-login"));
 const AdminLogin = lazy(() => import("@/pages/admin/login"));
 const Dashboard = lazy(() => import("@/pages/dashboard"));
@@ -52,6 +53,15 @@ export const routes: Route[] = [
     title: "Register",
     path: "/register",
     component: Register,
+    isEnabled: true,
+    isPublic: true,
+    portal: "citizen",
+  },
+  {
+    key: "verify-email",
+    title: "Verifikasi Email",
+    path: "/verify-email",
+    component: VerifyEmail,
     isEnabled: true,
     isPublic: true,
     portal: "citizen",

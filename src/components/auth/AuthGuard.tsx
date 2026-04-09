@@ -17,6 +17,11 @@ export function AuthGuard({ portal }: AuthGuardProps) {
 
   if (isPending) return <LoadingSpinner />;
   if (!session?.user) return <Navigate to={getLoginPathForPortal(portal)} replace />;
+  
+  if (session.user.emailVerified === false) {
+    return <Navigate to={`/verify-email?email=${encodeURIComponent(session.user.email)}`} replace />;
+  }
+
   if (!isPortalAllowedForRole(portal, session.user.role)) {
     return <Navigate to={getDashboardPathForRole(session.user.role)} replace />;
   }

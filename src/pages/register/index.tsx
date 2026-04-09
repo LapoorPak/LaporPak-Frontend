@@ -110,7 +110,7 @@ export default function Register() {
       return;
     }
 
-    navigate(dashboardPath, { replace: true });
+    navigate(`/verify-email?email=${encodeURIComponent(form.email)}`, { replace: true });
   };
 
   const handleGoogleRegister = async () => {
