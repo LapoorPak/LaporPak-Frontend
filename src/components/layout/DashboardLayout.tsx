@@ -4,9 +4,12 @@ import { authClient } from "@/lib/auth-client";
 import { useGetSessionDetail } from "@/hooks/useGetSessionDetail";
 import { useGetNotifications, useGetUnreadNotificationCount, useMarkAllNotificationsRead, useMarkNotificationRead } from "@/hooks/notifications";
 import { QUERY_KEYS } from "@/api/queryKeys";
+import { setAuthRedirectSuppressed } from "@/config/api-client";
 import type { NotificationItem, NotificationType } from "@/api/notifications/notifications-queries";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { getDashboardPathForRole, getLoginPathForRole, getPortalFromRole } from "@/lib/auth-portal";
+import { clearOAuthAttemptPortal } from "@/lib/oauth-attempt";
 import { LogOut, User, Bell, Megaphone, X, CheckCircle2, Clock, AlertTriangle, ArrowUpRight, Info, type LucideIcon } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -97,8 +100,10 @@ const getDashboardIdentityLabel = ({
 
 export default function DashboardLayout() {
   const { data: session } = authClient.useSession();
+  const userPortal = getPortalFromRole(session?.user?.role);
+  const dashboardPath = getDashboardPathForRole(session?.user?.role);
   const { data: sessionDetailResponse } = useGetSessionDetail({
-    enabled: !!session?.user && session.user.role !== "warga",
+    enabled: !!session?.user && userPortal !== "citizen",
     staleTime: 5 * 60 * 1000,
   });
   const navigate = useNavigate();
@@ -145,6 +150,12 @@ export default function DashboardLayout() {
     branchName: userBranchName,
     agencyName: userAgencyName,
   });
+
+  useEffect(() => {
+    if (session?.user) {
+      clearOAuthAttemptPortal();
+    }
+  }, [session?.user]);
 
   const invalidateNotificationQueries = () => {
     void queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.NOTIFICATIONS] });
@@ -246,16 +257,38 @@ export default function DashboardLayout() {
       return;
     }
 
+    const loginPath = getLoginPathForRole(session?.user?.role);
     setIsSigningOut(true);
     setShowUserMenu(false);
-    await authClient.signOut();
-    navigate("/login");
+    setShowNotifications(false);
+    clearOAuthAttemptPortal();
+    setAuthRedirectSuppressed(true);
+
+    try {
+      await queryClient.cancelQueries();
+      const { error } = await authClient.signOut();
+
+      if (error) {
+        toast.error("Gagal keluar", {
+          description: error.message || "Sesi Anda belum bisa diakhiri. Coba lagi sebentar.",
+        });
+        return;
+      }
+
+      queryClient.clear();
+      navigate(loginPath, { replace: true });
+    } finally {
+      window.setTimeout(() => {
+        setAuthRedirectSuppressed(false);
+      }, 0);
+      setIsSigningOut(false);
+    }
   };
 
   return (
     <div className="h-[100dvh] w-full flex flex-col bg-gray-50 overflow-hidden relative font-sans">
       <header className="absolute top-3 sm:top-4 left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-5xl rounded-[26px] sm:rounded-full bg-white shadow-lg px-3 sm:px-4 py-2 sm:py-2.5 flex items-center justify-between gap-3">
-        <Link to="/dashboard" className="flex items-center gap-2 sm:gap-2.5 group hover:opacity-80 transition-opacity shrink-0 min-w-0">
+        <Link to={dashboardPath} className="flex items-center gap-2 sm:gap-2.5 group hover:opacity-80 transition-opacity shrink-0 min-w-0">
            <Megaphone size={22} className="text-[#db2744] shrink-0 sm:w-6 sm:h-6" strokeWidth={1.5} fill="#db2744" />
            <span className="text-base sm:text-lg font-black font-heading tracking-tight text-gray-900 leading-none">
              Lapor<span className="text-[#db2744]">Pak</span>

@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { Lightbulb, Megaphone } from "lucide-react";
 import { Navbar, Footer } from "@/components/layout";
 import { useAuth } from "@/hooks";
+import { getDashboardPathForRole } from "@/lib/auth-portal";
 
 const IDEA_SPARKS = [
   { id: "spark-1", className: "left-3 top-5 h-2.5 w-2.5 bg-yellow-300", delay: 0.1, duration: 2.8, x: -6 },
@@ -22,7 +23,7 @@ const IDEA_RAYS = [
 
 export default function Home() {
   const { data: session } = useAuth();
-  const dashboardPath = "/dashboard";
+  const dashboardPath = getDashboardPathForRole(session?.user?.role);
   const primaryCtaPath = session ? dashboardPath : "/register";
   const primaryCtaLabel = session ? "Buka dashboard" : "Mulai lapor yuk!";
   const secondaryCtaPath = session ? dashboardPath : "/register";

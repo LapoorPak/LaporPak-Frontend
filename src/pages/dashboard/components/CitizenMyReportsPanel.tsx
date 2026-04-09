@@ -24,6 +24,8 @@ export function CitizenMyReportsPanel({
   onClose,
   onFocusReport,
 }: CitizenMyReportsPanelProps) {
+  const isEmpty = myReports.length === 0;
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -37,15 +39,27 @@ export function CitizenMyReportsPanel({
           <motion.div
             drag={isDesktop}
             dragMomentum={false}
-            className={`bg-white flex flex-col overflow-hidden resize pointer-events-auto ${
+            className={`flex flex-col overflow-hidden resize pointer-events-auto ${
               isDesktop
-                ? "h-[calc(100vh-120px)] min-h-[400px] w-[380px] min-w-[320px] max-w-[600px] shadow-2xl rounded-xl border border-gray-100"
-                : "w-full rounded-t-3xl h-[85vh] shadow-[0_-20px_40px_rgba(0,0,0,0.1)]"
+                ? `h-[calc(100vh-120px)] min-h-[400px] w-[380px] min-w-[320px] max-w-[600px] shadow-2xl rounded-xl border ${
+                    isEmpty ? "bg-gray-100 border-gray-200" : "bg-white border-gray-100"
+                  }`
+                : `w-full rounded-t-3xl h-[85vh] shadow-[0_-20px_40px_rgba(0,0,0,0.1)] ${
+                    isEmpty ? "bg-gray-100" : "bg-white"
+                  }`
             }`}
           >
-            <div className="px-7 py-6 flex justify-between items-center bg-white border-b border-gray-100 relative z-10 cursor-move active:cursor-grabbing">
+            <div
+              className={`px-7 py-6 flex justify-between items-center border-b relative z-10 cursor-move active:cursor-grabbing ${
+                isEmpty ? "bg-gray-100 border-gray-200" : "bg-white border-gray-100"
+              }`}
+            >
               <div>
-                <h3 className="font-heading font-black text-2xl text-gray-900 tracking-tight">
+                <h3
+                  className={`font-heading font-black text-2xl tracking-tight ${
+                    isEmpty ? "text-gray-600" : "text-gray-900"
+                  }`}
+                >
                   Laporanku
                 </h3>
                 <p className="text-xs font-bold text-gray-400 mt-1 uppercase tracking-wide">
@@ -54,32 +68,51 @@ export function CitizenMyReportsPanel({
               </div>
               <button
                 onClick={onClose}
-                className="text-gray-400 hover:text-gray-900 transition-colors p-2 -mr-2"
+                className={`transition-colors p-2 -mr-2 ${
+                  isEmpty ? "text-gray-400 hover:text-gray-500" : "text-gray-400 hover:text-gray-900"
+                }`}
               >
                 <X size={20} strokeWidth={2.5} />
               </button>
             </div>
 
-            <div className="px-5 py-3 border-b border-gray-100 bg-white">
+            <div
+              className={`px-5 py-3 border-b ${
+                isEmpty ? "border-gray-200 bg-gray-100" : "border-gray-100 bg-white"
+              }`}
+            >
               <div className="relative">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                <Search
+                  className={`absolute left-3.5 top-1/2 -translate-y-1/2 ${
+                    isEmpty ? "text-gray-300" : "text-gray-400"
+                  }`}
+                  size={16}
+                />
                 <Input
                   value={myReportsSearch}
                   onChange={(event) => onSearchChange(event.target.value)}
                   placeholder="Cari laporan saya..."
-                  className="w-full bg-gray-50 border-transparent focus:bg-white focus:border-[#db2744] focus:ring-[#db2744] pl-10 h-10 rounded-lg text-sm transition-all"
+                  className={`w-full pl-10 h-10 rounded-lg text-sm transition-all ${
+                    isEmpty
+                      ? "bg-gray-200 border-gray-200 text-gray-400 placeholder:text-gray-400 focus:bg-gray-200 focus:border-gray-300 focus:ring-gray-300"
+                      : "bg-gray-50 border-transparent focus:bg-white focus:border-[#db2744] focus:ring-[#db2744]"
+                  }`}
                 />
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto bg-gray-50 p-4 space-y-3">
-              {myReports.length === 0 ? (
+            <div
+              className={`flex-1 overflow-y-auto p-4 space-y-3 ${
+                isEmpty ? "bg-gray-100" : "bg-gray-50"
+              }`}
+            >
+              {isEmpty ? (
                 <div className="h-full flex flex-col items-center justify-center text-center p-6 pb-20">
-                  <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center text-[#db2744] mb-4">
+                  <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center text-gray-400 mb-4">
                     <AlertTriangle size={32} />
                   </div>
-                  <h4 className="font-bold text-gray-900 mb-1">Belum Ada Laporan</h4>
-                  <p className="text-sm text-gray-500">Anda belum membuat laporan apapun.</p>
+                  <h4 className="font-bold text-gray-600 mb-1">Belum Ada Laporan</h4>
+                  <p className="text-sm text-gray-400">Anda belum membuat laporan apapun.</p>
                 </div>
               ) : (
                 myReports.map((report) => {

@@ -5,6 +5,7 @@ const Home = lazy(() => import("@/pages/home"));
 const Login = lazy(() => import("@/pages/login"));
 const Register = lazy(() => import("@/pages/register"));
 const AgencyLogin = lazy(() => import("@/pages/agency-login"));
+const AdminLogin = lazy(() => import("@/pages/admin/login"));
 const Dashboard = lazy(() => import("@/pages/dashboard"));
 const HowItWorks = lazy(() => import("@/pages/how-it-works"));
 const HelpCenter = lazy(() => import("@/pages/help-center"));
@@ -44,6 +45,7 @@ export const routes: Route[] = [
     component: Login,
     isEnabled: true,
     isPublic: true,
+    portal: "citizen",
   },
   {
     key: "register",
@@ -52,6 +54,7 @@ export const routes: Route[] = [
     component: Register,
     isEnabled: true,
     isPublic: true,
+    portal: "citizen",
   },
   {
     key: "agency-login",
@@ -60,6 +63,16 @@ export const routes: Route[] = [
     component: AgencyLogin,
     isEnabled: true,
     isPublic: true,
+    portal: "agency",
+  },
+  {
+    key: "admin-login",
+    title: "Admin Login",
+    path: "/admin/login",
+    component: AdminLogin,
+    isEnabled: true,
+    isPublic: true,
+    portal: "admin",
   },
   {
     key: "dashboard",
@@ -67,6 +80,23 @@ export const routes: Route[] = [
     path: "/dashboard",
     component: Dashboard,
     isEnabled: true,
+    portal: "citizen",
+  },
+  {
+    key: "agency-dashboard",
+    title: "Agency Dashboard",
+    path: "/agency/dashboard",
+    component: Dashboard,
+    isEnabled: true,
+    portal: "agency",
+  },
+  {
+    key: "admin-dashboard",
+    title: "Admin Dashboard",
+    path: "/admin/dashboard",
+    component: Dashboard,
+    isEnabled: true,
+    portal: "admin",
   },
   {
     key: "not-found",

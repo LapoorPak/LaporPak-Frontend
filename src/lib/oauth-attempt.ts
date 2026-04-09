@@ -1,11 +1,16 @@
 const OAUTH_ATTEMPT_KEY = "lp_oauth_attempt_portal";
 
-export function setOAuthAttemptPortal(portal: "agency" | "citizen") {
+function clearLegacyOAuthAttemptStorage() {
+  window.localStorage.removeItem(OAUTH_ATTEMPT_KEY);
+}
+
+export function setOAuthAttemptPortal(portal: "agency" | "citizen" | "admin") {
   if (typeof window === "undefined") {
     return;
   }
 
-  window.localStorage.setItem(OAUTH_ATTEMPT_KEY, portal);
+  clearLegacyOAuthAttemptStorage();
+  window.sessionStorage.setItem(OAUTH_ATTEMPT_KEY, portal);
 }
 
 export function getOAuthAttemptPortal() {
@@ -13,7 +18,8 @@ export function getOAuthAttemptPortal() {
     return null;
   }
 
-  return window.localStorage.getItem(OAUTH_ATTEMPT_KEY);
+  clearLegacyOAuthAttemptStorage();
+  return window.sessionStorage.getItem(OAUTH_ATTEMPT_KEY);
 }
 
 export function clearOAuthAttemptPortal() {
@@ -21,5 +27,6 @@ export function clearOAuthAttemptPortal() {
     return;
   }
 
-  window.localStorage.removeItem(OAUTH_ATTEMPT_KEY);
+  window.sessionStorage.removeItem(OAUTH_ATTEMPT_KEY);
+  clearLegacyOAuthAttemptStorage();
 }

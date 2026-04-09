@@ -1,4 +1,5 @@
 import type { ComponentType } from "react";
+import type { AuthPortal } from "@/lib/auth-portal";
 
 export type Route = {
   key: string;
@@ -10,5 +11,6 @@ export type Route = {
   noLayout?: boolean;
   isPublic?: boolean;
   isUnguarded?: boolean;
+  portal?: AuthPortal;
   children?: Route[];
 };

@@ -6,6 +6,7 @@ import { Footer } from "@/components/layout/Footer";
 import { ChevronRight, Plus, Minus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks";
+import { getDashboardPathForRole, getLoginPathForRole } from "@/lib/auth-portal";
 
 const faqs = [
   {
@@ -25,7 +26,9 @@ const faqs = [
 export default function HowItWorks() {
   const [activeFaq, setActiveFaq] = useState<number | null>(null);
   const { data: session } = useAuth();
-  const targetUrl = session ? "/dashboard" : "/login";
+  const targetUrl = session
+    ? getDashboardPathForRole(session?.user?.role)
+    : getLoginPathForRole();
 
   return (
     <div className="min-h-screen bg-white font-sans">

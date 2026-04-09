@@ -3,10 +3,11 @@ import { Link, useLocation } from "react-router";
 import { Megaphone, Building2, LogIn, LayoutDashboard, Menu, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/hooks";
+import { getDashboardPathForRole } from "@/lib/auth-portal";
 
 export function Navbar() {
   const { data: session } = useAuth();
-  const dashboardPath = "/dashboard";
+  const dashboardPath = getDashboardPathForRole(session?.user?.role);
   const isLoggedIn = Boolean(session);
   const dashboardLabel = isLoggedIn ? "Dashboard" : "Masuk";
   const { pathname } = useLocation();

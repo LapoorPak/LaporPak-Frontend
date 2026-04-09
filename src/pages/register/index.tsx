@@ -1,14 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { authClient } from "@/lib/auth-client";
 import { motion } from "framer-motion";
 import { GoogleIcon, EyeIcon, EyeOffIcon } from "@/assets/icon";
 import { toast } from "sonner";
+import { getDashboardPathForPortal } from "@/lib/auth-portal";
 import { clearOAuthAttemptPortal, getOAuthAttemptPortal, setOAuthAttemptPortal } from "@/lib/oauth-attempt";
-import { consumePortalError } from "@/lib/portal-error";
+import { consumePortalError, getAuthErrorMessage } from "@/lib/portal-error";
 
 export default function Register() {
-  const dashboardUrl = `${window.location.origin}/dashboard`;
+  const dashboardPath = getDashboardPathForPortal("citizen");
+  const dashboardUrl = `${window.location.origin}${dashboardPath}`;
   const registerUrl = `${window.location.origin}/register`;
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -26,28 +28,42 @@ export default function Register() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const errorProcessedRef = useRef(false);
 
   useEffect(() => {
     const portalError = consumePortalError();
-    if (portalError?.code === "citizen_role_forbidden") {
+    if (portalError?.message) {
+      clearOAuthAttemptPortal();
       setError(portalError.message);
       toast.error(portalError.message);
       return;
     }
 
     const errorParam = searchParams.get("portal_error") || searchParams.get("error");
-    const messageParam = searchParams.get("portal_message") || searchParams.get("message");
+    const messageParam =
+      searchParams.get("portal_message") ||
+      searchParams.get("message") ||
+      searchParams.get("error_description");
 
-    if (errorParam === "citizen_role_forbidden") {
-      const nextError =
-        messageParam || "Akun Anda adalah akun pemerintah. Silakan login melalui portal dinas.";
-      setError(nextError);
-      toast.error(nextError);
+    if (errorParam) {
+      if (!errorProcessedRef.current) {
+        clearOAuthAttemptPortal();
+        const nextError = getAuthErrorMessage({
+          code: errorParam,
+          message: messageParam,
+          portal: "citizen",
+          screen: "register",
+        });
+        setError(nextError);
+        toast.error(nextError, { id: "auth-error" });
+        errorProcessedRef.current = true;
+      }
       const newParams = new URLSearchParams(searchParams);
       newParams.delete("portal_error");
       newParams.delete("portal_message");
       newParams.delete("error");
       newParams.delete("message");
+      newParams.delete("error_description");
       setSearchParams(newParams, { replace: true });
     }
   }, [searchParams, setSearchParams]);
@@ -94,7 +110,7 @@ export default function Register() {
       return;
     }
 
-    navigate("/dashboard");
+    navigate(dashboardPath, { replace: true });
   };
 
   const handleGoogleRegister = async () => {
@@ -111,6 +127,7 @@ export default function Register() {
       callbackURL: dashboardUrl,
       errorCallbackURL: registerUrl,
       newUserCallbackURL: dashboardUrl,
+      requestSignUp: true,
       additionalData: {
         portal: "citizen",
       },

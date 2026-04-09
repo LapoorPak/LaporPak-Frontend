@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -6,23 +6,27 @@ import { toast } from "sonner";
 import { EyeIcon, EyeOffIcon, GoogleIcon } from "@/assets/icon";
 import { authClient } from "@/lib/auth-client";
 import { getDashboardPathForPortal } from "@/lib/auth-portal";
-import { clearOAuthAttemptPortal, getOAuthAttemptPortal, setOAuthAttemptPortal } from "@/lib/oauth-attempt";
+import {
+  clearOAuthAttemptPortal,
+  getOAuthAttemptPortal,
+  setOAuthAttemptPortal,
+} from "@/lib/oauth-attempt";
 import { consumePortalError, getAuthErrorMessage } from "@/lib/portal-error";
 
-
-export default function AgencyLogin() {
+export default function AdminLogin() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { data: session, isPending: isSessionPending } = authClient.useSession();
+  const { data: session, isPending: isSessionPending } =
+    authClient.useSession();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const agencyDashboardPath = getDashboardPathForPortal("agency");
-  const agencyDashboardUrl = `${window.location.origin}${agencyDashboardPath}`;
-  const agencyLoginUrl = `${window.location.origin}/agency/login`;
+  const adminDashboardPath = getDashboardPathForPortal("admin");
+  const adminDashboardUrl = `${window.location.origin}${adminDashboardPath}`;
+  const adminLoginUrl = `${window.location.origin}/admin/login`;
   const errorProcessedRef = useRef(false);
 
   useEffect(() => {
@@ -34,7 +38,8 @@ export default function AgencyLogin() {
       return;
     }
 
-    const errorParam = searchParams.get("portal_error") || searchParams.get("error");
+    const errorParam =
+      searchParams.get("portal_error") || searchParams.get("error");
     const messageParam =
       searchParams.get("portal_message") ||
       searchParams.get("message") ||
@@ -46,7 +51,7 @@ export default function AgencyLogin() {
         const nextError = getAuthErrorMessage({
           code: errorParam,
           message: messageParam,
-          portal: "agency",
+          portal: "admin",
           screen: "login",
         });
         setError(nextError);
@@ -65,9 +70,13 @@ export default function AgencyLogin() {
 
   useEffect(() => {
     if (isSessionPending || !session?.user) {
-      if (!isSessionPending && !session?.user && getOAuthAttemptPortal() === "agency") {
+      if (
+        !isSessionPending &&
+        !session?.user &&
+        getOAuthAttemptPortal() === "admin"
+      ) {
         const nextError =
-          "Login berhasil diproses, tetapi sesi akun belum terbaca. Coba ulangi login atau refresh halaman.";
+          "Login berhasil diproses, tetapi sesi admin belum terbaca. Coba ulangi login atau refresh halaman.";
         clearOAuthAttemptPortal();
         setError(nextError);
         toast.error(nextError);
@@ -76,8 +85,8 @@ export default function AgencyLogin() {
     }
 
     clearOAuthAttemptPortal();
-    navigate(agencyDashboardPath, { replace: true });
-  }, [agencyDashboardPath, isSessionPending, navigate, session]);
+    navigate(adminDashboardPath, { replace: true });
+  }, [adminDashboardPath, isSessionPending, navigate, session]);
 
   const handleGoogleLogin = async () => {
     if (googleLoading || loading) {
@@ -86,20 +95,20 @@ export default function AgencyLogin() {
 
     setError("");
     setGoogleLoading(true);
-    setOAuthAttemptPortal("agency");
+    setOAuthAttemptPortal("admin");
 
     const { error } = await authClient.signIn.social({
       provider: "google",
-      callbackURL: agencyDashboardUrl,
-      errorCallbackURL: agencyLoginUrl,
+      callbackURL: adminDashboardUrl,
+      errorCallbackURL: adminLoginUrl,
       additionalData: {
-        portal: "agency",
+        portal: "admin",
       },
     });
 
     if (error) {
       clearOAuthAttemptPortal();
-      setError(error.message || "Login Google untuk portal agency gagal");
+      setError(error.message || "Login admin dengan Google gagal");
       setGoogleLoading(false);
     }
   };
@@ -107,27 +116,21 @@ export default function AgencyLogin() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-
-    if (!identifier.includes("@")) {
-      setError("Untuk sementara login agency masih menggunakan email resmi instansi.");
-      return;
-    }
-
     setLoading(true);
 
     const { error } = await authClient.signIn.email({
       email: identifier,
       password,
-      callbackURL: agencyDashboardUrl,
+      callbackURL: adminDashboardUrl,
     });
 
     if (error) {
-      setError(error.message || "Login portal dinas gagal");
+      setError(error.message || "Login admin gagal");
       setLoading(false);
       return;
     }
 
-    navigate(agencyDashboardPath, { replace: true });
+    navigate(adminDashboardPath, { replace: true });
   };
 
   return (
@@ -138,12 +141,11 @@ export default function AgencyLogin() {
       className="w-full"
     >
       <div className="mb-8">
-
         <h1 className="text-[1.75rem] md:text-3xl font-heading font-black text-[#db2744] mb-2 tracking-tight">
-          Login Dinas
+          Portal Administrator
         </h1>
         <p className="text-gray-600 text-sm font-medium leading-relaxed">
-          Akses dashboard agency untuk menerima, memverifikasi, dan memantau laporan publik yang masuk.
+          Pusat kendali LaporPak. Pantau seluruh aktivitas lintas dinas dan kelola eskalasi sistem secara terpusat.
         </p>
       </div>
 
@@ -166,19 +168,24 @@ export default function AgencyLogin() {
           <div className="w-full border-t border-gray-200" />
         </div>
         <div className="relative flex justify-center">
-          <span className="bg-white px-4 text-[11px] font-bold text-gray-400">atau masuk dengan akun dinas</span>
+          <span className="bg-white px-4 text-[11px] font-bold text-gray-400">
+            atau masuk dengan akun admin
+          </span>
         </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-1.5">
-          <label className="text-xs font-bold text-gray-800 ml-1 block" htmlFor="agency-identifier">
-            Email / Username
+          <label
+            className="text-xs font-bold text-gray-800 ml-1 block"
+            htmlFor="admin-identifier"
+          >
+            Email Admin
           </label>
           <input
-            id="agency-identifier"
-            type="text"
-            placeholder="contoh@dinas.go.id"
+            id="admin-identifier"
+            type="email"
+            placeholder="admin@laporpak.id"
             value={identifier}
             onChange={(e) => setIdentifier(e.target.value)}
             required
@@ -187,12 +194,15 @@ export default function AgencyLogin() {
         </div>
 
         <div className="space-y-1.5 relative">
-          <label className="text-xs font-bold text-gray-800 ml-1 block" htmlFor="agency-password">
+          <label
+            className="text-xs font-bold text-gray-800 ml-1 block"
+            htmlFor="admin-password"
+          >
             Password
           </label>
           <div className="relative">
             <input
-              id="agency-password"
+              id="admin-password"
               type={showPassword ? "text" : "password"}
               placeholder="Password"
               value={password}
@@ -234,9 +244,12 @@ export default function AgencyLogin() {
       </form>
 
       <p className="mt-5 text-center text-sm font-medium text-gray-500">
-        Masuk sebagai warga?{" "}
-        <Link to="/login" className="font-bold text-[#db2744] hover:underline">
-          Gunakan portal warga
+        Masuk sebagai dinas?{" "}
+        <Link
+          to="/agency/login"
+          className="font-bold text-[#db2744] hover:underline"
+        >
+          Gunakan portal dinas
         </Link>
       </p>
     </motion.div>

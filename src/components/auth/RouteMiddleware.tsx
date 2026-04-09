@@ -7,6 +7,7 @@ import { GuestGuard } from "./GuestGuard";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
 import AuthLayout from "@/components/layout/AuthLayout";
 import DashboardLayout from "@/components/layout/DashboardLayout";
+import type { AuthPortal } from "@/lib/auth-portal";
 
 function renderRoute(route: Route) {
   if (!route.isEnabled) return null;
@@ -31,8 +32,15 @@ export function RouteMiddleware() {
   const protectedRoutes = routes.filter(
     (r) => !r.isPublic && !r.isUnguarded && r.isEnabled
   );
+  const getRoutesByPortal = (items: Route[], portal: AuthPortal) =>
+    items.filter((route) => route.portal === portal);
 
-  const citizenRoutes = protectedRoutes.filter((r) => !r.path?.startsWith("/agency/"));
+  const citizenPublicRoutes = getRoutesByPortal(publicRoutes, "citizen");
+  const agencyPublicRoutes = getRoutesByPortal(publicRoutes, "agency");
+  const adminPublicRoutes = getRoutesByPortal(publicRoutes, "admin");
+  const citizenProtectedRoutes = getRoutesByPortal(protectedRoutes, "citizen");
+  const agencyProtectedRoutes = getRoutesByPortal(protectedRoutes, "agency");
+  const adminProtectedRoutes = getRoutesByPortal(protectedRoutes, "admin");
 
   return (
     <Routes>
@@ -40,16 +48,40 @@ export function RouteMiddleware() {
       {unguardedRoutes.map(renderRoute)}
 
       {/* Public */}
-      <ReactRoute element={<GuestGuard />}>
+      <ReactRoute element={<GuestGuard portal="citizen" />}>
         <ReactRoute element={<AuthLayout />}>
-          {publicRoutes.map(renderRoute)}
+          {citizenPublicRoutes.map(renderRoute)}
+        </ReactRoute>
+      </ReactRoute>
+
+      <ReactRoute element={<GuestGuard portal="agency" />}>
+        <ReactRoute element={<AuthLayout />}>
+          {agencyPublicRoutes.map(renderRoute)}
+        </ReactRoute>
+      </ReactRoute>
+
+      <ReactRoute element={<GuestGuard portal="admin" />}>
+        <ReactRoute element={<AuthLayout />}>
+          {adminPublicRoutes.map(renderRoute)}
         </ReactRoute>
       </ReactRoute>
 
       {/* Protected */}
-      <ReactRoute element={<AuthGuard />}>
+      <ReactRoute element={<AuthGuard portal="citizen" />}>
         <ReactRoute element={<DashboardLayout />}>
-          {citizenRoutes.map(renderRoute)}
+          {citizenProtectedRoutes.map(renderRoute)}
+        </ReactRoute>
+      </ReactRoute>
+
+      <ReactRoute element={<AuthGuard portal="agency" />}>
+        <ReactRoute element={<DashboardLayout />}>
+          {agencyProtectedRoutes.map(renderRoute)}
+        </ReactRoute>
+      </ReactRoute>
+
+      <ReactRoute element={<AuthGuard portal="admin" />}>
+        <ReactRoute element={<DashboardLayout />}>
+          {adminProtectedRoutes.map(renderRoute)}
         </ReactRoute>
       </ReactRoute>
     </Routes>
