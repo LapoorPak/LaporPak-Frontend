@@ -16,6 +16,7 @@ export interface SessionDetailBranchInfo {
   id: string;
   name: string;
   wilayah: string;
+  photos?: string[];
   dinas?: SessionDetailAgencyInfo | null;
 }
 

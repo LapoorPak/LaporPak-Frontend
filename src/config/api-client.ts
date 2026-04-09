@@ -7,7 +7,7 @@ declare module "axios" {
   }
 }
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3000";
+export const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3000";
 let suppressAuthRedirect = false;
 
 export const apiClient = axios.create({

@@ -21,6 +21,8 @@ export interface AgencyLocation {
   coverageRadiusKm: number;
   isRoutingEnabled: boolean;
   serviceTags: string[];
+  photos: string[];
+  photoUrl: string | null;
 }
 
 export interface AgencyStats {

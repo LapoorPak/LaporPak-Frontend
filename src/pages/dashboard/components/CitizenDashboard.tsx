@@ -11,7 +11,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { QUERY_KEYS } from "@/api/queryKeys";
 import axios from "axios";
 import { toast } from "sonner";
-import { MapPin, X, AlertTriangle, Plus, Target, Check, Clock, User, Navigation, Building2, ListFilter, Search } from "lucide-react";
+import { API_BASE } from "@/config/api-client";
+import { MapPin, X, AlertTriangle, Plus, Target, Check, Clock, User, Navigation, Building2, ListFilter, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { CitizenMyReportsPanel } from "./CitizenMyReportsPanel";
 import { CitizenReportFormPanel } from "./CitizenReportFormPanel";
 import { LocationSearchResultsDropdown } from "./LocationSearchResultsDropdown";
@@ -103,6 +104,56 @@ function ReportPopup({ report }: { report: ReportLocation }) {
           </span>
         </div>
       </div>
+    </div>
+  );
+}
+
+function AgencyPopupCarousel({ agency }: { agency: any }) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  
+  if (!agency.photos || agency.photos.length === 0) {
+    if (agency.photoUrl) {
+      return (
+        <div className="w-full h-[120px] bg-gray-100 relative">
+          <img src={agency.photoUrl.startsWith('http') ? agency.photoUrl : `${API_BASE}${agency.photoUrl}`} alt={agency.name} className="w-full h-full object-cover" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent pointer-events-none" />
+        </div>
+      );
+    }
+    return null;
+  }
+
+  const photos = agency.photos;
+
+  return (
+    <div className="w-full h-[120px] bg-gray-100 relative group overflow-hidden">
+      <img src={photos[currentIndex].startsWith('http') ? photos[currentIndex] : `${API_BASE}${photos[currentIndex]}`} alt={agency.name} className="w-full h-full object-cover transition-all" />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent pointer-events-none" />
+      
+      {photos.length > 1 && (
+        <>
+          <button 
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setCurrentIndex((prev) => (prev > 0 ? prev - 1 : photos.length - 1)); }}
+            className="absolute left-1 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-[2px] transition-all hover:bg-black/60 active:scale-95 z-10 focus:outline-none shadow-sm"
+          >
+            <ChevronLeft size={15} strokeWidth={2.5} />
+          </button>
+          <button 
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setCurrentIndex((prev) => (prev < photos.length - 1 ? prev + 1 : 0)); }}
+            className="absolute right-1 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-[2px] transition-all hover:bg-black/60 active:scale-95 z-10 focus:outline-none shadow-sm"
+          >
+            <ChevronRight size={15} strokeWidth={2.5} />
+          </button>
+          
+          <div className="absolute bottom-6 left-0 right-0 flex justify-center gap-1.5 z-10 pointer-events-none">
+            {photos.map((_, idx) => (
+              <div key={idx} className={`h-1.5 rounded-full transition-all duration-300 ${idx === currentIndex ? 'bg-white w-3' : 'bg-white/50 w-1.5'}`} />
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -398,8 +449,9 @@ export default function CitizenDashboard() {
             <MapMarker key={`agency-${agency.id || idx}`} longitude={agency.lng} latitude={agency.lat}>
                <MarkerPopup closeButton>
                  <div className="w-[200px] flex flex-col overflow-hidden -m-[10px] -mb-[15px]">
-                   <div className="p-3 pb-4 flex flex-col gap-1.5">
-                     <div className="text-[9px] font-black uppercase text-indigo-600 tracking-wider bg-indigo-50 px-2 py-0.5 rounded-sm w-fit truncate max-w-full">
+                   <AgencyPopupCarousel agency={agency} />
+                   <div className="p-3 pb-4 flex flex-col gap-1.5 relative">
+                     <div className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-sm w-fit truncate max-w-full ${(agency.photos?.length > 0 || agency.photoUrl) ? "text-indigo-600 bg-indigo-50 absolute -top-8 left-3 shadow-md border border-indigo-100/50" : "text-indigo-600 bg-indigo-50"}`}>
                        {agency.type?.replace(/_/g, ' ') || 'Dinas'}
                      </div>
                      <div className="text-xs font-bold text-gray-900 leading-tight">
