@@ -7,6 +7,7 @@ import { GuestGuard } from "./GuestGuard";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
 import AuthLayout from "@/components/layout/AuthLayout";
 import DashboardLayout from "@/components/layout/DashboardLayout";
+import AdminLayout from "@/components/layout/AdminLayout";
 import type { AuthPortal } from "@/lib/auth-portal";
 
 function renderRoute(route: Route) {
@@ -80,7 +81,7 @@ export function RouteMiddleware() {
       </ReactRoute>
 
       <ReactRoute element={<AuthGuard portal="admin" />}>
-        <ReactRoute element={<DashboardLayout />}>
+        <ReactRoute element={<AdminLayout />}>
           {adminProtectedRoutes.map(renderRoute)}
         </ReactRoute>
       </ReactRoute>

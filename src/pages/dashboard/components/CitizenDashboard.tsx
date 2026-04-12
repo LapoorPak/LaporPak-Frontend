@@ -148,7 +148,7 @@ function AgencyPopupCarousel({ agency }: { agency: any }) {
           </button>
           
           <div className="absolute bottom-6 left-0 right-0 flex justify-center gap-1.5 z-10 pointer-events-none">
-            {photos.map((_, idx) => (
+            {photos.map((_: any, idx: number) => (
               <div key={idx} className={`h-1.5 rounded-full transition-all duration-300 ${idx === currentIndex ? 'bg-white w-3' : 'bg-white/50 w-1.5'}`} />
             ))}
           </div>

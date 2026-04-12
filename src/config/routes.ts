@@ -7,6 +7,11 @@ const Register = lazy(() => import("@/pages/register"));
 const VerifyEmail = lazy(() => import("@/pages/verify-email"));
 const AgencyLogin = lazy(() => import("@/pages/agency-login"));
 const AdminLogin = lazy(() => import("@/pages/admin/login"));
+const AdminDashboard = lazy(() => import("@/pages/admin/dashboard"));
+const AdminDinas = lazy(() => import("@/pages/admin/dinas"));
+const AdminCabang = lazy(() => import("@/pages/admin/cabang"));
+const AdminKategori = lazy(() => import("@/pages/admin/kategori"));
+const AdminUsers = lazy(() => import("@/pages/admin/users"));
 const Dashboard = lazy(() => import("@/pages/dashboard"));
 const HowItWorks = lazy(() => import("@/pages/how-it-works"));
 const HelpCenter = lazy(() => import("@/pages/help-center"));
@@ -104,7 +109,39 @@ export const routes: Route[] = [
     key: "admin-dashboard",
     title: "Admin Dashboard",
     path: "/admin/dashboard",
-    component: Dashboard,
+    component: AdminDashboard,
+    isEnabled: true,
+    portal: "admin",
+  },
+  {
+    key: "admin-dinas",
+    title: "Admin Dinas Management",
+    path: "/admin/dinas",
+    component: AdminDinas,
+    isEnabled: true,
+    portal: "admin",
+  },
+  {
+    key: "admin-cabang",
+    title: "Admin Cabang Management",
+    path: "/admin/cabang",
+    component: AdminCabang,
+    isEnabled: true,
+    portal: "admin",
+  },
+  {
+    key: "admin-kategori",
+    title: "Admin Kategori Management",
+    path: "/admin/kategori",
+    component: AdminKategori,
+    isEnabled: true,
+    portal: "admin",
+  },
+  {
+    key: "admin-users",
+    title: "Admin Users Management",
+    path: "/admin/users",
+    component: AdminUsers,
     isEnabled: true,
     portal: "admin",
   },
