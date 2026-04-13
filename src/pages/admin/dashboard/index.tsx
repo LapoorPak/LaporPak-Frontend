@@ -1,7 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
-import { adminApi } from "@/api/admin";
-import { QUERY_KEYS } from "@/api/queryKeys";
+import { useGetOverview } from "@/hooks/admin";
 import {
   Building2, MapPin, Tags, Users, ShieldAlert, FileText,
   TrendingUp, Activity, ArrowRight, CheckCircle, AlertCircle,
@@ -117,10 +115,7 @@ const CustomPieTooltip = ({ active, payload }: any) => {
 
 export default function AdminDashboardPage() {
   const navigate = useNavigate();
-  const { data, isLoading } = useQuery({
-    queryKey: [QUERY_KEYS.ADMIN_OVERVIEW],
-    queryFn: adminApi.getOverview,
-  });
+  const { data, isLoading } = useGetOverview();
 
   const overview = data?.data;
 

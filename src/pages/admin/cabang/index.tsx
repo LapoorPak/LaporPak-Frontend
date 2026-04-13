@@ -1,9 +1,16 @@
-import { useState, type KeyboardEvent } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useEffect, useCallback, type KeyboardEvent } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { adminApi } from "@/api/admin";
+import {
+  useGetDinas,
+  useGetCabang,
+  useCreateCabang,
+  useUpdateCabang,
+  useDeleteCabang,
+} from "@/hooks/admin";
+import { QUERY_KEYS } from "@/api/queryKeys";
 import type { Cabang } from "@/types/admin";
 import {
   Plus, Search, MapPin, Building2, Phone, Edit2, Trash2, X,
@@ -15,7 +22,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Map, MapMarker, MarkerContent, MapControls } from "@/components/ui/map";
+import { Map, MapMarker, MarkerContent, MapControls, useMap } from "@/components/ui/map";
+import type { MapMouseEvent } from "maplibre-gl";
 
 const schema = z.object({
   dinasId: z.string().min(1, "Dinas harus dipilih"),
@@ -33,6 +41,19 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>;
 
 const LIMIT = 20;
+
+function MapClickHandler({ onMapClick }: { onMapClick: (lat: number, lng: number) => void }) {
+  const { map, isLoaded } = useMap();
+  const cbRef = useCallback((lat: number, lng: number) => onMapClick(lat, lng), [onMapClick]);
+  useEffect(() => {
+    if (!map || !isLoaded) return;
+    const handler = (e: MapMouseEvent) => cbRef(e.lngLat.lat, e.lngLat.lng);
+    map.on("click", handler);
+    map.getCanvas().style.cursor = "crosshair";
+    return () => { map.off("click", handler); map.getCanvas().style.cursor = ""; };
+  }, [map, isLoaded, cbRef]);
+  return null;
+}
 
 function SkeletonRow() {
   return (
@@ -58,21 +79,12 @@ export default function AdminCabangPage() {
 
   const queryClient = useQueryClient();
 
-  const { data: dinasData } = useQuery({
-    queryKey: ["admin_dinas", "all"],
-    queryFn: () => adminApi.getDinas({ limit: 1000 }),
-  });
+  const { data: dinasData } = useGetDinas({ limit: 1000 });
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["admin_cabang", search, filterDinas, page],
-    queryFn: () => adminApi.getCabang({
-      search: search || undefined,
-      dinasId: filterDinas || undefined,
-      page,
-      limit: LIMIT,
-    }),
-    placeholderData: (prev) => prev,
-  });
+  const { data, isLoading } = useGetCabang(
+    { search: search || undefined, dinasId: filterDinas || undefined, page, limit: LIMIT },
+    { placeholderData: (prev) => prev }
+  );
 
   const cabangList = data?.data ?? [];
   const meta = data?.meta;
@@ -83,23 +95,22 @@ export default function AdminCabangPage() {
     defaultValues: { isRoutingEnabled: true, coverageRadiusKm: 5 },
   });
   const isRoutingVal = watch("isRoutingEnabled");
+  const latVal = watch("latitude");
+  const lngVal = watch("longitude");
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["admin_cabang"] });
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.ADMIN_CABANG] });
 
-  const createMutation = useMutation({
-    mutationFn: (data: any) => adminApi.createCabang({ ...data, serviceTags }),
+  const createMutation = useCreateCabang({
     onSuccess: () => { toast.success("Cabang berhasil ditambahkan"); invalidate(); closeDrawer(); },
     onError: (e: any) => toast.error(e.response?.data?.message ?? "Gagal menambahkan"),
   });
 
-  const updateMutation = useMutation({
-    mutationFn: (args: { id: string; data: any }) => adminApi.updateCabang(args.id, { ...args.data, serviceTags }),
+  const updateMutation = useUpdateCabang({
     onSuccess: () => { toast.success("Cabang berhasil diperbarui"); invalidate(); closeDrawer(); },
     onError: (e: any) => toast.error(e.response?.data?.message ?? "Gagal menyimpan"),
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: adminApi.deleteCabang,
+  const deleteMutation = useDeleteCabang({
     onSuccess: () => {
       toast.success("Cabang berhasil dihapus");
       invalidate();
@@ -126,8 +137,8 @@ export default function AdminCabangPage() {
   const closeDrawer = () => { setIsDrawerOpen(false); reset(); setEditId(null); setServiceTags([]); setServiceTagInput(""); };
 
   const onSubmit = (values: FormValues) => {
-    if (editId) updateMutation.mutate({ id: editId, data: values });
-    else createMutation.mutate(values);
+    if (editId) updateMutation.mutate({ id: editId, data: { ...values, serviceTags } });
+    else createMutation.mutate({ ...values, serviceTags });
   };
 
   const addTag = () => {
@@ -426,13 +437,13 @@ export default function AdminCabangPage() {
           <>
             <motion.div
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60]"
               onClick={closeDrawer}
             />
             <motion.div
               initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}
               transition={{ type: "spring", damping: 30, stiffness: 300 }}
-              className="fixed right-0 top-0 bottom-0 w-full max-w-lg bg-white border-l border-gray-200 z-50 flex flex-col shadow-2xl"
+              className="fixed right-0 top-0 bottom-0 w-full max-w-lg bg-white border-l border-gray-200 z-[70] flex flex-col shadow-2xl"
             >
               <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
                 <div>
@@ -481,14 +492,40 @@ export default function AdminCabangPage() {
                     <Textarea placeholder="Jl. Raya No. 1..." {...register("address")} className="bg-white border-gray-200 text-gray-900 rounded-sm focus:border-primary resize-none h-16" />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Latitude</label>
-                      <Input type="number" step="any" placeholder="-6.2088" {...register("latitude", { setValueAs: (v) => v === "" || v == null ? null : Number(v) })} className="bg-white border-gray-200 text-gray-900 rounded-sm focus:border-primary h-9 font-mono text-xs" />
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Lokasi</label>
+                      {latVal != null && lngVal != null && (
+                        <span className="text-[11px] text-gray-400 font-mono">
+                          {Number(latVal).toFixed(5)}, {Number(lngVal).toFixed(5)}
+                        </span>
+                      )}
                     </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Longitude</label>
-                      <Input type="number" step="any" placeholder="106.8456" {...register("longitude", { setValueAs: (v) => v === "" || v == null ? null : Number(v) })} className="bg-white border-gray-200 text-gray-900 rounded-sm focus:border-primary h-9 font-mono text-xs" />
+                    <div className="h-52 border border-gray-200 rounded-sm overflow-hidden relative">
+                      <Map
+                        theme="light"
+                        viewport={{ center: [lngVal ?? 106.8456, latVal ?? -6.2088], zoom: latVal != null ? 13 : 9 }}
+                        className="w-full h-full"
+                      >
+                        <MapControls position="bottom-right" showZoom />
+                        <MapClickHandler onMapClick={(lat, lng) => { setValue("latitude", lat); setValue("longitude", lng); }} />
+                        {latVal != null && lngVal != null && (
+                          <MapMarker longitude={lngVal} latitude={latVal} draggable
+                            onDragEnd={({ lat, lng }) => { setValue("latitude", lat); setValue("longitude", lng); }}
+                          >
+                            <MarkerContent>
+                              <div className="w-4 h-4 rounded-full bg-primary border-2 border-white shadow-lg" />
+                            </MarkerContent>
+                          </MapMarker>
+                        )}
+                      </Map>
+                      {latVal == null && lngVal == null && (
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <p className="text-[11px] text-gray-500 bg-white/80 px-2.5 py-1.5 rounded-sm border border-gray-200 shadow-sm">
+                            Klik peta untuk menentukan lokasi
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
 

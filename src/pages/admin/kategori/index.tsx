@@ -1,9 +1,16 @@
 import { useState, type KeyboardEvent } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { adminApi } from "@/api/admin";
+import {
+  useGetDinas,
+  useGetKategori,
+  useCreateKategori,
+  useUpdateKategori,
+  useDeleteKategori,
+} from "@/hooks/admin";
+import { QUERY_KEYS } from "@/api/queryKeys";
 import type { Kategori } from "@/types/admin";
 import {
   Plus, Search, Clock, Edit2, Trash2, X, AlertTriangle,
@@ -75,22 +82,12 @@ export default function AdminKategoriPage() {
   const [kwInput, setKwInput] = useState("");
   const queryClient = useQueryClient();
 
-  const { data: dinasData } = useQuery({
-    queryKey: ["admin_dinas", "all"],
-    queryFn: () => adminApi.getDinas({ limit: 1000 }),
-  });
+  const { data: dinasData } = useGetDinas({ limit: 1000 });
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["admin_kategori", search, filterDinas, filterActive, page],
-    queryFn: () => adminApi.getKategori({
-      search: search || undefined,
-      dinasId: filterDinas || undefined,
-      isActive: filterActive,
-      page,
-      limit: LIMIT,
-    }),
-    placeholderData: (prev) => prev,
-  });
+  const { data, isLoading } = useGetKategori(
+    { search: search || undefined, dinasId: filterDinas || undefined, isActive: filterActive, page, limit: LIMIT },
+    { placeholderData: (prev) => prev }
+  );
 
   const kategoriList = data?.data ?? [];
   const meta = data?.meta;
@@ -103,22 +100,19 @@ export default function AdminKategoriPage() {
   const isActiveVal = watch("isActive");
   const urgencyVal = watch("urgencyWeight");
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["admin_kategori"] });
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.ADMIN_KATEGORI] });
 
-  const createMutation = useMutation({
-    mutationFn: (data: any) => adminApi.createKategori({ ...data, keywords }),
+  const createMutation = useCreateKategori({
     onSuccess: () => { toast.success("Kategori berhasil ditambahkan"); invalidate(); closeDrawer(); },
     onError: (e: any) => toast.error(e.response?.data?.message ?? "Gagal menambahkan"),
   });
 
-  const updateMutation = useMutation({
-    mutationFn: (args: { id: string; data: any }) => adminApi.updateKategori(args.id, { ...args.data, keywords }),
+  const updateMutation = useUpdateKategori({
     onSuccess: () => { toast.success("Kategori berhasil diperbarui"); invalidate(); closeDrawer(); },
     onError: (e: any) => toast.error(e.response?.data?.message ?? "Gagal menyimpan"),
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: adminApi.deleteKategori,
+  const deleteMutation = useDeleteKategori({
     onSuccess: () => { toast.success("Kategori berhasil dihapus"); invalidate(); setDeleteTarget(null); },
     onError: (e: any) => toast.error(e.response?.data?.message ?? "Gagal menghapus."),
   });
@@ -141,8 +135,8 @@ export default function AdminKategoriPage() {
   const closeDrawer = () => { setIsDrawerOpen(false); reset(); setEditId(null); setKeywords([]); setKwInput(""); };
 
   const onSubmit = (values: FormValues) => {
-    if (editId) updateMutation.mutate({ id: editId, data: values });
-    else createMutation.mutate(values);
+    if (editId) updateMutation.mutate({ id: editId, data: { ...values, keywords } });
+    else createMutation.mutate({ ...values, keywords });
   };
 
   const addKw = () => {
@@ -347,11 +341,11 @@ export default function AdminKategoriPage() {
       <AnimatePresence>
         {isDrawerOpen && (
           <>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40" onClick={closeDrawer} />
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60]" onClick={closeDrawer} />
             <motion.div
               initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}
               transition={{ type: "spring", damping: 30, stiffness: 300 }}
-              className="fixed right-0 top-0 bottom-0 w-full max-w-md bg-white border-l border-gray-200 z-50 flex flex-col shadow-2xl"
+              className="fixed right-0 top-0 bottom-0 w-full max-w-md bg-white border-l border-gray-200 z-[70] flex flex-col shadow-2xl"
             >
               <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
                 <div>

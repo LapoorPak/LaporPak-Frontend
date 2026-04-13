@@ -1,9 +1,14 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { adminApi } from "@/api/admin";
+import {
+  useGetDinas,
+  useCreateDinas,
+  useUpdateDinas,
+  useDeleteDinas,
+} from "@/hooks/admin";
 import { QUERY_KEYS } from "@/api/queryKeys";
 import type { Dinas } from "@/types/admin";
 import {
@@ -51,11 +56,10 @@ export default function AdminDinasPage() {
   const [deleteTarget, setDeleteTarget] = useState<Dinas | null>(null);
   const queryClient = useQueryClient();
 
-  const { data, isLoading } = useQuery({
-    queryKey: [QUERY_KEYS.ADMIN_DINAS, search, filterActive, page],
-    queryFn: () => adminApi.getDinas({ search: search || undefined, isActive: filterActive, page, limit: LIMIT }),
-    placeholderData: (prev) => prev,
-  });
+  const { data, isLoading } = useGetDinas(
+    { search: search || undefined, isActive: filterActive, page, limit: LIMIT },
+    { placeholderData: (prev) => prev }
+  );
 
   const dinas = data?.data ?? [];
   const meta = data?.meta;
@@ -69,20 +73,17 @@ export default function AdminDinasPage() {
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.ADMIN_DINAS] });
 
-  const createMutation = useMutation({
-    mutationFn: adminApi.createDinas,
+  const createMutation = useCreateDinas({
     onSuccess: () => { toast.success("Dinas berhasil ditambahkan"); invalidate(); closeDrawer(); },
     onError: (e: any) => toast.error(e.response?.data?.message ?? "Gagal menambahkan"),
   });
 
-  const updateMutation = useMutation({
-    mutationFn: (args: { id: string; data: Partial<FormValues> }) => adminApi.updateDinas(args.id, args.data),
+  const updateMutation = useUpdateDinas({
     onSuccess: () => { toast.success("Dinas berhasil diperbarui"); invalidate(); closeDrawer(); },
     onError: (e: any) => toast.error(e.response?.data?.message ?? "Gagal menyimpan"),
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: adminApi.deleteDinas,
+  const deleteMutation = useDeleteDinas({
     onSuccess: () => { toast.success("Dinas berhasil dihapus"); invalidate(); setDeleteTarget(null); },
     onError: (e: any) => toast.error(e.response?.data?.message ?? "Gagal menghapus. Pastikan tidak ada relasi."),
   });
@@ -314,7 +315,7 @@ export default function AdminDinasPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40"
+              className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60]"
               onClick={closeDrawer}
             />
             <motion.div
@@ -322,7 +323,7 @@ export default function AdminDinasPage() {
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
               transition={{ type: "spring", damping: 30, stiffness: 300 }}
-              className="fixed right-0 top-0 bottom-0 w-full max-w-md bg-white border-l border-gray-200 z-50 flex flex-col shadow-2xl"
+              className="fixed right-0 top-0 bottom-0 w-full max-w-md bg-white border-l border-gray-200 z-[70] flex flex-col shadow-2xl"
             >
               <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
                 <div>

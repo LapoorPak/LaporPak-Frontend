@@ -1,6 +1,14 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { adminApi } from "@/api/admin";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  useGetUsers,
+  useGetCabang,
+  useAssignPetugas,
+  useRemovePetugas,
+  useUpdateUser,
+  useResetUserPassword,
+} from "@/hooks/admin";
+import { QUERY_KEYS } from "@/api/queryKeys";
 import type { User, Cabang } from "@/types/admin";
 import {
   Search, Users, Ban, Building2, Lock, X, CheckCircle2,
@@ -21,7 +29,7 @@ function getRoleBadge(role: string | null) {
   if (role === "admin")
     return <span className="inline-flex items-center gap-1 bg-violet-500/15 text-violet-400 border border-violet-500/25 px-2 py-0.5 rounded text-[10px] font-bold tracking-wider"><Shield size={9} /> ADMIN</span>;
   if (role === "agency" || role === "petugas")
-    return <span className="inline-flex items-center gap-1 bg-blue-500/15 text-blue-400 border border-blue-500/25 px-2 py-0.5 rounded text-[10px] font-bold tracking-wider"><UserCheck size={9} /> DINAS</span>;
+    return <span className="inline-flex items-center gap-1 bg-gray-100 text-gray-600 border border-gray-200 px-2 py-0.5 rounded text-[10px] font-bold tracking-wider"><UserCheck size={9} /> DINAS</span>;
   return <span className="inline-flex items-center gap-1 bg-gray-100 text-gray-500 border border-gray-200 px-2 py-0.5 rounded text-[10px] font-bold tracking-wider"><Users size={9} /> WARGA</span>;
 }
 
@@ -58,7 +66,7 @@ function SkeletonRows() {
 
 export default function AdminUsersPage() {
   const qc = useQueryClient();
-  const invalidate = () => qc.invalidateQueries({ queryKey: ["admin_users"] });
+  const invalidate = () => qc.invalidateQueries({ queryKey: [QUERY_KEYS.ADMIN_USERS] });
 
   // Filters & pagination
   const [search, setSearch] = useState("");
@@ -97,25 +105,13 @@ export default function AdminUsersPage() {
     limit: LIMIT,
   };
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["admin_users", params],
-    queryFn: () => adminApi.getUsers(params),
-    placeholderData: (prev) => prev,
-  });
+  const { data, isLoading } = useGetUsers(params, { placeholderData: (prev) => prev });
 
-  const { data: cabangData } = useQuery({
-    queryKey: ["admin_cabang_all"],
-    queryFn: () => adminApi.getCabang({ limit: 1000 }),
-    enabled: wizardOpen,
-  });
+  const { data: cabangData } = useGetCabang({ limit: 1000 }, { enabled: wizardOpen });
 
   // ── Mutations ──
 
-  const assignMutation = useMutation({
-    mutationFn: () => adminApi.assignPetugas(selectedUser!.id, {
-      cabangDinasId: wizardCabang!.id,
-      nip: wizardNip || undefined,
-    }),
+  const assignMutation = useAssignPetugas({
     onSuccess: () => {
       toast.success("Berhasil ditugaskan sebagai Petugas");
       invalidate();
@@ -125,8 +121,7 @@ export default function AdminUsersPage() {
     onError: () => toast.error("Gagal menugaskan petugas"),
   });
 
-  const removeMutation = useMutation({
-    mutationFn: () => adminApi.removePetugas(selectedUser!.id),
+  const removeMutation = useRemovePetugas({
     onSuccess: () => {
       toast.success("Akses petugas dicabut");
       invalidate();
@@ -135,11 +130,7 @@ export default function AdminUsersPage() {
     onError: () => toast.error("Gagal mencabut akses petugas"),
   });
 
-  const banMutation = useMutation({
-    mutationFn: () => adminApi.updateUser(selectedUser!.id, {
-      banned: !selectedUser!.banned,
-      banReason: !selectedUser!.banned ? banReason || undefined : undefined,
-    } as Partial<User>),
+  const banMutation = useUpdateUser({
     onSuccess: () => {
       toast.success(selectedUser?.banned ? "Pengguna berhasil di-unban" : "Pengguna berhasil di-ban");
       invalidate();
@@ -149,8 +140,7 @@ export default function AdminUsersPage() {
     onError: () => toast.error("Gagal memperbarui status"),
   });
 
-  const resetMutation = useMutation({
-    mutationFn: () => adminApi.resetUserPassword(selectedUser!.id, newPassword || undefined),
+  const resetMutation = useResetUserPassword({
     onSuccess: () => {
       toast.success("Password berhasil direset");
       setResetOpen(false);
@@ -226,7 +216,7 @@ export default function AdminUsersPage() {
                 onClick={() => { setFilterHasPetugas(filterHasPetugas === "true" ? "" : "true"); setPage(1); }}
                 className={`h-8 px-3 text-xs rounded-sm border transition-colors font-medium ${
                   filterHasPetugas === "true"
-                    ? "bg-blue-50 text-blue-500 border-blue-200"
+                    ? "bg-gray-900 text-white border-gray-800"
                     : "bg-white text-gray-500 border-gray-200 hover:text-gray-900"
                 }`}
               >
@@ -284,7 +274,7 @@ export default function AdminUsersPage() {
                           <div className="space-y-1">
                             {getRoleBadge(user.role)}
                             {user.petugas && (
-                              <div className="text-[10px] text-blue-500/80 flex items-center gap-1">
+                              <div className="text-[10px] text-gray-500 flex items-center gap-1">
                                 <Building2 size={9} />
                                 {user.petugas.cabangDinas?.name ?? "Cabang"}
                               </div>
@@ -418,10 +408,10 @@ export default function AdminUsersPage() {
 
                   {/* Petugas info */}
                   {selectedUser.petugas ? (
-                    <div className="bg-blue-50 border border-blue-200 rounded-sm p-4">
+                    <div className="bg-gray-50 border border-gray-200 rounded-sm p-4">
                       <div className="flex items-center gap-2 mb-3">
-                        <Building2 size={13} className="text-blue-500" />
-                        <span className="text-xs font-bold text-blue-600">Informasi Petugas</span>
+                        <Building2 size={13} className="text-gray-400" />
+                        <span className="text-xs font-bold text-gray-600">Informasi Petugas</span>
                       </div>
                       <div className="space-y-2">
                         <div>
@@ -468,15 +458,15 @@ export default function AdminUsersPage() {
                   {!selectedUser.petugas ? (
                     <button
                       onClick={openWizard}
-                      className="w-full h-9 bg-blue-500/15 hover:bg-blue-500/25 text-blue-400 border border-blue-500/25 rounded-sm text-xs font-semibold flex items-center justify-center gap-2 transition-colors"
+                      className="w-full h-9 bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200 rounded-sm text-xs font-semibold flex items-center justify-center gap-2 transition-colors"
                     >
                       <Building2 size={14} /> Jadikan Petugas Dinas
                     </button>
                   ) : (
                     <button
-                      onClick={() => removeMutation.mutate()}
+                      onClick={() => removeMutation.mutate(selectedUser!.id)}
                       disabled={removeMutation.isPending}
-                      className="w-full h-9 bg-orange-500/15 hover:bg-orange-500/25 text-orange-400 border border-orange-500/25 rounded-sm text-xs font-semibold flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
+                      className="w-full h-9 bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200 rounded-sm text-xs font-semibold flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
                     >
                       <X size={14} /> {removeMutation.isPending ? "Mencabut..." : "Cabut Akses Petugas"}
                     </button>
@@ -732,7 +722,7 @@ export default function AdminUsersPage() {
                           <ChevronLeft size={14} /> Kembali
                         </button>
                         <button
-                          onClick={() => assignMutation.mutate()}
+                          onClick={() => assignMutation.mutate({ id: selectedUser!.id, data: { cabangDinasId: wizardCabang!.id, nip: wizardNip || undefined } })}
                           disabled={assignMutation.isPending}
                           className="flex-1 h-9 bg-primary hover:bg-primary/90 disabled:opacity-50 text-white text-xs font-bold rounded-sm flex items-center justify-center gap-1.5 transition-colors"
                         >
@@ -797,7 +787,7 @@ export default function AdminUsersPage() {
                     Batal
                   </button>
                   <button
-                    onClick={() => resetMutation.mutate()}
+                    onClick={() => resetMutation.mutate({ id: selectedUser!.id, newPassword: newPassword || undefined })}
                     disabled={resetMutation.isPending}
                     className="flex-1 h-9 bg-primary hover:bg-primary/90 disabled:opacity-50 text-white text-xs font-bold rounded-sm flex items-center justify-center gap-1.5 transition-colors"
                   >
@@ -877,7 +867,7 @@ export default function AdminUsersPage() {
                     Batal
                   </button>
                   <button
-                    onClick={() => banMutation.mutate()}
+                    onClick={() => banMutation.mutate({ id: selectedUser!.id, data: { banned: !selectedUser!.banned, banReason: !selectedUser!.banned ? banReason || undefined : undefined } as Partial<User> })}
                     disabled={banMutation.isPending}
                     className={`flex-1 h-9 disabled:opacity-50 text-white text-xs font-bold rounded-sm flex items-center justify-center gap-1.5 transition-colors ${
                       selectedUser?.banned
