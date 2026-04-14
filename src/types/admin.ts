@@ -34,7 +34,6 @@ export interface AdminOverview {
     byStatus: Record<string, number>;
   };
   topDinas?: { name: string; short?: string; count: number }[];
-  recentActivities?: any[];
 }
 
 export interface Dinas {
@@ -95,6 +94,41 @@ export interface Kategori {
   _count?: {
     laporan: number;
   };
+}
+
+export interface AdminLaporan {
+  id: string;
+  title: string;
+  description: string;
+  status: "pending" | "verified" | "in_progress" | "resolved" | "rejected";
+  routingStatus: string;
+  images: string[];
+  latitude: number;
+  longitude: number;
+  address: string | null;
+  agencyNote: string | null;
+  resolutionNote: string | null;
+  aiDecisionStatus: string | null;
+  aiConfidence: number | null;
+  aiReasoning: string | null;
+  aiClarityScore: number | null;
+  aiSeriousnessScore: number | null;
+  aiUrgencyScore: number | null;
+  aiRejectionCode: string | null;
+  aiSuggestedRewrite: string | null;
+  createdAt: string;
+  updatedAt: string;
+  resolvedAt: string | null;
+  kategori: {
+    id: string;
+    code: string;
+    name: string;
+    dinas: { id: string; code: string; name: string; short: string } | null;
+  } | null;
+  cabangDinas: { id: string; name: string; wilayah: string } | null;
+  createdBy: { id: string; name: string; email: string; image: string | null } | null;
+  assignedTo?: { id: string; name: string; email: string; image: string | null } | null;
+  resolvedBy?: { id: string; name: string; email: string } | null;
 }
 
 export interface User {

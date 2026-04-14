@@ -24,4 +24,9 @@ export const Api = {
   adminUserById: (id: string) => `/admin/users/${id}`,
   adminUserResetPassword: (id: string) => `/admin/users/${id}/reset-password`,
   adminUserAssignPetugas: (id: string) => `/admin/users/${id}/assign-petugas`,
+
+  adminLaporan: "/admin/laporan",
+  adminLaporanById: (id: string) => `/admin/laporan/${id}`,
+  adminLaporanStatus: (id: string) => `/admin/laporan/${id}/status`,
+  adminLaporanAssign: (id: string) => `/admin/laporan/${id}/assign`,
 } as const;

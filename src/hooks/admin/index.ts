@@ -20,3 +20,8 @@ export { useUpdateUser } from "./useUpdateUser";
 export { useResetUserPassword } from "./useResetUserPassword";
 export { useAssignPetugas } from "./useAssignPetugas";
 export { useRemovePetugas } from "./useRemovePetugas";
+
+export { useGetAdminLaporan } from "./useGetAdminLaporan";
+export { useUpdateAdminLaporanStatus } from "./useUpdateAdminLaporanStatus";
+export { useAssignAdminLaporan } from "./useAssignAdminLaporan";
+export { useDeleteAdminLaporan } from "./useDeleteAdminLaporan";

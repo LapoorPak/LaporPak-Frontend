@@ -1,7 +1,7 @@
 import { Outlet, Link, useNavigate, useLocation } from "react-router";
 import { authClient } from "@/lib/auth-client";
 import {
-  LogOut, LayoutDashboard, Building2, MapPin, Tags, Users,
+  LogOut, LayoutDashboard, Building2, MapPin, Tags, Users, FileText,
   Menu, X,
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
@@ -15,6 +15,7 @@ const SIDEBAR_ITEMS = [
   { name: "Cabang", path: "/admin/cabang", icon: MapPin, desc: "Unit & lokasi" },
   { name: "Kategori", path: "/admin/kategori", icon: Tags, desc: "Klasifikasi laporan" },
   { name: "Users", path: "/admin/users", icon: Users, desc: "Manajemen pengguna" },
+  { name: "Laporan", path: "/admin/laporan", icon: FileText, desc: "Manajemen laporan" },
 ];
 
 const PAGE_TITLES: Record<string, string> = {
@@ -23,6 +24,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/admin/cabang": "Cabang Management",
   "/admin/kategori": "Kategori Management",
   "/admin/users": "Users Management",
+  "/admin/laporan": "Laporan Management",
 };
 
 export default function AdminLayout() {
@@ -129,12 +131,12 @@ export default function AdminLayout() {
         <div className="w-64 flex flex-col h-full">
           {/* Logo */}
           <div className="h-16 flex items-center px-5 border-b border-gray-200 shrink-0">
-            <div>
+            <a href="/">
               <span className="text-base font-heading font-black text-gray-900 tracking-tight">
                 Lapor<span className="text-[#db2744]">Pak</span>
               </span>
               <div className="text-[9px] text-gray-400 font-semibold uppercase tracking-widest -mt-0.5">Admin Panel</div>
-            </div>
+            </a>
           </div>
 
           {/* Nav */}
@@ -173,7 +175,7 @@ export default function AdminLayout() {
           {/* User / Logout */}
           <div className="p-3 border-t border-gray-200 shrink-0">
             <div className="flex items-center gap-3 p-2.5 rounded-sm bg-gray-50 border border-gray-200">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/40 to-primary/20 border border-primary/20 flex items-center justify-center shrink-0 text-xs font-bold text-primary">
+              <div className="w-8 h-8 rounded-full bg-white border-2 border-primary/25 shadow-sm flex items-center justify-center shrink-0 text-xs font-bold text-primary overflow-hidden">
                 {session?.user?.image ? (
                   <img src={session.user.image} alt="" referrerPolicy="no-referrer" className="w-full h-full rounded-full object-cover" />
                 ) : (
@@ -220,7 +222,7 @@ export default function AdminLayout() {
                 onClick={() => setShowUserMenu(!showUserMenu)}
                 className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-sm hover:bg-gray-100 transition-colors border border-transparent hover:border-gray-200"
               >
-                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-primary/30 to-primary/10 border border-primary/20 flex items-center justify-center text-xs font-bold text-primary shrink-0 overflow-hidden">
+                <div className="w-7 h-7 rounded-full bg-white border-2 border-primary/25 shadow-sm flex items-center justify-center text-xs font-bold text-primary shrink-0 overflow-hidden">
                   {session?.user?.image ? (
                     <img src={session.user.image} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
                   ) : (

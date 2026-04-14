@@ -13,4 +13,5 @@ export const QUERY_KEYS = {
   ADMIN_CABANG_ALL: "admin_cabang_all",
   ADMIN_KATEGORI: "admin_kategori",
   ADMIN_USERS: "admin_users",
+  ADMIN_LAPORAN: "admin_laporan",
 } as const;

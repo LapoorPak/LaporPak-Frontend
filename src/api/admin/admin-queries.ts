@@ -2,7 +2,7 @@ import { useMutation, useQuery, type UseMutationOptions, type UseQueryOptions } 
 import { apiClient } from "@/config/api-client";
 import { Api } from "@/constants/api";
 import { QUERY_KEYS } from "../queryKeys";
-import type { BaseResponse, ListResponse, AdminOverview, Dinas, Cabang, Kategori, User } from "@/types/admin";
+import type { BaseResponse, ListResponse, AdminOverview, Dinas, Cabang, Kategori, User, AdminLaporan } from "@/types/admin";
 
 // ─── Param types ───────────────────────────────────────────────────────────────
 
@@ -269,6 +269,68 @@ export function useMutationRemovePetugas(
   return useMutation({
     mutationFn: async (id: string) => {
       const response = await apiClient.delete<BaseResponse<null>>(Api.adminUserAssignPetugas(id));
+      return response.data;
+    },
+    ...options,
+  });
+}
+
+// ─── Admin Laporan ──────────────────────────────────────────────────────────────
+
+export interface GetAdminLaporanParams {
+  search?: string;
+  status?: string;
+  dinasId?: string;
+  cabangDinasId?: string;
+  kategoriId?: string;
+  page?: number;
+  limit?: number;
+}
+
+export function useQueryGetAdminLaporan<TData = ListResponse<AdminLaporan>, TError = Error>(
+  params?: GetAdminLaporanParams,
+  options?: Omit<UseQueryOptions<ListResponse<AdminLaporan>, TError, TData, [string, GetAdminLaporanParams | undefined]>, "queryKey" | "queryFn">
+) {
+  return useQuery({
+    queryKey: [QUERY_KEYS.ADMIN_LAPORAN, params],
+    queryFn: async () => {
+      const response = await apiClient.get<ListResponse<AdminLaporan>>(Api.adminLaporan, { params });
+      return response.data;
+    },
+    ...options,
+  });
+}
+
+export function useMutationUpdateAdminLaporanStatus(
+  options?: Omit<UseMutationOptions<BaseResponse<AdminLaporan>, Error, { id: string; status: string; agencyNote?: string; resolutionNote?: string }>, "mutationFn">
+) {
+  return useMutation({
+    mutationFn: async ({ id, ...data }) => {
+      const response = await apiClient.patch<BaseResponse<AdminLaporan>>(Api.adminLaporanStatus(id), data);
+      return response.data;
+    },
+    ...options,
+  });
+}
+
+export function useMutationAssignAdminLaporan(
+  options?: Omit<UseMutationOptions<BaseResponse<AdminLaporan>, Error, { id: string; cabangDinasId: string }>, "mutationFn">
+) {
+  return useMutation({
+    mutationFn: async ({ id, cabangDinasId }) => {
+      const response = await apiClient.patch<BaseResponse<AdminLaporan>>(Api.adminLaporanAssign(id), { cabangDinasId });
+      return response.data;
+    },
+    ...options,
+  });
+}
+
+export function useMutationDeleteAdminLaporan(
+  options?: Omit<UseMutationOptions<BaseResponse<null>, Error, string>, "mutationFn">
+) {
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiClient.delete<BaseResponse<null>>(Api.adminLaporanById(id));
       return response.data;
     },
     ...options,

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, type ChangeEvent } from "react";
+import { useState, useEffect, useRef, useCallback, type ChangeEvent } from "react";
 import { Map, MapControls, MapMarker, MarkerContent, MarkerPopup, type MapRef } from "@/components/ui/map";
 import { authClient } from "@/lib/auth-client";
 import { type ReportLocation } from "@/api/reports/reports-queries";
@@ -12,7 +12,8 @@ import { QUERY_KEYS } from "@/api/queryKeys";
 import axios from "axios";
 import { toast } from "sonner";
 import { API_BASE } from "@/config/api-client";
-import { MapPin, X, AlertTriangle, Plus, Target, Check, Clock, User, Navigation, Building2, ListFilter, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { MapPin, X, AlertTriangle, Plus, Target, Check, Clock, User, Navigation, Building2, ListFilter, Search, ChevronLeft, ChevronRight, ZoomIn } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 import { CitizenMyReportsPanel } from "./CitizenMyReportsPanel";
 import { CitizenReportFormPanel } from "./CitizenReportFormPanel";
 import { LocationSearchResultsDropdown } from "./LocationSearchResultsDropdown";
@@ -20,21 +21,165 @@ import { CITIZEN_REPORT_STATUS_MAP } from "../utils/reportStatus";
 
 type InteractionMode = "idle" | "pin_drop";
 
-function ReportPopup({ report }: { report: ReportLocation }) {
+function resolvePhotoUrl(url: string) {
+  return url.startsWith("http") ? url : `${API_BASE}${url}`;
+}
+
+type LightboxState = { images: string[]; index: number } | null;
+
+function PhotoLightbox({ images, index, onClose }: { images: string[]; index: number; onClose: () => void }) {
+  const [current, setCurrent] = useState(index);
+
+  const prev = useCallback(() => setCurrent((i) => (i > 0 ? i - 1 : images.length - 1)), [images.length]);
+  const next = useCallback(() => setCurrent((i) => (i < images.length - 1 ? i + 1 : 0)), [images.length]);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      if (e.key === "ArrowLeft") prev();
+      if (e.key === "ArrowRight") next();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose, prev, next]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[9999] bg-black/92 flex items-center justify-center"
+      onClick={onClose}
+    >
+      <button
+        className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors z-10"
+        onClick={onClose}
+      >
+        <X size={18} />
+      </button>
+
+      {images.length > 1 && (
+        <span className="hidden md:inline absolute top-4 left-1/2 -translate-x-1/2 text-white/60 text-xs font-bold tracking-widest">
+          {current + 1} / {images.length}
+        </span>
+      )}
+
+      {images.length > 1 && (
+        <>
+          <button
+            className="hidden md:flex absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 hover:bg-white/25 text-white items-center justify-center transition-colors z-10"
+            onClick={(e) => { e.stopPropagation(); prev(); }}
+          >
+            <ChevronLeft size={22} />
+          </button>
+          <button
+            className="hidden md:flex absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 hover:bg-white/25 text-white items-center justify-center transition-colors z-10"
+            onClick={(e) => { e.stopPropagation(); next(); }}
+          >
+            <ChevronRight size={22} />
+          </button>
+        </>
+      )}
+
+      <motion.img
+        key={current}
+        initial={{ opacity: 0, scale: 0.96 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.18 }}
+        src={resolvePhotoUrl(images[current])}
+        alt={`Foto ${current + 1}`}
+        className="max-w-[92vw] max-h-[75vh] md:max-h-[88vh] object-contain rounded-lg shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      />
+
+      {images.length > 1 && (
+        <div className="md:hidden absolute bottom-8 left-0 right-0 flex items-center justify-center gap-6 z-10">
+          <button
+            className="w-12 h-12 rounded-full bg-white/15 active:bg-white/30 text-white flex items-center justify-center transition-colors"
+            onClick={(e) => { e.stopPropagation(); prev(); }}
+          >
+            <ChevronLeft size={24} />
+          </button>
+          <span className="text-white/60 text-sm font-bold tracking-widest min-w-[48px] text-center">
+            {current + 1} / {images.length}
+          </span>
+          <button
+            className="w-12 h-12 rounded-full bg-white/15 active:bg-white/30 text-white flex items-center justify-center transition-colors"
+            onClick={(e) => { e.stopPropagation(); next(); }}
+          >
+            <ChevronRight size={24} />
+          </button>
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
+function ReportPopup({ report, onPhotoClick }: { report: ReportLocation; onPhotoClick: (imgs: string[], idx: number) => void }) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [photoIndex, setPhotoIndex] = useState(0);
   const status = CITIZEN_REPORT_STATUS_MAP[report.status] || { label: report.status, color: "bg-gray-50 text-gray-700 border-gray-200" };
   const description = report.kategori?.name || "Laporan Warga";
   const agencyNote = report.agencyNote?.trim();
   const resolutionNote = report.resolutionNote?.trim();
+  const photos = report.images?.length
+    ? report.images
+    : report.aiReview?.gambarDiterimaAi?.length
+    ? report.aiReview.gambarDiterimaAi
+    : null;
 
   return (
     <div className="w-[300px] overflow-hidden -m-[10px] -mb-[15px]">
-      <div className="p-4">
-        <div className="flex items-center gap-2 mb-2">
-          <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${status.color} uppercase tracking-wide`}>
+      {photos && photos.length > 0 && (
+        <div className="w-full h-[140px] bg-gray-100 relative group overflow-hidden">
+          <button
+            type="button"
+            className="absolute inset-0 w-full h-full cursor-zoom-in z-[1]"
+            onClick={(e) => { e.stopPropagation(); onPhotoClick(photos.map(resolvePhotoUrl), photoIndex); }}
+          />
+          <img src={resolvePhotoUrl(photos[photoIndex])} alt={report.title} className="w-full h-full object-cover transition-all" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent pointer-events-none" />
+          <ZoomIn size={16} className="absolute top-2 right-2 text-white drop-shadow opacity-70 pointer-events-none z-[2]" />
+
+          {photos.length > 1 && (
+            <>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setPhotoIndex((i) => (i > 0 ? i - 1 : photos.length - 1)); }}
+                className="absolute left-1 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-[2px] transition-all hover:bg-black/60 active:scale-95 z-10"
+              >
+                <ChevronLeft size={15} strokeWidth={2.5} />
+              </button>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setPhotoIndex((i) => (i < photos.length - 1 ? i + 1 : 0)); }}
+                className="absolute right-1 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-[2px] transition-all hover:bg-black/60 active:scale-95 z-10"
+              >
+                <ChevronRight size={15} strokeWidth={2.5} />
+              </button>
+
+              <div className="absolute bottom-6 left-0 right-0 flex justify-center gap-1.5 z-10 pointer-events-none">
+                {photos.map((_: string, idx: number) => (
+                  <div key={idx} className={`h-1.5 rounded-full transition-all duration-300 ${idx === photoIndex ? 'bg-white w-3' : 'bg-white/50 w-1.5'}`} />
+                ))}
+              </div>
+            </>
+          )}
+
+          <span className={`absolute bottom-2 left-3 text-[9px] font-black px-2 py-0.5 rounded border uppercase tracking-wide ${status.color} shadow-md z-[2]`}>
             {status.label}
           </span>
         </div>
+      )}
+
+      <div className="p-4">
+        {(!photos || photos.length === 0) && (
+          <div className="flex items-center gap-2 mb-2">
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${status.color} uppercase tracking-wide`}>
+              {status.label}
+            </span>
+          </div>
+        )}
 
         <h4 className="font-extrabold text-sm text-gray-900 leading-tight mb-1">
           {report.title}
@@ -89,7 +234,7 @@ function ReportPopup({ report }: { report: ReportLocation }) {
         <div className="flex items-center justify-between pt-2 border-t border-gray-100">
           <div className="flex items-center gap-1.5 text-gray-400">
             <User size={12} />
-            <span className="text-[11px] font-semibold">User</span>
+            <span className="text-[11px] font-semibold">{report.createdBy?.name || "Warga"}</span>
           </div>
           <div className="flex items-center gap-1 text-gray-400">
             <Clock size={11} />
@@ -108,27 +253,37 @@ function ReportPopup({ report }: { report: ReportLocation }) {
   );
 }
 
-function AgencyPopupCarousel({ agency }: { agency: any }) {
+function AgencyPopupCarousel({ agency, onPhotoClick }: { agency: any; onPhotoClick: (imgs: string[], idx: number) => void }) {
   const [currentIndex, setCurrentIndex] = useState(0);
-  
+
   if (!agency.photos || agency.photos.length === 0) {
     if (agency.photoUrl) {
+      const url = resolvePhotoUrl(agency.photoUrl);
       return (
-        <div className="w-full h-[120px] bg-gray-100 relative">
-          <img src={agency.photoUrl.startsWith('http') ? agency.photoUrl : `${API_BASE}${agency.photoUrl}`} alt={agency.name} className="w-full h-full object-cover" />
+        <button type="button" className="w-full h-[120px] bg-gray-100 relative block" onClick={(e) => { e.stopPropagation(); onPhotoClick([url], 0); }}>
+          <img src={url} alt={agency.name} className="w-full h-full object-cover" />
           <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent pointer-events-none" />
-        </div>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <ZoomIn size={20} className="text-white opacity-0 hover:opacity-100 transition-opacity drop-shadow" />
+          </div>
+        </button>
       );
     }
     return null;
   }
 
-  const photos = agency.photos;
+  const photos: string[] = agency.photos;
 
   return (
     <div className="w-full h-[120px] bg-gray-100 relative group overflow-hidden">
-      <img src={photos[currentIndex].startsWith('http') ? photos[currentIndex] : `${API_BASE}${photos[currentIndex]}`} alt={agency.name} className="w-full h-full object-cover transition-all" />
+      <button
+        type="button"
+        className="absolute inset-0 w-full h-full cursor-zoom-in z-[1]"
+        onClick={(e) => { e.stopPropagation(); onPhotoClick(photos.map(resolvePhotoUrl), currentIndex); }}
+      />
+      <img src={resolvePhotoUrl(photos[currentIndex])} alt={agency.name} className="w-full h-full object-cover transition-all" />
       <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent pointer-events-none" />
+      <ZoomIn size={16} className="absolute top-2 right-2 text-white drop-shadow opacity-70 pointer-events-none z-[2]" />
       
       {photos.length > 1 && (
         <>
@@ -177,8 +332,12 @@ export default function CitizenDashboard() {
   const [showSearch, setShowSearch] = useState(false);
   const [searchedLocation, setSearchedLocation] = useState<{ name: string; coords: [number, number] } | null>(null);
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
+  const [lightbox, setLightbox] = useState<LightboxState>(null);
   const searchRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapRef | null>(null);
+  
+  const openLightbox = useCallback((images: string[], index: number) => setLightbox({ images, index }), []);
+  const closeLightbox = useCallback(() => setLightbox(null), []);
   
   // API Queries
   const { data: publicReportsData } = useGetReportLocations();
@@ -394,48 +553,13 @@ export default function CitizenDashboard() {
             }}
           />
 
-          {mode === "pin_drop" && (
-            <MapMarker longitude={viewport.center[0]} latitude={viewport.center[1]}>
-               <MarkerContent>
-                  <div className="flex flex-col items-center -mt-8 pointer-events-none">
-                     <div className="bg-gray-900 text-white text-[10px] font-bold px-3 py-1.5 rounded-full shadow-lg mb-1.5 animate-bounce">
-                       Geser Peta ke Lokasi
-                     </div>
-                     <div className="w-10 h-10 flex items-center justify-center">
-                       <MapPin size={38} className="text-[#db2744] drop-shadow-xl" fill="#db2744" stroke="white" strokeWidth={1.5} />
-                     </div>
-                  </div>
-               </MarkerContent>
-            </MapMarker>
-          )}
-
-          {markerLocation && mode === "idle" && (
-            <MapMarker 
-               longitude={markerLocation[0]} 
-               latitude={markerLocation[1]}
-               draggable={true}
-               onDragEnd={(e: { lng: number; lat: number }) => setMarkerLocation([e.lng, e.lat])}
-            >
-               <MarkerContent>
-                  <div className="flex flex-col items-center -mt-8 cursor-grab active:cursor-grabbing">
-                     <div className="bg-[#db2744] text-white text-[10px] font-bold px-2 py-1 rounded shadow-lg mb-1 whitespace-nowrap opacity-90 hover:opacity-100">
-                       Bisa digeser
-                     </div>
-                     <div className="w-10 h-10 flex items-center justify-center">
-                       <MapPin size={38} className="text-[#db2744] drop-shadow-xl" fill="#db2744" stroke="white" strokeWidth={2} />
-                     </div>
-                  </div>
-               </MarkerContent>
-            </MapMarker>
-          )}
-
           {publicReports.map((report) => (
            <MapMarker key={report.id} longitude={report.lng} latitude={report.lat}>
               <MarkerPopup closeButton>
-                 <ReportPopup report={report} />
+                 <ReportPopup report={report} onPhotoClick={openLightbox} />
               </MarkerPopup>
-              <MarkerContent>
-                 <div className="w-10 h-10 -mt-5 -ml-5 bg-[#db2744]/20 rounded-full flex items-center justify-center">
+              <MarkerContent className="[&>*]:!z-[10]">
+                 <div className="w-10 h-10 -mt-5 -ml-5 bg-[#db2744]/20 rounded-full flex items-center justify-center" style={{ zIndex: 10 }}>
                    <div className="w-6 h-6 bg-[#db2744] hover:bg-rose-500 rounded-full flex items-center justify-center shadow-lg shadow-red-500/50 transition-colors border-2 border-white">
                       <AlertTriangle size={12} className="text-white" strokeWidth={3} />
                    </div>
@@ -444,12 +568,11 @@ export default function CitizenDashboard() {
            </MapMarker>
           ))}
 
-          {/* Agency Location Markers */}
           {agencies.map((agency, idx) => (
             <MapMarker key={`agency-${agency.id || idx}`} longitude={agency.lng} latitude={agency.lat}>
                <MarkerPopup closeButton>
                  <div className="w-[200px] flex flex-col overflow-hidden -m-[10px] -mb-[15px]">
-                   <AgencyPopupCarousel agency={agency} />
+                   <AgencyPopupCarousel agency={agency} onPhotoClick={openLightbox} />
                    <div className="p-3 pb-4 flex flex-col gap-1.5 relative">
                      <div className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-sm w-fit truncate max-w-full ${(agency.photos?.length > 0 || agency.photoUrl) ? "text-indigo-600 bg-indigo-50 absolute -top-8 left-3 shadow-md border border-indigo-100/50" : "text-indigo-600 bg-indigo-50"}`}>
                        {agency.type?.replace(/_/g, ' ') || 'Dinas'}
@@ -461,7 +584,7 @@ export default function CitizenDashboard() {
                  </div>
                </MarkerPopup>
                <MarkerContent>
-                 <div className="w-8 h-8 rounded-full bg-indigo-50 border-2 border-indigo-200 shadow-lg flex items-center justify-center -mt-4 text-indigo-600 hover:scale-110 hover:bg-indigo-600 hover:text-white hover:border-transparent transition-all cursor-pointer">
+                 <div className="w-8 h-8 rounded-full bg-indigo-50 border-2 border-indigo-200 shadow-lg flex items-center justify-center -mt-4 text-indigo-600 hover:scale-110 hover:bg-indigo-600 hover:text-white hover:border-transparent transition-all cursor-pointer" style={{ zIndex: 20 }}>
                    <Building2 size={14} strokeWidth={2.5} />
                  </div>
                </MarkerContent>
@@ -471,7 +594,7 @@ export default function CitizenDashboard() {
           {searchedLocation && (
             <MapMarker longitude={searchedLocation.coords[0]} latitude={searchedLocation.coords[1]}>
               <MarkerContent>
-                <div className="flex flex-col items-center -mt-10 pointer-events-none">
+                <div className="flex flex-col items-center -mt-10 pointer-events-none" style={{ zIndex: 30 }}>
                   <div className="bg-white text-gray-900 text-[10px] font-bold px-3 py-1.5 rounded-full shadow-lg mb-1 border border-gray-200 max-w-[140px] truncate">
                     {searchedLocation.name}
                   </div>
@@ -484,11 +607,11 @@ export default function CitizenDashboard() {
             </MapMarker>
           )}
 
+          {/* Layer 4: Lokasi user */}
           {userLocation && (
             <MapMarker longitude={userLocation[0]} latitude={userLocation[1]}>
               <MarkerContent>
-                <div className="flex flex-col items-center -mt-6 pointer-events-none">
-                  
+                <div className="flex flex-col items-center -mt-6 pointer-events-none" style={{ zIndex: 40 }}>
                   <div className="relative">
                     <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center animate-ping absolute inset-0" />
                     <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-lg border-2 border-emerald-500 relative z-10 overflow-hidden">
@@ -506,6 +629,43 @@ export default function CitizenDashboard() {
                   </span>
                 </div>
               </MarkerContent>
+            </MapMarker>
+          )}
+
+          {/* Layer 5 (teratas): Pin drop mode */}
+          {mode === "pin_drop" && (
+            <MapMarker longitude={viewport.center[0]} latitude={viewport.center[1]}>
+               <MarkerContent>
+                  <div className="flex flex-col items-center -mt-8 pointer-events-none" style={{ zIndex: 100 }}>
+                     <div className="bg-gray-900 text-white text-[10px] font-bold px-3 py-1.5 rounded-full shadow-lg mb-1.5 animate-bounce">
+                       Geser Peta ke Lokasi
+                     </div>
+                     <div className="w-10 h-10 flex items-center justify-center">
+                       <MapPin size={38} className="text-[#db2744] drop-shadow-xl" fill="#db2744" stroke="white" strokeWidth={1.5} />
+                     </div>
+                  </div>
+               </MarkerContent>
+            </MapMarker>
+          )}
+
+          {/* Layer 5 (teratas): Marker lokasi laporan yang dipilih */}
+          {markerLocation && mode === "idle" && (
+            <MapMarker 
+               longitude={markerLocation[0]} 
+               latitude={markerLocation[1]}
+               draggable={true}
+               onDragEnd={(e: { lng: number; lat: number }) => setMarkerLocation([e.lng, e.lat])}
+            >
+               <MarkerContent>
+                  <div className="flex flex-col items-center -mt-8 cursor-grab active:cursor-grabbing" style={{ zIndex: 100 }}>
+                     <div className="bg-[#db2744] text-white text-[10px] font-bold px-2 py-1 rounded shadow-lg mb-1 whitespace-nowrap opacity-90 hover:opacity-100">
+                       Bisa digeser
+                     </div>
+                     <div className="w-10 h-10 flex items-center justify-center">
+                       <MapPin size={38} className="text-[#db2744] drop-shadow-xl" fill="#db2744" stroke="white" strokeWidth={2} />
+                     </div>
+                  </div>
+               </MarkerContent>
             </MapMarker>
           )}
         </Map>
@@ -608,6 +768,7 @@ export default function CitizenDashboard() {
         onDescriptionChange={setDescription}
         onPhotoUpload={handlePhotoUpload}
         onRemovePhoto={removePhoto}
+        onPhotoClick={openLightbox}
         onEditLocation={() => {
           setIsFormOpen(false);
           setMode("idle");
@@ -635,6 +796,12 @@ export default function CitizenDashboard() {
           }
         }}
       />
+
+      <AnimatePresence>
+        {lightbox && (
+          <PhotoLightbox images={lightbox.images} index={lightbox.index} onClose={closeLightbox} />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

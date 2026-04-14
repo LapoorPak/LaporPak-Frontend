@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Map,
   MapControls,
@@ -16,7 +16,11 @@ import {
   ListFilter,
   Navigation,
   User,
+  X,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 import type {
   ReportsDashboardSummary,
   ReportsDashboardTab,
@@ -38,6 +42,7 @@ import { QUERY_KEYS } from "@/api/queryKeys";
 import { useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import { toast } from "sonner";
+import { API_BASE } from "@/config/api-client";
 import { AgencyReportDetailDrawer } from "./AgencyReportDetailDrawer";
 import { AgencyReportsBottomSheet } from "./AgencyReportsBottomSheet";
 import { AgencyReportsSidebar } from "./AgencyReportsSidebar";
@@ -145,6 +150,99 @@ const matchesAgencyDashboardSearch = (
   );
 };
 
+function resolvePhotoUrl(url: string) {
+  return url.startsWith("http") ? url : `${API_BASE}${url}`;
+}
+
+type LightboxState = { images: string[]; index: number } | null;
+
+function PhotoLightbox({ images, index, onClose }: { images: string[]; index: number; onClose: () => void }) {
+  const [current, setCurrent] = useState(index);
+  const prev = useCallback(() => setCurrent((i) => (i > 0 ? i - 1 : images.length - 1)), [images.length]);
+  const next = useCallback(() => setCurrent((i) => (i < images.length - 1 ? i + 1 : 0)), [images.length]);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      if (e.key === "ArrowLeft") prev();
+      if (e.key === "ArrowRight") next();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose, prev, next]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[9999] bg-black/92 flex items-center justify-center"
+      onClick={onClose}
+    >
+      <button
+        className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors z-10"
+        onClick={onClose}
+      >
+        <X size={18} />
+      </button>
+
+      {images.length > 1 && (
+        <span className="hidden md:inline absolute top-4 left-1/2 -translate-x-1/2 text-white/60 text-xs font-bold tracking-widest">
+          {current + 1} / {images.length}
+        </span>
+      )}
+
+      {images.length > 1 && (
+        <>
+          <button
+            className="hidden md:flex absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 hover:bg-white/25 text-white items-center justify-center transition-colors z-10"
+            onClick={(e) => { e.stopPropagation(); prev(); }}
+          >
+            <ChevronLeft size={22} />
+          </button>
+          <button
+            className="hidden md:flex absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 hover:bg-white/25 text-white items-center justify-center transition-colors z-10"
+            onClick={(e) => { e.stopPropagation(); next(); }}
+          >
+            <ChevronRight size={22} />
+          </button>
+        </>
+      )}
+
+      <motion.img
+        key={current}
+        initial={{ opacity: 0, scale: 0.96 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.18 }}
+        src={resolvePhotoUrl(images[current])}
+        alt={`Foto ${current + 1}`}
+        className="max-w-[92vw] max-h-[75vh] md:max-h-[88vh] object-contain rounded-lg shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      />
+
+      {images.length > 1 && (
+        <div className="md:hidden absolute bottom-8 left-0 right-0 flex items-center justify-center gap-6 z-10">
+          <button
+            className="w-12 h-12 rounded-full bg-white/15 active:bg-white/30 text-white flex items-center justify-center transition-colors"
+            onClick={(e) => { e.stopPropagation(); prev(); }}
+          >
+            <ChevronLeft size={24} />
+          </button>
+          <span className="text-white/60 text-sm font-bold tracking-widest min-w-[48px] text-center">
+            {current + 1} / {images.length}
+          </span>
+          <button
+            className="w-12 h-12 rounded-full bg-white/15 active:bg-white/30 text-white flex items-center justify-center transition-colors"
+            onClick={(e) => { e.stopPropagation(); next(); }}
+          >
+            <ChevronRight size={24} />
+          </button>
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
 export default function AgencyDashboard() {
   const [activeTab, setActiveTab] = useState<ReportsDashboardTabKey>("semua");
   const [scope, setScope] = useState<ReportsScope>("mine");
@@ -171,6 +269,9 @@ export default function AgencyDashboard() {
   const searchRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapRef | null>(null);
   const queryClient = useQueryClient();
+  const [lightbox, setLightbox] = useState<LightboxState>(null);
+  const openLightbox = useCallback((images: string[], index: number) => setLightbox({ images, index }), []);
+  const closeLightbox = useCallback(() => setLightbox(null), []);
 
   const { data: reportLocationsData } = useGetReportLocations({ scope });
   const {
@@ -638,6 +739,7 @@ export default function AgencyDashboard() {
         onAgencyNoteChange={setAgencyNote}
         onResolutionNoteChange={setResolutionNote}
         onSave={handleSaveStatus}
+        onPhotoClick={openLightbox}
       />
 
       {/* Bottom Toolbar Dock */}
@@ -714,6 +816,11 @@ export default function AgencyDashboard() {
           </button>
         </div>
       </div>
+      <AnimatePresence>
+        {lightbox && (
+          <PhotoLightbox images={lightbox.images} index={lightbox.index} onClose={closeLightbox} />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

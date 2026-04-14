@@ -12,6 +12,7 @@ const AdminDinas = lazy(() => import("@/pages/admin/dinas"));
 const AdminCabang = lazy(() => import("@/pages/admin/cabang"));
 const AdminKategori = lazy(() => import("@/pages/admin/kategori"));
 const AdminUsers = lazy(() => import("@/pages/admin/users"));
+const AdminLaporan = lazy(() => import("@/pages/admin/laporan"));
 const Dashboard = lazy(() => import("@/pages/dashboard"));
 const HowItWorks = lazy(() => import("@/pages/how-it-works"));
 const HelpCenter = lazy(() => import("@/pages/help-center"));
@@ -142,6 +143,14 @@ export const routes: Route[] = [
     title: "Admin Users Management",
     path: "/admin/users",
     component: AdminUsers,
+    isEnabled: true,
+    portal: "admin",
+  },
+  {
+    key: "admin-laporan",
+    title: "Admin Laporan Management",
+    path: "/admin/laporan",
+    component: AdminLaporan,
     isEnabled: true,
     portal: "admin",
   },

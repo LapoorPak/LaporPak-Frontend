@@ -145,13 +145,11 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-6 pb-16">
-      {/* Header */}
       <div>
         <h1 className="text-2xl font-heading font-black text-gray-900">Selamat datang kembali</h1>
         <p className="text-gray-500 text-sm mt-1">Berikut ringkasan sistem LaporPak hari ini.</p>
       </div>
 
-      {/* KPI Grid */}
       <motion.div
         variants={containerVariants}
         initial="hidden"
@@ -306,7 +304,7 @@ export default function AdminDashboardPage() {
                   <YAxis stroke="#d1d5db" fontSize={11} tickLine={false} axisLine={false} tick={{ fill: "#9ca3af" }} />
                   <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(0,0,0,0.03)" }} />
                   <Bar dataKey="value" radius={[6, 6, 0, 0]}>
-                    {dinasChartData.map((_, i) => (
+                    {dinasChartData.map((_: { name: string; value: number }, i: number) => (
                       <Cell key={i} fill={`oklch(0.50 0.22 25 / ${0.4 + (i / Math.max(dinasChartData.length, 1)) * 0.6})`} />
                     ))}
                   </Bar>
@@ -319,7 +317,6 @@ export default function AdminDashboardPage() {
 
       {/* Status Summary + Quick Actions */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Status breakdown */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -360,7 +357,6 @@ export default function AdminDashboardPage() {
           </div>
         </motion.div>
 
-        {/* Quick Actions */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}

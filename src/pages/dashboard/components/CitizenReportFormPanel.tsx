@@ -1,6 +1,7 @@
 import type { ChangeEvent } from "react";
+import { useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ImagePlus, Loader2, MapPin, Navigation, Trash2, X } from "lucide-react";
+import { Camera, Images, ImagePlus, Loader2, MapPin, Navigation, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,6 +21,7 @@ interface CitizenReportFormPanelProps {
   onDescriptionChange: (value: string) => void;
   onPhotoUpload: (event: ChangeEvent<HTMLInputElement>) => void;
   onRemovePhoto: (index: number) => void;
+  onPhotoClick: (images: string[], index: number) => void;
   onEditLocation: () => void;
   onUseGpsLocation: () => void;
   onSubmit: () => void;
@@ -39,6 +41,7 @@ export function CitizenReportFormPanel({
   onDescriptionChange,
   onPhotoUpload,
   onRemovePhoto,
+  onPhotoClick,
   onEditLocation,
   onUseGpsLocation,
   onSubmit,
@@ -46,6 +49,10 @@ export function CitizenReportFormPanel({
   const canUseGpsLocation =
     !!userLocation &&
     (selectedLocation[0] !== userLocation[0] || selectedLocation[1] !== userLocation[1]);
+
+  // Refs untuk hidden inputs di mobile
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
 
   return (
     <AnimatePresence>
@@ -66,6 +73,7 @@ export function CitizenReportFormPanel({
                 : "w-full rounded-t-3xl h-[85vh] shadow-[0_-20px_40px_rgba(0,0,0,0.1)]"
             }`}
           >
+            {/* Header */}
             <div className="px-7 py-6 flex justify-between items-center bg-white pb-2 relative z-10 cursor-move active:cursor-grabbing">
               <div>
                 <h3 className="font-heading font-black text-2xl text-gray-900 tracking-tight">
@@ -82,6 +90,8 @@ export function CitizenReportFormPanel({
             </div>
 
             <div className="flex-1 overflow-y-auto px-7 space-y-7 bg-white pb-6 pt-2 hide-scrollbar">
+
+              {/* Judul */}
               <div className="space-y-2">
                 <Label htmlFor="title" className="text-xs font-black text-gray-300 tracking-widest leading-none">
                   JUDUL LAPORAN
@@ -108,42 +118,141 @@ export function CitizenReportFormPanel({
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label className="text-xs font-black text-gray-300 tracking-widest leading-none">
-                  UNGGAH BUKTI FOTO
-                </Label>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-black text-gray-300 tracking-widest leading-none">
+                    BUKTI FOTO
+                  </Label>
+                  {photoPreviews.length === 0 ? (
+                    <span className="text-[10px] font-bold text-[#db2744] uppercase tracking-widest">
+                      Wajib diisi
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                      {photoPreviews.length} foto
+                    </span>
+                  )}
+                </div>
 
-                {photoPreviews.length > 0 && (
-                  <div className="grid grid-cols-2 gap-3 mb-3">
-                    {photoPreviews.map((url, index) => (
-                      <div key={`${url}-${index}`} className="relative w-full h-[100px] rounded-sm overflow-hidden group">
-                        <img src={url} alt={`Preview ${index + 1}`} className="w-full h-full object-cover" />
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                          <button
-                            onClick={() => onRemovePhoto(index)}
-                            className="w-8 h-8 bg-white/20 backdrop-blur rounded-full flex items-center justify-center text-white hover:bg-red-500 hover:text-white transition-colors"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
+                {/* Preview grid */}
+                <AnimatePresence>
+                  {photoPreviews.length > 0 && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -6 }}
+                      className="grid grid-cols-3 gap-2"
+                    >
+                      {photoPreviews.map((url, index) => (
+                        <motion.div
+                          key={`${url}-${index}`}
+                          initial={{ opacity: 0, scale: 0.85 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.85 }}
+                          transition={{ type: "spring", stiffness: 400, damping: 28 }}
+                          className="relative w-full h-[80px] rounded-lg overflow-hidden group shadow-sm"
+                        >
+                          <img
+                            src={url}
+                            alt={`Preview ${index + 1}`}
+                            className="w-full h-full object-cover cursor-zoom-in"
+                            onClick={() => onPhotoClick(photoPreviews, index)}
+                          />
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-all flex items-center justify-center gap-2 pointer-events-none group-hover:pointer-events-auto">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); onPhotoClick(photoPreviews, index); }}
+                              className="opacity-0 group-hover:opacity-100 w-7 h-7 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-white/40 transition-all scale-75 group-hover:scale-100"
+                            >
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); onRemovePhoto(index); }}
+                              className="opacity-0 group-hover:opacity-100 w-7 h-7 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-red-500 transition-all scale-75 group-hover:scale-100"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                          {/* Nomor badge */}
+                          <span className="absolute top-1 left-1 bg-black/50 text-white text-[9px] font-black rounded px-1 leading-4">
+                            {index + 1}
+                          </span>
+                        </motion.div>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {!isDesktop && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <motion.button
+                      whileTap={{ scale: 0.97 }}
+                      onClick={() => cameraInputRef.current?.click()}
+                      className="relative flex flex-col items-center justify-center gap-2 h-[100px] rounded-xl border-2 border-gray-200 bg-gray-50/60 hover:bg-gray-50 text-gray-500 transition-colors group overflow-hidden"
+                    >
+                      <div className="absolute -top-4 -right-4 w-16 h-16 bg-white/10 rounded-full blur-xl" />
+                      <div className="relative z-10 w-10 h-10 rounded-full bg-white/20 flex items-center justify-center group-active:bg-white/30 transition-colors">
+                        <Camera size={20} strokeWidth={2}  className="text-gray-400"/>
                       </div>
-                    ))}
+                      <span className="text-[11px] font-black uppercase tracking-widest text-gray-400 leading-none">
+                        Ambil Foto
+                      </span>
+                    </motion.button>
+
+                    <motion.button
+                      whileTap={{ scale: 0.97 }}
+                      onClick={() => galleryInputRef.current?.click()}
+                      className="relative flex flex-col items-center justify-center gap-2 h-[100px] rounded-xl border-2 border-gray-200 bg-gray-50/60 hover:bg-gray-50 text-gray-500 transition-colors group overflow-hidden"
+                    >
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center group-hover:bg-gray-200 transition-colors">
+                        <Images size={20} strokeWidth={1.8} className="text-gray-400" />
+                      </div>
+                      <span className="text-[11px] font-black uppercase tracking-widest text-gray-400 leading-none">
+                        Dari Galeri
+                      </span>
+                    </motion.button>
+
+                    {/* Hidden inputs */}
+                    <input
+                      ref={cameraInputRef}
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      className="hidden"
+                      onChange={onPhotoUpload}
+                    />
+                    <input
+                      ref={galleryInputRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={onPhotoUpload}
+                    />
                   </div>
                 )}
 
-                <div className="w-full h-[100px] rounded-sm border-2 border-dashed border-gray-200 bg-gray-50/50 hover:bg-gray-50 flex flex-col items-center justify-center text-gray-400 transition-all relative cursor-pointer group">
-                  <ImagePlus size={24} className="mb-2 text-gray-300 group-hover:text-gray-400 transition-colors" />
-                  <span className="text-[11px] font-bold font-sans uppercase tracking-widest">Pilih Foto</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={onPhotoUpload}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                  />
-                </div>
+                {isDesktop && (
+                  <div className="w-full h-[100px] rounded-sm border-2 border-dashed border-gray-200 bg-gray-50/50 hover:bg-gray-50 flex flex-col items-center justify-center text-gray-400 transition-all relative cursor-pointer group">
+                    <ImagePlus size={24} className="mb-2 text-gray-300 group-hover:text-gray-400 transition-colors" />
+                    <span className="text-[11px] font-bold font-sans uppercase tracking-widest">Pilih Foto</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={onPhotoUpload}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    />
+                  </div>
+                )}
+
+                {!isDesktop && photoPreviews.length === 0 && (
+                  <p className="text-[10px] text-gray-400 text-center font-medium leading-relaxed">
+                    Foto menjadi bukti pendukung laporan Anda
+                  </p>
+                )}
               </div>
 
+              {/* Lokasi */}
               <div className="space-y-2">
                 <Label className="text-xs font-black text-gray-300 tracking-widest leading-none">LOKASI TERPILIH</Label>
                 <div className="flex items-center justify-between p-1.5 border border-transparent">
@@ -170,19 +279,20 @@ export function CitizenReportFormPanel({
                 {canUseGpsLocation && (
                   <button
                     onClick={onUseGpsLocation}
-                    className="w-full mt-3 flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-red-100 bg-red-50 hover:bg-red-100/80 text-[#db2744] text-[11px] font-black tracking-widest uppercase transition-colors shadow-sm"
+                    className="group w-full mt-3 flex items-center justify-center gap-2 py-3 rounded-sm border-2 border-[#db2744] text-[#db2744] hover:bg-[#db2744] hover:text-white text-[11px] font-black tracking-widest uppercase transition-all duration-200"
                   >
-                    <Navigation size={15} strokeWidth={2.5} />
+                    <Navigation size={15} strokeWidth={2.5} className="text-[#db2744] group-hover:text-white transition-colors duration-200" />
                     Gunakan Lokasi GPS Saya
                   </button>
                 )}
               </div>
             </div>
 
+            {/* Footer CTA */}
             <div className="px-7 py-5 bg-white border-t border-gray-100">
               <Button
                 onClick={onSubmit}
-                disabled={isSubmitting || !title.trim() || !description.trim()}
+                disabled={isSubmitting || !title.trim() || !description.trim() || photoPreviews.length === 0}
                 className="w-full bg-[#db2744] hover:bg-[#b01e33] disabled:opacity-50 rounded-sm h-12 text-white font-black tracking-widest text-sm active:scale-[0.98] transition-all"
               >
                 {isSubmitting ? <Loader2 className="animate-spin w-5 h-5 mx-auto" /> : "KIRIM LAPORAN"}

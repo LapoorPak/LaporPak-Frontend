@@ -65,7 +65,12 @@ export interface ReportLocation {
     id: string;
     name: string;
   } | null;
+  createdBy?: {
+    id: string;
+    name: string;
+  } | null;
   aiReview?: AiReview | null;
+  images?: string[];
 }
 
 export interface LocationStats {
