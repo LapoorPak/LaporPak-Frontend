@@ -42,7 +42,7 @@ import { QUERY_KEYS } from "@/api/queryKeys";
 import { useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import { toast } from "sonner";
-import { API_BASE } from "@/config/api-client";
+import { resolvePhotoUrl } from "@/lib/resolve-photo-url";
 import { AgencyReportDetailDrawer } from "./AgencyReportDetailDrawer";
 import { AgencyReportsBottomSheet } from "./AgencyReportsBottomSheet";
 import { AgencyReportsSidebar } from "./AgencyReportsSidebar";
@@ -63,11 +63,13 @@ const DEFAULT_REPORTS_DASHBOARD_SUMMARY: ReportsDashboardSummary = {
   totalTarget: 0,
   laporanBaru: 0,
   diproses: 0,
+  klarifikasi: 0,
   tuntas: 0,
   byStatusRaw: {
     pending: 0,
     verified: 0,
     in_progress: 0,
+    clarification_requested: 0,
     resolved: 0,
     rejected: 0,
   },
@@ -99,6 +101,14 @@ const SUMMARY_CARD_META = [
     border: "border-orange-200",
   },
   {
+    key: "klarifikasi",
+    label: "Klarifikasi",
+    icon: AlertCircle,
+    color: "text-violet-600",
+    bg: "bg-violet-100",
+    border: "border-violet-200",
+  },
+  {
     key: "tuntas",
     label: "Tuntas",
     icon: CheckCircle2,
@@ -128,6 +138,7 @@ const matchesAgencyDashboardTab = (
   if (status === "rejected") return false;
   if (tab === "baru") return status === "pending" || status === "verified";
   if (tab === "diproses") return status === "in_progress";
+  if (tab === "klarifikasi") return status === "clarification_requested";
   if (tab === "tuntas") return status === "resolved";
   return true;
 };
@@ -149,10 +160,6 @@ const matchesAgencyDashboardSearch = (
     categoryName.toLowerCase().includes(normalizedQuery)
   );
 };
-
-function resolvePhotoUrl(url: string) {
-  return url.startsWith("http") ? url : `${API_BASE}${url}`;
-}
 
 type LightboxState = { images: string[]; index: number } | null;
 
@@ -216,7 +223,7 @@ function PhotoLightbox({ images, index, onClose }: { images: string[]; index: nu
         transition={{ duration: 0.18 }}
         src={resolvePhotoUrl(images[current])}
         alt={`Foto ${current + 1}`}
-        className="max-w-[92vw] max-h-[75vh] md:max-h-[88vh] object-contain rounded-lg shadow-2xl"
+        className="max-w-[92vw] max-h-[75vh] md:max-h-[88vh] object-contain rounded-sm shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       />
 
@@ -252,6 +259,8 @@ export default function AgencyDashboard() {
   const [draftStatus, setDraftStatus] = useState<string | null>(null);
   const [agencyNote, setAgencyNote] = useState("");
   const [resolutionNote, setResolutionNote] = useState("");
+  const [resolutionProofFiles, setResolutionProofFiles] = useState<File[]>([]);
+  const [resolutionProofPreviews, setResolutionProofPreviews] = useState<string[]>([]);
   const [userLocation, setUserLocation] = useState<[number, number] | null>(
     null,
   );
@@ -298,7 +307,7 @@ export default function AgencyDashboard() {
     isReportsDashboardLoading && dashboardReports.length === 0;
   const summaryStats = SUMMARY_CARD_META.map((item) => ({
     ...item,
-    value: dashboardSummary[item.key],
+    value: dashboardSummary[item.key] ?? 0,
   }));
   const visibleMapReports = locationReports.filter((report) => {
     return (
@@ -314,31 +323,36 @@ export default function AgencyDashboard() {
     ? (
         draftStatus !== selectedReport.status ||
         agencyNote.trim() !== (selectedReport.agencyNote ?? "").trim() ||
-        resolutionNote.trim() !== (selectedReport.resolutionNote ?? "").trim()
+        resolutionNote.trim() !== (selectedReport.resolutionNote ?? "").trim() ||
+        resolutionProofFiles.length > 0
       )
     : false;
   const isSaveDisabled =
     !selectedReport ||
     !draftStatus ||
     !canEditSelectedReport ||
-    !hasDraftChanges;
+    !hasDraftChanges ||
+    (draftStatus === "resolved" && resolutionProofFiles.length === 0 && !(selectedReport.resolutionImages?.length));
   const handleAgencyMutationSuccess = async (status: ReportLocation["status"]) => {
     await Promise.allSettled([
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.REPORTS_LOCATIONS] }),
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.REPORTS_DASHBOARD] }),
     ]);
 
-    toast.success("Tiket berhasil diperbarui", {
+    toast.success("Update tiket berhasil dikirim", {
       description:
         status === "resolved"
           ? "Laporan ditandai selesai dan perubahan sudah tersimpan."
-          : "Perubahan tiket sudah tersimpan.",
+          : "Catatan penanganan terbaru sudah masuk ke tiket.",
     });
+    resolutionProofPreviews.forEach((url) => URL.revokeObjectURL(url));
+    setResolutionProofFiles([]);
+    setResolutionProofPreviews([]);
     setSelectedMarkerId(null);
   };
 
   const handleAgencyMutationError = (error: unknown) => {
-    toast.error("Gagal menyimpan tiket", {
+    toast.error("Gagal mengirim update tiket", {
       description: getAgencyUpdateErrorMessage(error),
     });
   };
@@ -462,6 +476,7 @@ export default function AgencyDashboard() {
           agencyNote: trimmedAgencyNote,
           catatanDinas: trimmedAgencyNote,
           resolutionNote: trimmedResolutionNote,
+          resolutionImages: resolutionProofFiles,
         },
       });
       return;
@@ -474,6 +489,7 @@ export default function AgencyDashboard() {
         agencyNote: trimmedAgencyNote,
         catatanDinas: trimmedAgencyNote,
         resolutionNote: null,
+        images: resolutionProofFiles,
       },
     });
   };
@@ -491,6 +507,9 @@ export default function AgencyDashboard() {
       setDraftStatus(locationReport.status);
       setAgencyNote(locationReport.agencyNote ?? "");
       setResolutionNote(locationReport.resolutionNote ?? "");
+      resolutionProofPreviews.forEach((url) => URL.revokeObjectURL(url));
+      setResolutionProofFiles([]);
+      setResolutionProofPreviews([]);
       return;
     }
 
@@ -498,7 +517,34 @@ export default function AgencyDashboard() {
       setDraftStatus(dashboardReport.status);
       setAgencyNote("");
       setResolutionNote("");
+      resolutionProofPreviews.forEach((url) => URL.revokeObjectURL(url));
+      setResolutionProofFiles([]);
+      setResolutionProofPreviews([]);
     }
+  };
+
+  const handleResolutionProofUpload = (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const nextFiles = Array.from(files).filter((file) => file.type.startsWith("image/"));
+    if (nextFiles.length === 0) {
+      toast.error("Bukti resolusi harus berupa gambar");
+      return;
+    }
+    if (resolutionProofFiles.length + nextFiles.length > 5) {
+      toast.error("Maksimal 5 foto bukti update");
+      return;
+    }
+    setResolutionProofFiles((prev) => [...prev, ...nextFiles]);
+    setResolutionProofPreviews((prev) => [...prev, ...nextFiles.map((file) => URL.createObjectURL(file))]);
+  };
+
+  const handleRemoveResolutionProof = (index: number) => {
+    setResolutionProofPreviews((prev) => {
+      const removed = prev[index];
+      if (removed) URL.revokeObjectURL(removed);
+      return prev.filter((_, i) => i !== index);
+    });
+    setResolutionProofFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSelectPlace = (place: SearchResult) => {
@@ -516,6 +562,8 @@ export default function AgencyDashboard() {
       case "verified":
       case "in_progress":
         return "bg-orange-100 text-orange-700 border border-orange-200";
+      case "clarification_requested":
+        return "bg-violet-100 text-violet-700 border border-violet-200";
       case "resolved":
         return "bg-emerald-100 text-emerald-700 border border-emerald-200";
       case "rejected":
@@ -532,6 +580,8 @@ export default function AgencyDashboard() {
       case "verified":
       case "in_progress":
         return "bg-orange-500 shadow-orange-500/50 text-white";
+      case "clarification_requested":
+        return "bg-violet-500 shadow-violet-500/50 text-white";
       case "resolved":
         return "bg-emerald-500 shadow-emerald-500/50 text-white";
       default:
@@ -602,6 +652,7 @@ export default function AgencyDashboard() {
                     className="relative group transition-transform hover:scale-110 focus:outline-none"
                   >
                     {(report.status === "pending" ||
+                      report.status === "clarification_requested" ||
                       selectedMarkerId === report.id) && (
                       <div
                         className={`absolute inset-0 rounded-full animate-ping opacity-75 ${
@@ -615,7 +666,7 @@ export default function AgencyDashboard() {
                       className={`relative w-8 h-8 rounded-full flex items-center justify-center shadow-xl border-2 transition-all z-10 
                     ${selectedMarkerId === report.id ? "bg-gray-900 border-white text-white scale-110" : getMarkerColor(report.status) + " border-white"}`}
                     >
-                      {report.status === "pending" ? (
+                      {report.status === "pending" || report.status === "clarification_requested" ? (
                         <AlertCircle
                           size={16}
                           strokeWidth={selectedMarkerId === report.id ? 3 : 2.5}
@@ -731,6 +782,7 @@ export default function AgencyDashboard() {
         draftStatus={draftStatus}
         agencyNote={agencyNote}
         resolutionNote={resolutionNote}
+        resolutionProofPreviews={resolutionProofPreviews}
         canEdit={canEditSelectedReport}
         isSaving={updateReportStatus.isPending || resolveReport.isPending}
         isSaveDisabled={isSaveDisabled}
@@ -738,6 +790,8 @@ export default function AgencyDashboard() {
         onDraftStatusChange={setDraftStatus}
         onAgencyNoteChange={setAgencyNote}
         onResolutionNoteChange={setResolutionNote}
+        onResolutionProofUpload={handleResolutionProofUpload}
+        onRemoveResolutionProof={handleRemoveResolutionProof}
         onSave={handleSaveStatus}
         onPhotoClick={openLightbox}
       />

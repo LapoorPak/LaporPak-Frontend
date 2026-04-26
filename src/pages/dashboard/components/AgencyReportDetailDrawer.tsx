@@ -1,10 +1,18 @@
+import {
+  useEffect,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertCircle,
-  ArrowRight,
+  Circle,
   Clock,
+  ImagePlus,
   MapPin,
   Settings,
+  Trash2,
   User,
   X,
   ZoomIn,
@@ -28,6 +36,11 @@ const STATUS_OPTIONS = [
     activeClass: "border-orange-500 bg-orange-50 text-orange-600",
   },
   {
+    value: "clarification_requested",
+    label: "Klarifikasi",
+    activeClass: "border-violet-500 bg-violet-50 text-violet-600",
+  },
+  {
     value: "resolved",
     label: "Selesai",
     activeClass: "border-emerald-500 bg-emerald-50 text-emerald-600",
@@ -41,6 +54,7 @@ interface AgencyReportDetailDrawerProps {
   draftStatus: string | null;
   agencyNote: string;
   resolutionNote: string;
+  resolutionProofPreviews: string[];
   canEdit: boolean;
   isSaving: boolean;
   isSaveDisabled: boolean;
@@ -48,6 +62,8 @@ interface AgencyReportDetailDrawerProps {
   onDraftStatusChange: (status: string) => void;
   onAgencyNoteChange: (value: string) => void;
   onResolutionNoteChange: (value: string) => void;
+  onResolutionProofUpload: (files: FileList | null) => void;
+  onRemoveResolutionProof: (index: number) => void;
   onSave: () => void;
   onPhotoClick?: (images: string[], index: number) => void;
 }
@@ -59,6 +75,7 @@ export function AgencyReportDetailDrawer({
   draftStatus,
   agencyNote,
   resolutionNote,
+  resolutionProofPreviews,
   canEdit,
   isSaving,
   isSaveDisabled,
@@ -66,9 +83,17 @@ export function AgencyReportDetailDrawer({
   onDraftStatusChange,
   onAgencyNoteChange,
   onResolutionNoteChange,
+  onResolutionProofUpload,
+  onRemoveResolutionProof,
   onSave,
   onPhotoClick,
 }: AgencyReportDetailDrawerProps) {
+  const [mobileSheetHeight, setMobileSheetHeight] = useState(78);
+  const mobileResizeRef = useRef<{
+    startY: number;
+    startHeight: number;
+  } | null>(null);
+  const mobileResizeMovedRef = useRef(false);
   const currentStatusMeta = report
     ? AGENCY_REPORT_STATUS_MAP[report.status] || {
         label: report.status,
@@ -79,6 +104,54 @@ export function AgencyReportDetailDrawer({
     draftStatus === "resolved" ||
     Boolean(report?.resolutionNote) ||
     Boolean(resolutionNote.trim());
+  const resolutionPhotos = [
+    ...(report?.resolutionImages ?? []),
+    ...resolutionProofPreviews,
+  ];
+  const uploadedProofCount = resolutionProofPreviews.length;
+
+  useEffect(() => {
+    if (isOpen && !isDesktop) {
+      setMobileSheetHeight(78);
+    }
+  }, [isDesktop, isOpen, report?.id]);
+
+  const startMobileResize = (event: ReactPointerEvent) => {
+    if (isDesktop) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    mobileResizeMovedRef.current = false;
+    mobileResizeRef.current = {
+      startY: event.clientY,
+      startHeight: mobileSheetHeight,
+    };
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      const resizeState = mobileResizeRef.current;
+      if (!resizeState) return;
+
+      const deltaY = resizeState.startY - moveEvent.clientY;
+      if (Math.abs(deltaY) > 2) {
+        mobileResizeMovedRef.current = true;
+      }
+
+      const nextHeight =
+        resizeState.startHeight + (deltaY / window.innerHeight) * 100;
+      setMobileSheetHeight(Math.min(94, Math.max(50, nextHeight)));
+    };
+
+    const handlePointerUp = () => {
+      mobileResizeRef.current = null;
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+    window.addEventListener("pointercancel", handlePointerUp);
+  };
 
   return (
     <AnimatePresence>
@@ -92,31 +165,49 @@ export function AgencyReportDetailDrawer({
             isDesktop ? { x: "100%", opacity: 0 } : { y: "100%", opacity: 0 }
           }
           transition={{ type: "spring", stiffness: 350, damping: 35 }}
-          className={`absolute z-30 pointer-events-none ${isDesktop ? "top-20 right-5" : "bottom-0 left-0 right-0 h-[88vh]"}`}
+          className={`absolute z-30 pointer-events-none ${isDesktop ? "top-20 right-5" : "bottom-0 left-0 right-0"}`}
         >
           <motion.div
             drag={isDesktop}
             dragMomentum={false}
-            className={`bg-white flex flex-col resize pointer-events-auto ${
+            animate={
+              isDesktop ? undefined : { height: `${mobileSheetHeight}vh` }
+            }
+            transition={{ type: "spring", stiffness: 420, damping: 38 }}
+            className={`bg-white flex flex-col pointer-events-auto ${
               isDesktop
-                ? "h-[calc(100vh-100px)] min-h-[400px] w-[420px] min-w-[320px] max-w-[600px] shadow-2xl rounded-2xl border border-gray-100 overflow-hidden"
-                : "w-full h-full rounded-t-3xl shadow-2xl overflow-hidden"
+                ? "resize h-[calc(100vh-100px)] min-h-[400px] w-[420px] min-w-[320px] max-w-[600px] shadow-2xl rounded-sm border border-gray-100 overflow-hidden"
+                : "w-full rounded-t-2xl shadow-[0_-20px_40px_rgba(15,23,42,0.16)] overflow-hidden"
             }`}
           >
             {!isDesktop && (
-              <div className="flex items-center justify-center pt-3 pb-1 shrink-0">
-                <div className="w-10 h-1 rounded-full bg-gray-200" />
-              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (mobileResizeMovedRef.current) return;
+                  setMobileSheetHeight((height) => (height > 84 ? 78 : 94));
+                }}
+                onPointerDown={startMobileResize}
+                className="flex w-full touch-none items-center justify-center pt-3 pb-1 shrink-0 cursor-grab active:cursor-grabbing"
+                aria-label={
+                  mobileSheetHeight > 84
+                    ? "Perkecil tinjauan tiket"
+                    : "Perbesar tinjauan tiket"
+                }
+              >
+                <span className="w-11 h-1.5 rounded-full bg-gray-200" />
+              </button>
             )}
 
             <div
-              className={`px-6 py-4 flex justify-between items-center bg-white border-b border-gray-100 shrink-0 ${isDesktop ? "rounded-t-2xl cursor-move active:cursor-grabbing" : ""}`}
+              onPointerDown={!isDesktop ? startMobileResize : undefined}
+              className={`px-5 sm:px-6 py-3.5 flex touch-none justify-between items-center bg-white border-b border-gray-100 shrink-0 ${isDesktop ? "rounded-t-sm cursor-move active:cursor-grabbing" : ""}`}
             >
               <div>
-                <h3 className="font-heading font-black text-lg text-gray-900 tracking-tight leading-none">
-                  Tinjauan Tiket
+                <h3 className="font-heading font-black text-base text-gray-900 tracking-tight leading-tight">
+                  Update Tiket
                 </h3>
-                <p className="text-[10px] font-bold text-gray-400 mt-0.5 uppercase tracking-widest">
+                <p className="text-[10px] font-black text-gray-400 mt-0.5 uppercase tracking-widest">
                   #TCK-{report.id.substring(0, 8)}
                 </p>
               </div>
@@ -129,8 +220,8 @@ export function AgencyReportDetailDrawer({
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto flex flex-col">
-              <div className="bg-white px-6 pt-5 pb-5 space-y-5">
+            <div className="flex-1 overflow-y-auto flex flex-col thin-scrollbar">
+              <div className="bg-white px-5 sm:px-6 pt-4 pb-4 space-y-3.5">
                 {(() => {
                   const photos = report.images?.length
                     ? report.images
@@ -139,8 +230,8 @@ export function AgencyReportDetailDrawer({
                       : null;
                   if (!photos || photos.length === 0) {
                     return (
-                      <div className="w-full h-[100px] bg-gray-50 border border-dashed border-gray-200 rounded-2xl flex flex-col items-center justify-center text-gray-400">
-                        <AlertCircle size={22} className="mb-1.5 opacity-50" />
+                      <div className="w-full h-[84px] bg-gray-50 border border-dashed border-gray-200 rounded-sm flex flex-col items-center justify-center text-gray-400">
+                        <AlertCircle size={20} className="mb-1.5 opacity-50" />
                         <span className="text-[10px] uppercase font-black tracking-widest">
                           Tidak Ada Foto
                         </span>
@@ -150,7 +241,7 @@ export function AgencyReportDetailDrawer({
                   const resolveUrl = (url: string) =>
                     url.startsWith("http") ? url : `${API_BASE}${url}`;
                   return (
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-2 gap-2">
                       {photos.map((url, i) => (
                         <button
                           key={i}
@@ -159,7 +250,7 @@ export function AgencyReportDetailDrawer({
                             e.stopPropagation();
                             onPhotoClick?.(photos.map(resolveUrl), i);
                           }}
-                          className="relative w-full h-[80px] rounded-xl overflow-hidden group"
+                          className="relative w-full h-[78px] rounded-sm overflow-hidden group bg-gray-100"
                         >
                           <img
                             src={resolveUrl(url)}
@@ -179,26 +270,26 @@ export function AgencyReportDetailDrawer({
                 })()}
 
                 <div>
-                  <h2 className="text-base font-black text-gray-900 leading-tight mb-1.5">
+                  <h2 className="text-[15px] font-extrabold text-gray-900 leading-snug mb-2">
                     {report.title}
                   </h2>
-                  <div className="flex flex-wrap items-center gap-2 mb-3">
+                  <div className="flex flex-wrap items-center gap-2 mb-2.5">
                     {currentStatusMeta && (
                       <span
-                        className={`text-[10px] font-black px-2.5 py-1 rounded-full border uppercase tracking-widest ${currentStatusMeta.color}`}
+                        className={`text-[9px] font-black px-2.5 py-1 rounded-sm border uppercase tracking-widest ${currentStatusMeta.color}`}
                       >
                         {currentStatusMeta.label}
                       </span>
                     )}
-                    <span className="text-[10px] font-black px-2.5 py-1 rounded-full border uppercase tracking-widest bg-gray-100 text-gray-500 border-gray-200">
+                    <span className="text-[9px] font-black px-2.5 py-1 rounded-sm border uppercase tracking-widest bg-gray-100 text-gray-500 border-gray-200">
                       {canEdit ? "Bisa Diedit" : "Lihat Saja"}
                     </span>
                   </div>
-                  <p className="text-sm text-gray-500 leading-relaxed mb-4">
+                  <p className="text-xs font-semibold text-gray-500 leading-relaxed mb-3">
                     {report.kategori?.name || "Laporan Warga"}
                   </p>
 
-                  <div className="grid grid-cols-2 gap-2 p-3 bg-gray-50 rounded-xl border border-gray-100">
+                  <div className="grid grid-cols-2 gap-2 p-3 bg-gray-50 rounded-sm border border-gray-100">
                     <div className="flex flex-col gap-0.5">
                       <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
                         Pelapor
@@ -221,14 +312,14 @@ export function AgencyReportDetailDrawer({
                       <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
                         Koordinat
                       </span>
-                      <div className="flex items-center justify-between text-xs font-bold text-gray-900 bg-white px-2.5 py-1.5 border border-gray-200 rounded-lg">
+                      <div className="flex items-center justify-between text-xs font-bold text-gray-900 bg-white px-2.5 py-1.5 border border-gray-200 rounded-sm">
                         <div className="flex items-center gap-1.5">
                           <MapPin size={11} className="text-blue-500" />
                           <span className="font-mono text-[11px]">
                             {report.lat.toFixed(4)}, {report.lng.toFixed(4)}
                           </span>
                         </div>
-                        <button className="text-[9px] uppercase tracking-widest text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
+                        <button className="text-[9px] font-black uppercase tracking-widest text-blue-600 bg-blue-50 px-2 py-0.5 rounded-sm border border-blue-100">
                           Nav
                         </button>
                       </div>
@@ -237,25 +328,24 @@ export function AgencyReportDetailDrawer({
                 </div>
               </div>
 
-              <div className="bg-gray-50/50 border-t border-gray-100 px-6 py-5 flex-1">
-                <h4 className="text-[11px] font-black text-[#111827] uppercase tracking-widest flex items-center gap-2 mb-4">
-                  <Settings size={13} className="text-gray-400" /> Kontrol
-                  Resolusi
+              <div className="bg-gray-50/70 border-t border-gray-100 px-5 sm:px-6 py-4 flex-1">
+                <h4 className="text-[10px] font-black text-[#111827] uppercase tracking-widest flex items-center gap-2 mb-3">
+                  <Settings size={13} className="text-gray-400" /> Kirim Update
                 </h4>
 
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {!canEdit && (
-                    <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                    <div className="rounded-sm border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold leading-relaxed text-amber-800">
                       Tiket ini tetap bisa dilihat, tapi hanya laporan milik
                       instansi Anda yang dapat diubah.
                     </div>
                   )}
 
-                  <div className="space-y-2">
+                  <div className="rounded-sm border border-gray-100 bg-white p-3.5 space-y-2.5">
                     <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                      Ubah Status
+                      Status Update
                     </Label>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-2 gap-2">
                       {STATUS_OPTIONS.map((statusOption) => (
                         <button
                           key={statusOption.value}
@@ -264,10 +354,10 @@ export function AgencyReportDetailDrawer({
                           onClick={() =>
                             onDraftStatusChange(statusOption.value)
                           }
-                          className={`py-2.5 rounded-xl border-2 text-xs font-black uppercase tracking-wider transition-all ${
+                          className={`min-h-[36px] px-2 py-1.5 rounded-sm border text-[10px] font-black uppercase tracking-wider transition-all ${
                             draftStatus === statusOption.value
                               ? statusOption.activeClass
-                              : "border-gray-100 text-gray-400 hover:border-gray-200 bg-white"
+                              : "border-gray-200 text-gray-500 hover:border-gray-300 bg-white"
                           } ${!canEdit ? "cursor-not-allowed opacity-60 hover:border-gray-100" : ""}`}
                         >
                           {statusOption.label}
@@ -276,9 +366,9 @@ export function AgencyReportDetailDrawer({
                     </div>
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="rounded-sm border border-gray-100 bg-white p-3.5 space-y-2">
                     <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                      Catatan Dinas
+                      Update Penanganan
                     </Label>
                     <Textarea
                       value={agencyNote}
@@ -286,15 +376,15 @@ export function AgencyReportDetailDrawer({
                       onChange={(event) =>
                         onAgencyNoteChange(event.target.value)
                       }
-                      placeholder="Langkah penanganan yang sudah/akan diambil..."
-                      className="rounded-xl min-h-[80px] bg-white border-2 border-gray-100 focus:border-[#C01D33] focus:ring-0 text-gray-900 text-sm resize-none p-3 shadow-none"
+                      placeholder="Contoh: Tim sudah survei lokasi, pekerjaan dijadwalkan besok pagi..."
+                      className="rounded-sm min-h-[84px] bg-gray-50 border border-gray-200 focus:border-[#C01D33] focus:bg-white focus:ring-0 text-gray-900 text-sm resize-none p-3 shadow-none leading-relaxed"
                     />
                   </div>
 
                   {shouldShowResolutionNote && (
-                    <div className="space-y-2">
+                    <div className="rounded-sm border border-gray-100 bg-white p-3.5 space-y-2">
                       <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                        Catatan Penyelesaian
+                        Catatan Hasil Akhir
                       </Label>
                       <Textarea
                         value={resolutionNote}
@@ -302,9 +392,149 @@ export function AgencyReportDetailDrawer({
                         onChange={(event) =>
                           onResolutionNoteChange(event.target.value)
                         }
-                        placeholder="Ringkasan penanganan akhir atau hasil penyelesaian..."
-                        className="rounded-xl min-h-[80px] bg-white border-2 border-gray-100 focus:border-emerald-500 focus:ring-0 text-gray-900 text-sm resize-none p-3 shadow-none"
+                        placeholder="Ringkasan pekerjaan akhir, kondisi setelah ditangani, atau tindak lanjut berikutnya..."
+                        className="rounded-sm min-h-[84px] bg-gray-50 border border-gray-200 focus:border-emerald-500 focus:bg-white focus:ring-0 text-gray-900 text-sm resize-none p-3 shadow-none leading-relaxed"
                       />
+                    </div>
+                  )}
+
+                  <div className="rounded-sm border border-gray-100 bg-white p-3.5 space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                          Foto Update
+                        </Label>
+                        <p className="mt-1 text-xs font-semibold leading-relaxed text-gray-500">
+                          Bukti kondisi lapangan, progres, atau hasil
+                          penanganan.
+                        </p>
+                      </div>
+                      {uploadedProofCount > 0 && (
+                        <span className="rounded-sm bg-gray-100 px-2 py-1 text-[10px] font-black text-gray-500">
+                          {uploadedProofCount}/5
+                        </span>
+                      )}
+                    </div>
+
+                    {resolutionPhotos.length > 0 && (
+                      <div className="grid grid-cols-3 gap-2">
+                        {resolutionPhotos.map((url, index) => (
+                          <div
+                            key={`${url}-${index}`}
+                            className="relative h-16 overflow-hidden rounded-sm border border-gray-100 bg-gray-50"
+                          >
+                            <img
+                              src={
+                                url.startsWith("blob:") ||
+                                url.startsWith("http")
+                                  ? url
+                                  : `${API_BASE}${url}`
+                              }
+                              alt={`Bukti update ${index + 1}`}
+                              className="h-full w-full object-cover"
+                            />
+                            {url.startsWith("blob:") && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  onRemoveResolutionProof(
+                                    index -
+                                      (report.resolutionImages?.length ?? 0),
+                                  )
+                                }
+                                className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-sm bg-black/65 text-white"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {canEdit && (
+                      <label className="flex h-16 cursor-pointer items-center justify-center gap-2 rounded-sm border border-dashed border-gray-300 bg-gray-50 px-3 text-gray-500 transition-colors hover:border-[#C01D33]/40 hover:bg-white hover:text-[#C01D33]">
+                        <ImagePlus size={18} />
+                        <span className="text-[11px] font-black uppercase tracking-widest">
+                          Tambah Foto
+                        </span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          className="hidden"
+                          onChange={(event) => {
+                            onResolutionProofUpload(event.target.files);
+                            event.target.value = "";
+                          }}
+                        />
+                      </label>
+                    )}
+                  </div>
+
+                  {report.timeline && report.timeline.length > 0 && (
+                    <div className="rounded-sm border border-gray-100 bg-white p-3.5 space-y-3">
+                      <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                        Riwayat Tiket
+                      </Label>
+                      <div>
+                        <div className="space-y-3">
+                          {report.timeline.map((item) => {
+                            const statusMeta = AGENCY_REPORT_STATUS_MAP[
+                              item.status
+                            ] || {
+                              label: item.status,
+                              color:
+                                "bg-gray-100 text-gray-700 border-gray-200",
+                            };
+                            return (
+                              <div key={item.id} className="flex gap-2.5">
+                                <Circle
+                                  size={10}
+                                  className="mt-1.5 shrink-0 fill-white text-gray-300"
+                                />
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span
+                                      className={`rounded-sm border px-2 py-0.5 text-[8px] font-black uppercase tracking-wider ${statusMeta.color}`}
+                                    >
+                                      {statusMeta.label}
+                                    </span>
+                                    <span className="text-[10px] font-semibold text-gray-400">
+                                      {new Date(
+                                        item.createdAt,
+                                      ).toLocaleString()}
+                                    </span>
+                                  </div>
+                                  {item.note && (
+                                    <p className="mt-1.5 text-xs leading-relaxed text-gray-600">
+                                      {item.note}
+                                    </p>
+                                  )}
+                                  {item.images.length > 0 && (
+                                    <div className="mt-2 grid grid-cols-3 gap-2">
+                                      {item.images
+                                        .slice(0, 3)
+                                        .map((url, imageIndex) => (
+                                          <img
+                                            key={`${url}-${imageIndex}`}
+                                            src={
+                                              url.startsWith("http")
+                                                ? url
+                                                : `${API_BASE}${url}`
+                                            }
+                                            alt={`Bukti timeline ${imageIndex + 1}`}
+                                            className="h-16 w-full rounded-sm object-cover"
+                                          />
+                                        ))}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -315,14 +545,13 @@ export function AgencyReportDetailDrawer({
               <Button
                 onClick={onSave}
                 disabled={!canEdit || isSaving || isSaveDisabled}
-                className="w-full bg-[#111827] hover:bg-gray-800 rounded-xl h-12 text-white font-black tracking-widest text-sm active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                className="w-full bg-[#111827] hover:bg-gray-800 rounded-sm h-12 text-white font-black tracking-widest text-sm active:scale-[0.98] transition-all flex items-center justify-center gap-2"
               >
                 {canEdit
                   ? isSaving
-                    ? "MENYIMPAN..."
-                    : "SIMPAN"
+                    ? "MENGIRIM..."
+                    : "KIRIM UPDATE"
                   : "LIHAT SAJA"}
-                <ArrowRight size={15} strokeWidth={3} className="opacity-60" />
               </Button>
             </div>
           </motion.div>
