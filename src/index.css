@@ -278,4 +278,22 @@
 .cat-dishub { background: linear-gradient(135deg, #8b5cf6, #5b21b6); }
 .cat-pln { background: linear-gradient(135deg, #f97316, #c2410c); }
 .mapboxgl-ctrl-logo { display: none !important; }
+.thin-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #d1d5db transparent;
+}
+.thin-scrollbar::-webkit-scrollbar {
+  height: 4px;
+  width: 4px;
+}
+.thin-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.thin-scrollbar::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 999px;
+}
+.thin-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
 html { scroll-behavior: smooth; }
