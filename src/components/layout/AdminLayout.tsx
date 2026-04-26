@@ -132,9 +132,7 @@ export default function AdminLayout() {
           {/* Logo */}
           <div className="h-16 flex items-center px-5 border-b border-gray-200 shrink-0">
             <a href="/">
-              <span className="text-base font-heading font-black text-gray-900 tracking-tight">
-                Lapor<span className="text-[#db2744]">Pak</span>
-              </span>
+              <img src="/logo_lightbg.png" alt="LaporPak" className="h-8 w-auto object-contain" />
               <div className="text-[9px] text-gray-400 font-semibold uppercase tracking-widest -mt-0.5">Admin Panel</div>
             </a>
           </div>

@@ -10,7 +10,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { getDashboardPathForRole, getLoginPathForRole, getPortalFromRole } from "@/lib/auth-portal";
 import { clearOAuthAttemptPortal } from "@/lib/oauth-attempt";
-import { LogOut, User, Bell, Megaphone, X, CheckCircle2, Clock, AlertTriangle, ArrowUpRight, Info, type LucideIcon } from "lucide-react";
+import { LogOut, User, Bell, X, CheckCircle2, Clock, AlertTriangle, ArrowUpRight, Info, type LucideIcon } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -289,10 +289,7 @@ export default function DashboardLayout() {
     <div className="h-[100dvh] w-full flex flex-col bg-gray-50 overflow-hidden relative font-sans">
       <header className="absolute top-3 sm:top-4 left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-5xl rounded-[26px] sm:rounded-full bg-white shadow-lg px-3 sm:px-4 py-2 sm:py-2.5 flex items-center justify-between gap-3">
         <Link to={dashboardPath} className="flex items-center gap-2 sm:gap-2.5 group hover:opacity-80 transition-opacity shrink-0 min-w-0">
-           <Megaphone size={22} className="text-[#db2744] shrink-0 sm:w-6 sm:h-6" strokeWidth={1.5} fill="#db2744" />
-           <span className="text-base sm:text-lg font-black font-heading tracking-tight text-gray-900 leading-none">
-             Lapor<span className="text-[#db2744]">Pak</span>
-           </span>
+           <img src="/logo_lightbg.png" alt="LaporPak" className="h-8 sm:h-9 w-auto object-contain" />
         </Link>
         
         <div className="flex items-center gap-2 sm:gap-3 md:gap-5 min-w-0">

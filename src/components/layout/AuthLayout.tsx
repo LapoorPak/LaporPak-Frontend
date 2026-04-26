@@ -1,5 +1,4 @@
 import { Outlet, Link, useLocation } from "react-router";
-import { Megaphone } from "lucide-react";
 
 export default function AuthLayout() {
   const location = useLocation();
@@ -23,13 +22,7 @@ export default function AuthLayout() {
       <div className="w-full md:w-[45%] lg:w-[40%] flex flex-col items-center justify-center px-8 md:px-12 lg:px-20 py-12 relative z-10 min-h-[100dvh]">
         
         <Link to="/" className="absolute top-8 left-8 sm:left-12 flex items-center gap-3 hover:opacity-80 transition-opacity">
-          <Megaphone size={34} className="text-[#db2744]" strokeWidth={1.5} fill="#db2744" />
-          <div className="flex flex-col">
-             <span className="font-heading font-extrabold text-2xl text-gray-900 tracking-tight leading-none">
-               Lapor<span className="text-[#db2744]">Pak</span>
-             </span>
-             <span className="text-[10px] text-gray-500 font-bold tracking-widest mt-1 uppercase hidden sm:block">Platform Publik</span>
-          </div>
+          <img src="/logo_lightbg.png" alt="LaporPak" className="h-11 w-auto object-contain" />
         </Link>
 
         <div className="w-full max-w-[380px] mt-16 md:mt-0">

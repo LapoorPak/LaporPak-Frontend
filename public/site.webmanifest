@@ -1,0 +1,17 @@
+{
+  "name": "LaporPak",
+  "short_name": "LaporPak",
+  "description": "Platform pelaporan masalah publik untuk warga.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#db2744",
+  "icons": [
+    {
+      "src": "/logo_lightbg.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

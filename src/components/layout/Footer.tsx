@@ -1,4 +1,3 @@
-import { Megaphone } from "lucide-react";
 import { InstagramIcon, TwitterIcon, LinkedInIcon } from "@/assets/icon";
 
 export function Footer() {
@@ -7,13 +6,7 @@ export function Footer() {
       <div className="max-w-7xl mx-auto px-6 sm:px-12 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
         
         <div className="flex items-center gap-3">
-          <Megaphone size={28} className="text-[#db2744]" strokeWidth={1.5} fill="#db2744" />
-          <div className="flex flex-col">
-             <span className="font-heading font-extrabold text-xl text-gray-900 tracking-tight leading-none">
-               Lapor<span className="text-[#db2744]">Pak</span>
-             </span>
-             <span className="text-[9px] text-gray-400 font-bold tracking-widest mt-1 uppercase hidden sm:block">Platform Publik</span>
-          </div>
+          <img src="/logo_lightbg.png" alt="LaporPak" className="h-10 w-auto object-contain" />
         </div>
 
         <div className="text-[13px] text-gray-400 font-medium tracking-wide">
