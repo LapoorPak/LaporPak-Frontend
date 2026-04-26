@@ -1,11 +1,15 @@
 {
   "name": "LaporPak",
   "short_name": "LaporPak",
-  "description": "Platform pelaporan masalah publik untuk warga.",
+  "description": "Platform pelaporan masalah fasilitas publik, infrastruktur, dan lingkungan untuk warga.",
   "start_url": "/",
+  "scope": "/",
+  "id": "/",
   "display": "standalone",
+  "orientation": "portrait-primary",
   "background_color": "#ffffff",
   "theme_color": "#db2744",
+  "lang": "id-ID",
   "icons": [
     {
       "src": "/logo_lightbg.png",

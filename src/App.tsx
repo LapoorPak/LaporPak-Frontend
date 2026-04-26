@@ -3,11 +3,13 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
 import { queryClient } from "@/config/react-query";
 import { RouteMiddleware } from "@/components/auth";
+import { SeoHead } from "@/components/common/SeoHead";
 
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
+        <SeoHead />
         <RouteMiddleware />
       </BrowserRouter>
       <Toaster position="top-right" richColors duration={8000} closeButton />
