@@ -5,6 +5,7 @@ import { Api } from "@/constants/api";
 
 export type ReportsScope = "mine" | "all";
 export type ReportOwnership = "mine" | "other";
+export type ReportStatus = "pending" | "verified" | "in_progress" | "clarification_requested" | "resolved" | "rejected";
 
 // Base Types Based on the contract
 export interface ReportCategory {
@@ -40,7 +41,7 @@ export interface ReportLocation {
   description?: string;
   lat: number;
   lng: number;
-  status: "pending" | "verified" | "in_progress" | "resolved" | "rejected";
+  status: ReportStatus;
   routingStatus: string;
   urgencyScore?: number;
   createdAt: string;
@@ -61,6 +62,7 @@ export interface ReportLocation {
   ownership?: ReportOwnership;
   agencyNote?: string | null;
   resolutionNote?: string | null;
+  resolutionImages?: string[];
   assignedTo?: {
     id: string;
     name: string;
@@ -71,6 +73,16 @@ export interface ReportLocation {
   } | null;
   aiReview?: AiReview | null;
   images?: string[];
+  timeline?: ReportTimelineItem[];
+}
+
+export interface ReportTimelineItem {
+  id: string;
+  status: ReportStatus;
+  note: string | null;
+  images: string[];
+  actorRole: string | null;
+  createdAt: string;
 }
 
 export interface LocationStats {
@@ -134,7 +146,7 @@ export interface GetMyReportsRequest {
   search?: string;
 }
 
-export type ReportsDashboardTabKey = "semua" | "baru" | "diproses" | "tuntas";
+export type ReportsDashboardTabKey = "semua" | "baru" | "diproses" | "klarifikasi" | "tuntas";
 export type ReportStatusTone = "success" | "warning" | "danger" | "info";
 
 export interface DashboardReportItem {
@@ -159,6 +171,7 @@ export interface ReportsDashboardSummary {
   totalTarget: number;
   laporanBaru: number;
   diproses: number;
+  klarifikasi?: number;
   tuntas: number;
   byStatusRaw: Record<string, number>;
 }
@@ -197,12 +210,14 @@ export interface UpdateReportStatusRequest {
   agencyNote?: string | null;
   catatanDinas?: string | null;
   resolutionNote?: string | null;
+  images?: File[];
 }
 
 export interface ResolveReportRequest {
   agencyNote?: string | null;
   catatanDinas?: string | null;
   resolutionNote?: string | null;
+  resolutionImages?: File[];
 }
 
 export interface UpdateReportMutationResponse {
@@ -312,6 +327,18 @@ export function useMutationUpdateReportStatus(
 ) {
   return useMutation({
     mutationFn: async ({ id, payload }: { id: string; payload: UpdateReportStatusRequest }) => {
+      if (payload.images?.length) {
+        const formData = new FormData();
+        formData.append("status", payload.status);
+        if (payload.agencyNote) formData.append("agencyNote", payload.agencyNote);
+        if (payload.catatanDinas) formData.append("catatanDinas", payload.catatanDinas);
+        if (payload.resolutionNote) formData.append("resolutionNote", payload.resolutionNote);
+        payload.images.forEach((file) => formData.append("images", file));
+
+        const response = await apiClient.post<UpdateReportMutationResponse>(Api.reportStatus(id), formData);
+        return response.data;
+      }
+
       const response = await apiClient.post<UpdateReportMutationResponse>(Api.reportStatus(id), payload);
       return response.data;
     },
@@ -331,7 +358,13 @@ export function useMutationResolveReport(
 ) {
   return useMutation({
     mutationFn: async ({ id, payload }: { id: string; payload: ResolveReportRequest }) => {
-      const response = await apiClient.post<UpdateReportMutationResponse>(Api.reportResolve(id), payload);
+      const formData = new FormData();
+      if (payload.agencyNote) formData.append("agencyNote", payload.agencyNote);
+      if (payload.catatanDinas) formData.append("catatanDinas", payload.catatanDinas);
+      if (payload.resolutionNote) formData.append("resolutionNote", payload.resolutionNote);
+      payload.resolutionImages?.forEach((file) => formData.append("resolutionImages", file));
+
+      const response = await apiClient.post<UpdateReportMutationResponse>(Api.reportResolve(id), formData);
       return response.data;
     },
     ...options,
