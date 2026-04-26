@@ -581,7 +581,7 @@ function MarkerPopup({
   return createPortal(
     <div
       className={cn(
-        "bg-popover text-popover-foreground animate-in fade-in-0 zoom-in-95 relative rounded-md border p-3 shadow-md",
+        "bg-popover text-popover-foreground animate-in fade-in-0 zoom-in-95 relative rounded-sm border p-3 shadow-md",
         className,
       )}
     >
@@ -1017,7 +1017,7 @@ function MapPopup({
   return createPortal(
     <div
       className={cn(
-        "bg-popover text-popover-foreground animate-in fade-in-0 zoom-in-95 relative rounded-md border p-3 shadow-md",
+        "bg-popover text-popover-foreground animate-in fade-in-0 zoom-in-95 relative rounded-sm border p-3 shadow-md",
         className,
       )}
     >
