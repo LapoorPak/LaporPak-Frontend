@@ -1,5 +1,5 @@
-import type { ChangeEvent } from "react";
-import { useRef } from "react";
+import type { ChangeEvent, PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Camera, Images, ImagePlus, Loader2, MapPin, Navigation, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -46,6 +46,9 @@ export function CitizenReportFormPanel({
   onUseGpsLocation,
   onSubmit,
 }: CitizenReportFormPanelProps) {
+  const [mobileSheetHeight, setMobileSheetHeight] = useState(72);
+  const mobileResizeRef = useRef<{ startY: number; startHeight: number } | null>(null);
+  const mobileResizeMovedRef = useRef(false);
   const canUseGpsLocation =
     !!userLocation &&
     (selectedLocation[0] !== userLocation[0] || selectedLocation[1] !== userLocation[1]);
@@ -53,6 +56,48 @@ export function CitizenReportFormPanel({
   // Refs untuk hidden inputs di mobile
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isOpen && !isDesktop) {
+      setMobileSheetHeight(72);
+    }
+  }, [isDesktop, isOpen]);
+
+  const startMobileResize = (event: ReactPointerEvent) => {
+    if (isDesktop) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    mobileResizeMovedRef.current = false;
+    mobileResizeRef.current = {
+      startY: event.clientY,
+      startHeight: mobileSheetHeight,
+    };
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      const resizeState = mobileResizeRef.current;
+      if (!resizeState) return;
+
+      const deltaY = resizeState.startY - moveEvent.clientY;
+      if (Math.abs(deltaY) > 2) {
+        mobileResizeMovedRef.current = true;
+      }
+
+      const nextHeight = resizeState.startHeight + (deltaY / window.innerHeight) * 100;
+      setMobileSheetHeight(Math.min(92, Math.max(48, nextHeight)));
+    };
+
+    const handlePointerUp = () => {
+      mobileResizeRef.current = null;
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+    window.addEventListener("pointercancel", handlePointerUp);
+  };
 
   return (
     <AnimatePresence>
@@ -67,22 +112,49 @@ export function CitizenReportFormPanel({
           <motion.div
             drag={isDesktop}
             dragMomentum={false}
-            className={`bg-white flex flex-col overflow-hidden resize pointer-events-auto ${
+            animate={
               isDesktop
-                ? "h-[calc(100vh-120px)] min-h-[400px] w-[400px] min-w-[320px] max-w-[600px] shadow-2xl rounded-xl border border-gray-100"
-                : "w-full rounded-t-3xl h-[85vh] shadow-[0_-20px_40px_rgba(0,0,0,0.1)]"
+                ? undefined
+                : { height: `${mobileSheetHeight}vh` }
+            }
+            transition={{ type: "spring", stiffness: 420, damping: 38 }}
+            className={`bg-white flex flex-col overflow-hidden pointer-events-auto ${
+              isDesktop
+                ? "resize h-[calc(100vh-120px)] min-h-[400px] w-[400px] min-w-[320px] max-w-[600px] shadow-2xl rounded-sm border border-gray-100"
+                : "w-full rounded-t-2xl shadow-[0_-20px_40px_rgba(15,23,42,0.16)]"
             }`}
           >
             {/* Header */}
-            <div className="px-7 py-6 flex justify-between items-center bg-white pb-2 relative z-10 cursor-move active:cursor-grabbing">
+            {!isDesktop && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (mobileResizeMovedRef.current) return;
+                  setMobileSheetHeight((height) => (height > 82 ? 72 : 92));
+                }}
+                onPointerDown={startMobileResize}
+                className="flex w-full touch-none justify-center pt-3 pb-1 cursor-grab active:cursor-grabbing"
+                aria-label={mobileSheetHeight > 82 ? "Perkecil panel laporan" : "Perbesar panel laporan"}
+              >
+                <span className="h-1.5 w-12 rounded-full bg-gray-200" />
+              </button>
+            )}
+
+            <div
+              onPointerDown={!isDesktop ? startMobileResize : undefined}
+              className={`px-7 flex touch-none justify-between items-center bg-white pb-2 relative z-10 ${
+              isDesktop ? "py-6 cursor-move active:cursor-grabbing" : "pt-3 pb-3"
+            }`}
+            >
               <div>
-                <h3 className="font-heading font-black text-2xl text-gray-900 tracking-tight">
+                <h3 className="font-heading font-black text-xl sm:text-2xl text-gray-900 tracking-tight">
                   Laporan Baru
                 </h3>
                 <p className="text-xs font-bold text-gray-400 mt-1 uppercase tracking-wide">Isi detail lengkap</p>
               </div>
               <button
                 onClick={onClose}
+                onPointerDown={(event) => event.stopPropagation()}
                 className="text-gray-400 hover:text-gray-900 transition-colors p-2 -mr-2"
               >
                 <X size={20} strokeWidth={2.5} />
@@ -150,7 +222,7 @@ export function CitizenReportFormPanel({
                           animate={{ opacity: 1, scale: 1 }}
                           exit={{ opacity: 0, scale: 0.85 }}
                           transition={{ type: "spring", stiffness: 400, damping: 28 }}
-                          className="relative w-full h-[80px] rounded-lg overflow-hidden group shadow-sm"
+                          className="relative w-full h-[80px] rounded-sm overflow-hidden group shadow-sm"
                         >
                           <img
                             src={url}
@@ -187,7 +259,7 @@ export function CitizenReportFormPanel({
                     <motion.button
                       whileTap={{ scale: 0.97 }}
                       onClick={() => cameraInputRef.current?.click()}
-                      className="relative flex flex-col items-center justify-center gap-2 h-[100px] rounded-xl border-2 border-gray-200 bg-gray-50/60 hover:bg-gray-50 text-gray-500 transition-colors group overflow-hidden"
+                      className="relative flex flex-col items-center justify-center gap-2 h-[100px] rounded-sm border-2 border-gray-200 bg-gray-50/60 hover:bg-gray-50 text-gray-500 transition-colors group overflow-hidden"
                     >
                       <div className="absolute -top-4 -right-4 w-16 h-16 bg-white/10 rounded-full blur-xl" />
                       <div className="relative z-10 w-10 h-10 rounded-full bg-white/20 flex items-center justify-center group-active:bg-white/30 transition-colors">
@@ -201,7 +273,7 @@ export function CitizenReportFormPanel({
                     <motion.button
                       whileTap={{ scale: 0.97 }}
                       onClick={() => galleryInputRef.current?.click()}
-                      className="relative flex flex-col items-center justify-center gap-2 h-[100px] rounded-xl border-2 border-gray-200 bg-gray-50/60 hover:bg-gray-50 text-gray-500 transition-colors group overflow-hidden"
+                      className="relative flex flex-col items-center justify-center gap-2 h-[100px] rounded-sm border-2 border-gray-200 bg-gray-50/60 hover:bg-gray-50 text-gray-500 transition-colors group overflow-hidden"
                     >
                       <div className="w-10 h-10 rounded-full flex items-center justify-center group-hover:bg-gray-200 transition-colors">
                         <Images size={20} strokeWidth={1.8} className="text-gray-400" />

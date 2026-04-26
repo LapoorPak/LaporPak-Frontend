@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, type ChangeEvent } from "react";
+import { useState, useEffect, useRef, useCallback, type ChangeEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { Map, MapControls, MapMarker, MarkerContent, MarkerPopup, type MapRef } from "@/components/ui/map";
 import { authClient } from "@/lib/auth-client";
 import { type ReportLocation } from "@/api/reports/reports-queries";
@@ -11,7 +11,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { QUERY_KEYS } from "@/api/queryKeys";
 import axios from "axios";
 import { toast } from "sonner";
-import { API_BASE } from "@/config/api-client";
+import { resolvePhotoUrl } from "@/lib/resolve-photo-url";
 import { MapPin, X, AlertTriangle, Plus, Target, Check, Clock, User, Navigation, Building2, ListFilter, Search, ChevronLeft, ChevronRight, ZoomIn } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { CitizenMyReportsPanel } from "./CitizenMyReportsPanel";
@@ -20,10 +20,6 @@ import { LocationSearchResultsDropdown } from "./LocationSearchResultsDropdown";
 import { CITIZEN_REPORT_STATUS_MAP } from "../utils/reportStatus";
 
 type InteractionMode = "idle" | "pin_drop";
-
-function resolvePhotoUrl(url: string) {
-  return url.startsWith("http") ? url : `${API_BASE}${url}`;
-}
 
 type LightboxState = { images: string[]; index: number } | null;
 
@@ -88,7 +84,7 @@ function PhotoLightbox({ images, index, onClose }: { images: string[]; index: nu
         transition={{ duration: 0.18 }}
         src={resolvePhotoUrl(images[current])}
         alt={`Foto ${current + 1}`}
-        className="max-w-[92vw] max-h-[75vh] md:max-h-[88vh] object-contain rounded-lg shadow-2xl"
+        className="max-w-[92vw] max-h-[75vh] md:max-h-[88vh] object-contain rounded-sm shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       />
 
@@ -115,11 +111,13 @@ function PhotoLightbox({ images, index, onClose }: { images: string[]; index: nu
   );
 }
 
-function ReportPopup({ report, onPhotoClick }: { report: ReportLocation; onPhotoClick: (imgs: string[], idx: number) => void }) {
+function ReportPopup({ report, onPhotoClick, fullWidth = false }: { report: ReportLocation; onPhotoClick: (imgs: string[], idx: number) => void; fullWidth?: boolean }) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [showAllTimeline, setShowAllTimeline] = useState(false);
   const [photoIndex, setPhotoIndex] = useState(0);
   const status = CITIZEN_REPORT_STATUS_MAP[report.status] || { label: report.status, color: "bg-gray-50 text-gray-700 border-gray-200" };
-  const description = report.kategori?.name || "Laporan Warga";
+  const categoryLabel = report.kategori?.name || "Laporan Warga";
+  const detailText = report.description?.trim() || "";
   const agencyNote = report.agencyNote?.trim();
   const resolutionNote = report.resolutionNote?.trim();
   const photos = report.images?.length
@@ -127,126 +125,429 @@ function ReportPopup({ report, onPhotoClick }: { report: ReportLocation; onPhoto
     : report.aiReview?.gambarDiterimaAi?.length
     ? report.aiReview.gambarDiterimaAi
     : null;
+  const photoList = photos ?? [];
+  const timelineCount = report.timeline?.length ?? 0;
+  const timelineItems = showAllTimeline
+    ? [...(report.timeline ?? [])].reverse()
+    : report.timeline?.slice(-5).reverse() ?? [];
+  const hasHeroPhotos = photoList.length > 0;
+  const hasTimelineColumn = timelineCount > 0;
+
+  if (!fullWidth && hasTimelineColumn) {
+    return (
+      <div className="grid w-[560px] max-w-[calc(100vw-32px)] h-[430px] max-h-[calc(100vh-150px)] grid-cols-[320px_minmax(0,1fr)] overflow-hidden bg-white">
+        <div className="min-w-0 overflow-y-auto border-r border-gray-100 bg-white">
+          <div className="relative h-[190px] bg-gray-100">
+            {hasHeroPhotos ? (
+              <>
+                <button
+                  type="button"
+                  className="absolute inset-0 z-1 h-full w-full cursor-zoom-in"
+                  onClick={(e) => { e.stopPropagation(); onPhotoClick(photoList.map(resolvePhotoUrl), photoIndex); }}
+                />
+                <img
+                  src={resolvePhotoUrl(photoList[photoIndex])}
+                  alt={report.title}
+                  className="h-full w-full object-cover"
+                />
+                <div className="absolute inset-0 bg-linear-to-t from-black/55 via-transparent to-transparent pointer-events-none" />
+                <ZoomIn size={14} className="absolute top-2.5 right-2.5 z-2 text-white/80 drop-shadow pointer-events-none" />
+                <span className={`absolute bottom-3 left-4 z-2 max-w-[calc(100%-32px)] truncate rounded-full border px-2.5 py-0.5 text-[9px] font-black uppercase tracking-widest shadow-sm ${status.color}`}>
+                  {status.label}
+                </span>
+                {photoList.length > 1 && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setPhotoIndex((i) => (i > 0 ? i - 1 : photoList.length - 1)); }}
+                      className="absolute left-3 top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-sm transition-all hover:bg-black/60"
+                    >
+                      <ChevronLeft size={15} strokeWidth={2.5} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setPhotoIndex((i) => (i < photoList.length - 1 ? i + 1 : 0)); }}
+                      className="absolute right-3 top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-sm transition-all hover:bg-black/60"
+                    >
+                      <ChevronRight size={15} strokeWidth={2.5} />
+                    </button>
+                  </>
+                )}
+              </>
+            ) : (
+              <div className="flex h-full flex-col items-center justify-center gap-2 text-gray-300">
+                <Navigation size={22} className="text-gray-300" />
+                <span className={`max-w-[calc(100%-32px)] truncate rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-widest ${status.color}`}>
+                  {status.label}
+                </span>
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-3 p-4">
+            <div className="space-y-2">
+              <h4 className="font-extrabold text-base leading-snug text-gray-950">
+                {report.title}
+              </h4>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="inline-flex max-w-full items-center rounded-full border border-rose-100 bg-rose-50 px-2.5 py-1 text-[11px] font-bold text-[#db2744]">
+                  {categoryLabel}
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex min-w-0 items-start gap-3 rounded-lg border border-gray-100 bg-gray-50/80 px-3 py-2.5">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-gray-400 shadow-sm ring-1 ring-gray-100">
+                  <Navigation size={13} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="mb-0.5 text-[9px] font-black uppercase tracking-[0.14em] text-gray-400">Koordinat</p>
+                  <p className="break-all font-mono text-[11px] font-bold text-gray-700">
+                    {report.lat.toFixed(5)}, {report.lng.toFixed(5)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex min-w-0 items-start gap-3 rounded-lg border border-gray-100 bg-gray-50/80 px-3 py-2.5">
+                <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-gray-100 ${report.dinas ? "text-[#db2744]" : "text-gray-400"}`}>
+                  <Building2 size={13} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="mb-0.5 text-[9px] font-black uppercase tracking-[0.14em] text-gray-400">Dinas</p>
+                  <p className="truncate text-[12px] font-bold text-gray-800">
+                    {report.dinas ? report.dinas.name : <span className="text-gray-400 italic">Menunggu instansi</span>}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {detailText && (
+              <div>
+                <p className={`text-xs text-gray-500 leading-relaxed transition-all duration-300 ${!isExpanded ? "line-clamp-3" : ""}`}>
+                  {detailText}
+                </p>
+                {detailText.length > 150 && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setIsExpanded(!isExpanded); }}
+                    className="text-[10px] font-bold text-[#db2744] hover:text-rose-700 transition-colors mt-1"
+                  >
+                    {isExpanded ? "Ringkas" : "Selengkapnya"}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {(agencyNote || resolutionNote) && (
+              <div className="space-y-1.5">
+                {agencyNote && (
+                  <div className="rounded-lg border border-sky-100 bg-sky-50 px-3 py-2">
+                    <p className="text-[8.5px] font-black uppercase tracking-widest text-sky-600 mb-0.5">Update Dinas</p>
+                    <p className="text-[10.5px] leading-relaxed text-sky-900">{agencyNote}</p>
+                  </div>
+                )}
+                {resolutionNote && (
+                  <div className="rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2">
+                    <p className="text-[8.5px] font-black uppercase tracking-widest text-emerald-600 mb-0.5">Hasil Penanganan</p>
+                    <p className="text-[10.5px] leading-relaxed text-emerald-900">{resolutionNote}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="flex items-center justify-between pt-2.5 border-t border-gray-100">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <div className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
+                  <User size={10} className="text-gray-500" />
+                </div>
+                <span className="text-[10.5px] font-semibold text-gray-500 truncate">{report.createdBy?.name || "Warga"}</span>
+              </div>
+              <div className="flex items-center gap-1 shrink-0 ml-2">
+                <Clock size={10} className="text-gray-400" />
+                <span className="text-[10px] font-medium text-gray-400">{new Date(report.createdAt).toLocaleDateString("id-ID")}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <aside className="min-w-0 overflow-y-auto bg-white p-4">
+          <div className="flex items-center justify-between mb-3 pr-5">
+            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Riwayat</p>
+            {timelineCount > 5 && (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setShowAllTimeline((v) => !v); }}
+                className="text-[9px] font-bold text-[#db2744] hover:text-rose-600 transition-colors"
+              >
+                {showAllTimeline ? "Ringkas" : `+${timelineCount - 5} lagi`}
+              </button>
+            )}
+          </div>
+
+          <div className="relative">
+            <div className="absolute left-1.5 top-2 bottom-2 w-px bg-gray-100" />
+            <div className="space-y-3.5">
+              {timelineItems.map((item, index) => {
+                const timelineStatus = CITIZEN_REPORT_STATUS_MAP[item.status] || { label: item.status, color: "bg-gray-100 text-gray-600 border-gray-200" };
+                return (
+                  <div key={item.id} className="flex gap-3 relative">
+                    <div className={`relative z-10 mt-0.5 shrink-0 w-3 h-3 rounded-full border-2 bg-white ${index === 0 ? "border-[#db2744]" : "border-gray-300"}`} />
+                    <div className="min-w-0 flex-1 pb-1">
+                      <div className="flex flex-wrap items-center gap-1.5 mb-1">
+                        <span className={`rounded-full border px-2 py-0.5 text-[8px] font-black uppercase tracking-wider ${timelineStatus.color}`}>
+                          {timelineStatus.label}
+                        </span>
+                        <span className="text-[9px] font-medium text-gray-400">
+                          {new Date(item.createdAt).toLocaleDateString("id-ID")}
+                        </span>
+                      </div>
+                      {item.note && (
+                        <p className="text-[11px] leading-relaxed text-gray-600">{item.note}</p>
+                      )}
+                      {item.images.length > 0 && (
+                        <div className="mt-2 flex gap-1.5">
+                          {item.images.slice(0, 3).map((url, imageIndex) => (
+                            <button
+                              key={`${url}-${imageIndex}`}
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); onPhotoClick(item.images.map(resolvePhotoUrl), imageIndex); }}
+                              className="overflow-hidden rounded-md group relative"
+                            >
+                              <img
+                                src={resolvePhotoUrl(url)}
+                                alt={`Bukti riwayat ${imageIndex + 1}`}
+                                className="h-11 w-14 object-cover"
+                              />
+                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors rounded-md" />
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </aside>
+      </div>
+    );
+  }
 
   return (
-    <div className="w-[300px] overflow-hidden -m-[10px] -mb-[15px]">
-      {photos && photos.length > 0 && (
-        <div className="w-full h-[140px] bg-gray-100 relative group overflow-hidden">
-          <button
-            type="button"
-            className="absolute inset-0 w-full h-full cursor-zoom-in z-[1]"
-            onClick={(e) => { e.stopPropagation(); onPhotoClick(photos.map(resolvePhotoUrl), photoIndex); }}
-          />
-          <img src={resolvePhotoUrl(photos[photoIndex])} alt={report.title} className="w-full h-full object-cover transition-all" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent pointer-events-none" />
-          <ZoomIn size={16} className="absolute top-2 right-2 text-white drop-shadow opacity-70 pointer-events-none z-[2]" />
-
-          {photos.length > 1 && (
-            <>
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); setPhotoIndex((i) => (i > 0 ? i - 1 : photos.length - 1)); }}
-                className="absolute left-1 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-[2px] transition-all hover:bg-black/60 active:scale-95 z-10"
-              >
-                <ChevronLeft size={15} strokeWidth={2.5} />
-              </button>
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); setPhotoIndex((i) => (i < photos.length - 1 ? i + 1 : 0)); }}
-                className="absolute right-1 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-[2px] transition-all hover:bg-black/60 active:scale-95 z-10"
-              >
-                <ChevronRight size={15} strokeWidth={2.5} />
-              </button>
-
-              <div className="absolute bottom-6 left-0 right-0 flex justify-center gap-1.5 z-10 pointer-events-none">
-                {photos.map((_: string, idx: number) => (
-                  <div key={idx} className={`h-1.5 rounded-full transition-all duration-300 ${idx === photoIndex ? 'bg-white w-3' : 'bg-white/50 w-1.5'}`} />
-                ))}
-              </div>
-            </>
-          )}
-
-          <span className={`absolute bottom-2 left-3 text-[9px] font-black px-2 py-0.5 rounded border uppercase tracking-wide ${status.color} shadow-md z-[2]`}>
-            {status.label}
-          </span>
-        </div>
-      )}
-
-      <div className="p-4">
-        {(!photos || photos.length === 0) && (
-          <div className="flex items-center gap-2 mb-2">
-            <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${status.color} uppercase tracking-wide`}>
+    <div
+      className={`flex flex-col bg-white overflow-y-auto ${
+        fullWidth
+          ? "w-full min-w-0 overflow-visible"
+          : "w-[300px] max-w-[calc(100vw-24px)] max-h-[min(80vh,580px)]"
+      }`}
+    >
+      {/* Hero image */}
+      <div className={`relative shrink-0 bg-gray-100 ${fullWidth ? "h-40 sm:h-52" : "h-48"}`}>
+        {hasHeroPhotos ? (
+          <>
+            <button
+              type="button"
+              className="absolute inset-0 z-1 h-full w-full cursor-zoom-in"
+              onClick={(e) => { e.stopPropagation(); onPhotoClick(photoList.map(resolvePhotoUrl), photoIndex); }}
+            />
+            <img
+              src={resolvePhotoUrl(photoList[photoIndex])}
+              alt={report.title}
+              className="h-full w-full object-cover"
+            />
+            <div className="absolute inset-0 bg-linear-to-t from-black/60 via-black/10 to-transparent pointer-events-none" />
+            <ZoomIn size={14} className="absolute top-2.5 right-2.5 z-2 text-white/80 drop-shadow pointer-events-none" />
+            <span className={`absolute bottom-3 left-3 z-2 max-w-[calc(100%-24px)] truncate rounded-full border px-2.5 py-0.5 text-[9px] font-black uppercase tracking-widest shadow-sm ${status.color}`}>
+              {status.label}
+            </span>
+            {photoList.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setPhotoIndex((i) => (i > 0 ? i - 1 : photoList.length - 1)); }}
+                  className="absolute left-2 top-1/2 z-10 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-sm transition-all hover:bg-black/60"
+                >
+                  <ChevronLeft size={14} strokeWidth={2.5} />
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setPhotoIndex((i) => (i < photoList.length - 1 ? i + 1 : 0)); }}
+                  className="absolute right-2 top-1/2 z-10 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-sm transition-all hover:bg-black/60"
+                >
+                  <ChevronRight size={14} strokeWidth={2.5} />
+                </button>
+                <div className="absolute bottom-3 right-3 z-2 flex items-center gap-1 pointer-events-none">
+                  {photoList.map((_: string, idx: number) => (
+                    <div key={idx} className={`h-1 rounded-full transition-all duration-300 ${idx === photoIndex ? "bg-white w-4" : "bg-white/40 w-1"}`} />
+                  ))}
+                </div>
+              </>
+            )}
+          </>
+        ) : (
+          <div className="flex h-full flex-col items-center justify-center gap-2 text-gray-300">
+            <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
+              <Navigation size={18} className="text-gray-300" />
+            </div>
+            <span className="text-[9px] font-black uppercase tracking-widest">Tidak ada foto</span>
+            <span className={`max-w-[calc(100%-32px)] truncate rounded-full border px-2.5 py-0.5 text-[9px] font-black uppercase tracking-widest ${status.color}`}>
               {status.label}
             </span>
           </div>
         )}
+      </div>
 
-        <h4 className="font-extrabold text-sm text-gray-900 leading-tight mb-1">
-          {report.title}
-        </h4>
-        <div className="mb-3">
-          <p className={`text-[12px] text-gray-500 leading-relaxed transition-all duration-300 ${!isExpanded ? "line-clamp-2" : ""}`}>
-            {description}
-          </p>
-          {description.length > 65 && (
-            <button 
-              onClick={(e) => { e.stopPropagation(); setIsExpanded(!isExpanded); }}
-              className="text-[10px] font-bold text-gray-900 hover:text-[#db2744] transition-colors mt-0.5"
-            >
-              {isExpanded ? "Tampilkan lebih sedikit" : "Baca selengkapnya"}
-            </button>
-          )}
+      {/* Info block */}
+      <div className={`flex flex-col gap-3 ${fullWidth ? "px-4 pt-3.5 pb-5 sm:px-5" : "px-4 pt-3.5 pb-4"}`}>
+        {/* Title + category */}
+        <div>
+          <h4 className="font-extrabold text-[15px] leading-snug text-gray-900 line-clamp-2 mb-1">
+            {report.title}
+          </h4>
+          <span className="inline-block max-w-full truncate rounded-full bg-gray-100 text-gray-500 text-[10px] font-bold px-2.5 py-0.5">
+            {categoryLabel}
+          </span>
         </div>
 
-        <div className="bg-gray-50 p-2.5 rounded-lg border border-gray-100 mb-3">
-          <div className="flex items-center gap-1.5 text-[10px] font-mono text-gray-400">
-            <Navigation size={10} className="shrink-0" />
-            {report.lat.toFixed(5)}, {report.lng.toFixed(5)}
+        {/* Koordinat + Dinas */}
+        <div className="space-y-2">
+          <div className="flex items-start gap-2.5 rounded-lg bg-gray-50 border border-gray-100 px-3 py-2.5 min-w-0">
+            <Navigation size={11} className="mt-0.5 shrink-0 text-gray-400" />
+            <div className="min-w-0">
+              <p className="text-[8.5px] font-black uppercase tracking-[0.15em] text-gray-400 mb-0.5">Koordinat</p>
+              <p className="text-[11px] font-mono font-semibold text-gray-600 break-all">
+                {report.lat.toFixed(5)}, {report.lng.toFixed(5)}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-2.5 rounded-lg bg-gray-50 border border-gray-100 px-3 py-2.5 min-w-0">
+            <Building2 size={11} className={`mt-0.5 shrink-0 ${report.dinas ? "text-[#db2744]" : "text-gray-400"}`} />
+            <div className="min-w-0">
+              <p className="text-[8.5px] font-black uppercase tracking-[0.15em] text-gray-400 mb-0.5">Dinas</p>
+              <p className="text-[11px] font-semibold text-gray-700 truncate">
+                {report.dinas ? report.dinas.name : <span className="text-gray-400 italic">Menunggu instansi</span>}
+              </p>
+            </div>
           </div>
         </div>
 
+        {/* Description */}
+        {detailText && (
+          <div>
+            <p className={`text-[11.5px] text-gray-500 leading-relaxed transition-all duration-300 ${!isExpanded ? "line-clamp-3" : ""}`}>
+              {detailText}
+            </p>
+            {detailText.length > 120 && (
+              <button
+                onClick={(e) => { e.stopPropagation(); setIsExpanded(!isExpanded); }}
+                className="text-[10px] font-bold text-[#db2744] hover:text-rose-700 transition-colors mt-1"
+              >
+                {isExpanded ? "Ringkas" : "Selengkapnya"}
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Agency / resolution notes */}
         {(agencyNote || resolutionNote) && (
-          <div className="space-y-2 mb-3">
+          <div className="space-y-1.5">
             {agencyNote && (
-              <div className="rounded-lg border border-sky-100 bg-sky-50 p-2.5">
-                <p className="text-[9px] font-black uppercase tracking-widest text-sky-700 mb-1">
-                  Update Dinas
-                </p>
-                <p className="text-[11px] leading-relaxed text-sky-950">
-                  {agencyNote}
-                </p>
+              <div className="rounded-lg border border-sky-100 bg-sky-50 px-3 py-2">
+                <p className="text-[8.5px] font-black uppercase tracking-widest text-sky-600 mb-0.5">Update Dinas</p>
+                <p className="text-[10.5px] leading-relaxed text-sky-900">{agencyNote}</p>
               </div>
             )}
-
             {resolutionNote && (
-              <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-2.5">
-                <p className="text-[9px] font-black uppercase tracking-widest text-emerald-700 mb-1">
-                  Hasil Penanganan
-                </p>
-                <p className="text-[11px] leading-relaxed text-emerald-950">
-                  {resolutionNote}
-                </p>
+              <div className="rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2">
+                <p className="text-[8.5px] font-black uppercase tracking-widest text-emerald-600 mb-0.5">Hasil Penanganan</p>
+                <p className="text-[10.5px] leading-relaxed text-emerald-900">{resolutionNote}</p>
               </div>
             )}
           </div>
         )}
 
-        <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-          <div className="flex items-center gap-1.5 text-gray-400">
-            <User size={12} />
-            <span className="text-[11px] font-semibold">{report.createdBy?.name || "Warga"}</span>
+        {/* Riwayat */}
+        {hasTimelineColumn && (
+          <div>
+            <div className="flex items-center justify-between mb-2.5">
+              <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">Riwayat</p>
+              {timelineCount > 5 && (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setShowAllTimeline((v) => !v); }}
+                  className="text-[9px] font-bold text-[#db2744] hover:text-rose-600 transition-colors"
+                >
+                  {showAllTimeline ? "Ringkas" : `+${timelineCount - 5} lagi`}
+                </button>
+              )}
+            </div>
+            <div className="relative">
+              <div className="absolute left-1.5 top-2 bottom-2 w-px bg-gray-100" />
+              <div className="space-y-4">
+                {timelineItems.map((item, index) => {
+                  const timelineStatus = CITIZEN_REPORT_STATUS_MAP[item.status] || { label: item.status, color: "bg-gray-100 text-gray-600 border-gray-200" };
+                  return (
+                    <div key={item.id} className="flex gap-3 relative">
+                      <div className={`relative z-10 mt-0.5 shrink-0 w-3 h-3 rounded-full border-2 bg-white ${index === 0 ? "border-[#db2744]" : "border-gray-300"}`} />
+                      <div className="min-w-0 flex-1 pb-1">
+                        <div className="flex flex-wrap items-center gap-1.5 mb-1">
+                          <span className={`rounded-full border px-2 py-0.5 text-[8px] font-black uppercase tracking-wider ${timelineStatus.color}`}>
+                            {timelineStatus.label}
+                          </span>
+                          <span className="text-[9px] font-medium text-gray-400">
+                            {new Date(item.createdAt).toLocaleDateString("id-ID")}
+                          </span>
+                        </div>
+                        {item.note && (
+                          <p className="text-[11px] leading-relaxed text-gray-600">{item.note}</p>
+                        )}
+                        {item.images.length > 0 && (
+                          <div className="mt-2 flex gap-1.5">
+                            {item.images.slice(0, 3).map((url, imageIndex) => (
+                              <button
+                                key={`${url}-${imageIndex}`}
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); onPhotoClick(item.images.map(resolvePhotoUrl), imageIndex); }}
+                                className="overflow-hidden rounded-md group relative"
+                              >
+                                <img
+                                  src={resolvePhotoUrl(url)}
+                                  alt={`Bukti riwayat ${imageIndex + 1}`}
+                                  className="h-11 w-14 object-cover"
+                                />
+                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors rounded-md" />
+                              </button>
+                            ))}
+                            {item.images.length > 3 && (
+                              <div className="h-11 w-10 rounded-md bg-gray-100 flex items-center justify-center">
+                                <span className="text-[9px] font-black text-gray-500">+{item.images.length - 3}</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
-          <div className="flex items-center gap-1 text-gray-400">
-            <Clock size={11} />
-            <span className="text-[10px] font-medium">{new Date(report.createdAt).toLocaleDateString()}</span>
-          </div>
-        </div>
+        )}
 
-        <div className="flex items-center gap-1.5 mt-2.5 pt-1.5 border-t border-dashed border-gray-100">
-          <Building2 size={11} className={report.dinas ? "text-[#db2744]" : "text-gray-400"} />
-          <span className={`text-[10px] uppercase tracking-wide font-black ${report.dinas ? "text-[#db2744]" : "text-gray-400"}`}>
-            {report.dinas ? report.dinas.name : "Menunggu Instansi"}
-          </span>
+        {/* Reporter + date */}
+        <div className="flex items-center justify-between pt-2.5 border-t border-gray-100">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <div className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
+              <User size={10} className="text-gray-500" />
+            </div>
+            <span className="text-[10.5px] font-semibold text-gray-500 truncate">{report.createdBy?.name || "Warga"}</span>
+          </div>
+          <div className="flex items-center gap-1 shrink-0 ml-2">
+            <Clock size={10} className="text-gray-400" />
+            <span className="text-[10px] font-medium text-gray-400">{new Date(report.createdAt).toLocaleDateString("id-ID")}</span>
+          </div>
         </div>
       </div>
     </div>
@@ -333,6 +634,10 @@ export default function CitizenDashboard() {
   const [searchedLocation, setSearchedLocation] = useState<{ name: string; coords: [number, number] } | null>(null);
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [lightbox, setLightbox] = useState<LightboxState>(null);
+  const [selectedMobileReport, setSelectedMobileReport] = useState<ReportLocation | null>(null);
+  const [reportSheetHeight, setReportSheetHeight] = useState(68);
+  const reportSheetResizeRef = useRef<{ startY: number; startHeight: number } | null>(null);
+  const reportSheetResizeMovedRef = useRef(false);
   const searchRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapRef | null>(null);
   
@@ -434,6 +739,40 @@ export default function CitizenDashboard() {
     }
 
     setViewport((prev) => ({ ...prev, center: coords, zoom }));
+  };
+
+  const startReportSheetResize = (event: ReactPointerEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    reportSheetResizeMovedRef.current = false;
+    reportSheetResizeRef.current = {
+      startY: event.clientY,
+      startHeight: reportSheetHeight,
+    };
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      const resizeState = reportSheetResizeRef.current;
+      if (!resizeState) return;
+
+      const deltaY = resizeState.startY - moveEvent.clientY;
+      if (Math.abs(deltaY) > 2) {
+        reportSheetResizeMovedRef.current = true;
+      }
+
+      const nextHeight = resizeState.startHeight + (deltaY / window.innerHeight) * 100;
+      setReportSheetHeight(Math.min(92, Math.max(44, nextHeight)));
+    };
+
+    const handlePointerUp = () => {
+      reportSheetResizeRef.current = null;
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+    window.addEventListener("pointercancel", handlePointerUp);
   };
 
   useEffect(() => {
@@ -554,24 +893,37 @@ export default function CitizenDashboard() {
           />
 
           {publicReports.map((report) => (
-           <MapMarker key={report.id} longitude={report.lng} latitude={report.lat}>
-              <MarkerPopup closeButton>
-                 <ReportPopup report={report} onPhotoClick={openLightbox} />
-              </MarkerPopup>
+            <MapMarker
+              key={report.id}
+              longitude={report.lng}
+              latitude={report.lat}
+              onClick={!isDesktop ? () => {
+                setReportSheetHeight(68);
+                setSelectedMobileReport(report);
+              } : undefined}
+            >
+              {isDesktop && (
+                <MarkerPopup
+                  closeButton
+                  className="overflow-hidden rounded-sm border border-gray-100 bg-white p-0 shadow-[0_18px_44px_rgba(15,23,42,0.18)]"
+                >
+                  <ReportPopup report={report} onPhotoClick={openLightbox} />
+                </MarkerPopup>
+              )}
               <MarkerContent className="[&>*]:!z-[10]">
-                 <div className="w-10 h-10 -mt-5 -ml-5 bg-[#db2744]/20 rounded-full flex items-center justify-center" style={{ zIndex: 10 }}>
-                   <div className="w-6 h-6 bg-[#db2744] hover:bg-rose-500 rounded-full flex items-center justify-center shadow-lg shadow-red-500/50 transition-colors border-2 border-white">
-                      <AlertTriangle size={12} className="text-white" strokeWidth={3} />
-                   </div>
-                 </div>
+                <div className="w-10 h-10 -mt-5 -ml-5 bg-[#db2744]/20 rounded-full flex items-center justify-center" style={{ zIndex: 10 }}>
+                  <div className="w-6 h-6 bg-[#db2744] hover:bg-rose-500 rounded-full flex items-center justify-center shadow-lg shadow-red-500/50 transition-colors border-2 border-white">
+                    <AlertTriangle size={12} className="text-white" strokeWidth={3} />
+                  </div>
+                </div>
               </MarkerContent>
-           </MapMarker>
+            </MapMarker>
           ))}
 
           {agencies.map((agency, idx) => (
             <MapMarker key={`agency-${agency.id || idx}`} longitude={agency.lng} latitude={agency.lat}>
-               <MarkerPopup closeButton>
-                 <div className="w-[200px] flex flex-col overflow-hidden -m-[10px] -mb-[15px]">
+               <MarkerPopup closeButton className="overflow-hidden rounded-sm border border-gray-100 bg-white p-0 shadow-[0_18px_44px_rgba(15,23,42,0.18)]">
+                 <div className="w-[200px] flex flex-col overflow-hidden">
                    <AgencyPopupCarousel agency={agency} onPhotoClick={openLightbox} />
                    <div className="p-3 pb-4 flex flex-col gap-1.5 relative">
                      <div className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-sm w-fit truncate max-w-full ${(agency.photos?.length > 0 || agency.photoUrl) ? "text-indigo-600 bg-indigo-50 absolute -top-8 left-3 shadow-md border border-indigo-100/50" : "text-indigo-600 bg-indigo-50"}`}>
@@ -790,12 +1142,69 @@ export default function CitizenDashboard() {
         statusMap={CITIZEN_REPORT_STATUS_MAP}
         onSearchChange={setMyReportsSearch}
         onClose={() => setIsMyReportsOpen(false)}
+        onPhotoClick={openLightbox}
         onFocusReport={(report) => {
           if (report.status !== "rejected") {
             focusMapOnCoordinates([report.lng, report.lat], 15);
           }
         }}
       />
+
+      {/* Mobile report bottom sheet */}
+      <AnimatePresence>
+        {selectedMobileReport && !isDesktop && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 z-40 bg-gray-950/45 backdrop-blur-[2px]"
+              onClick={() => setSelectedMobileReport(null)}
+            />
+            <motion.div
+              initial={{ y: "100%", opacity: 0 }}
+              animate={{
+                y: 0,
+                opacity: 1,
+                height: `${reportSheetHeight}vh`,
+              }}
+              exit={{ y: "100%", opacity: 0 }}
+              transition={{ type: "spring", stiffness: 420, damping: 38 }}
+              className="absolute inset-x-0 bottom-0 z-50 flex flex-col overflow-hidden rounded-t-2xl bg-white shadow-[0_-20px_48px_rgba(15,23,42,0.24)]"
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  if (reportSheetResizeMovedRef.current) return;
+                  setReportSheetHeight((height) => (height > 82 ? 68 : 92));
+                }}
+                onPointerDown={startReportSheetResize}
+                className="flex w-full touch-none justify-center bg-white pt-3 pb-2 cursor-grab active:cursor-grabbing"
+                aria-label={reportSheetHeight > 82 ? "Perkecil detail laporan" : "Perbesar detail laporan"}
+              >
+                <span className="h-1.5 w-12 rounded-full bg-gray-200" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSelectedMobileReport(null)}
+                className="absolute top-3 right-3 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-gray-500 shadow-sm ring-1 ring-gray-200/70 backdrop-blur transition-colors hover:bg-white hover:text-gray-900"
+                aria-label="Tutup detail laporan"
+              >
+                <X size={16} strokeWidth={2.5} />
+              </button>
+
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+                <ReportPopup
+                  report={selectedMobileReport}
+                  onPhotoClick={openLightbox}
+                  fullWidth
+                />
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {lightbox && (
