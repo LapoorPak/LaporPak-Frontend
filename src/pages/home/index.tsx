@@ -88,7 +88,7 @@ export default function Home() {
   };
   const showPreviousFeature = () => {
     setActiveFeatureIndex(
-      (current) => (current - 1 + FEATURE_CARDS.length) % FEATURE_CARDS.length
+      (current) => (current - 1 + FEATURE_CARDS.length) % FEATURE_CARDS.length,
     );
   };
   const showNextFeature = () => {
@@ -203,10 +203,14 @@ export default function Home() {
                     slot === "active" ? "50%" : slot === "left" ? "30%" : "70%",
                   top: isActive ? "0%" : "10%",
                   height: isActive ? "100%" : "81.5%",
-                  x: "-50%",
                   scale: isActive ? 1 : 0.96,
                   zIndex: isActive ? 20 : 10,
                 }}
+                transformTemplate={(_, generated) =>
+                  generated === "none"
+                    ? "translateX(-50%)"
+                    : `translateX(-50%) ${generated}`
+                }
                 transition={{ type: "spring", stiffness: 260, damping: 28 }}
                 whileHover={{ y: isActive ? 0 : -4 }}
                 whileTap={{ scale: isActive ? 0.99 : 0.94 }}
@@ -275,6 +279,83 @@ export default function Home() {
         </div>
       </section>
 
+      <section className="relative z-10 hidden px-4 py-10 sm:px-6 md:py-14 lg:block">
+        <motion.div
+          initial={{ opacity: 0, y: 22 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-80px" }}
+          transition={{ duration: 0.55 }}
+          className="mx-auto grid max-w-5xl grid-cols-2 gap-2 sm:gap-3 lg:h-[560px] lg:grid-cols-[0.92fr_1.04fr_1.08fr_1fr_1fr] lg:grid-rows-[1.06fr_0.76fr_1.08fr]"
+        >
+          <figure className="order-1 col-span-2 h-36 overflow-hidden lg:order-none lg:col-span-2 lg:col-start-1 lg:row-start-1 lg:h-auto">
+            <img
+              src="/grid/image1.png"
+              alt="Fasilitas umum dengan atap rusak"
+              className="h-full w-full object-cover grayscale"
+              loading="lazy"
+            />
+          </figure>
+
+          <figure className="order-2 h-36 overflow-hidden lg:order-none lg:col-start-3 lg:row-start-1 lg:h-auto">
+            <img
+              src="/grid/image2.png"
+              alt="Jalan berlubang yang perlu diperbaiki"
+              className="h-full w-full object-cover grayscale"
+              loading="lazy"
+            />
+          </figure>
+
+          <figure className="order-3 h-36 overflow-hidden lg:order-none lg:col-start-1 lg:row-start-2 lg:h-auto">
+            <img
+              src="/grid/image3.png"
+              alt="Tumpukan sampah di area publik"
+              className="h-full w-full object-cover grayscale"
+              loading="lazy"
+            />
+          </figure>
+
+          <div className="order-4 col-span-2 flex h-[220px] flex-col justify-between bg-[#1d1d1d] p-6 text-white sm:p-8 lg:order-none lg:col-span-2 lg:col-start-4 lg:row-span-2 lg:row-start-1 lg:h-auto lg:p-9">
+            <h2 className="font-heading text-3xl font-black leading-[0.95] tracking-tight sm:text-4xl lg:text-[2.55rem]">
+              Fasilitas
+              <br />
+              Infrastruktur
+              <br />
+              <span className="text-[#ff0707]">perlu perbaikan.</span>
+            </h2>
+            <p className="max-w-[14rem] text-xs font-medium leading-snug text-white/70 sm:text-sm">
+              Lacak riwayat penyelesaian masalah yang dilaporkan.
+            </p>
+          </div>
+
+          <figure className="order-5 col-span-2 h-56 overflow-hidden lg:order-none lg:col-span-2 lg:col-start-2 lg:row-span-2 lg:row-start-2 lg:h-auto">
+            <img
+              src="/grid/image4.png"
+              alt="Dinding bangunan publik penuh coretan"
+              className="h-full w-full object-cover grayscale"
+              loading="lazy"
+            />
+          </figure>
+
+          <div className="order-6 flex h-40 flex-col justify-between bg-[#ff0707] p-4 text-white sm:p-5 lg:order-none lg:col-start-1 lg:row-start-3 lg:h-auto">
+            <h2 className="font-heading text-2xl font-black leading-none tracking-tight sm:text-3xl">
+              Laporkan.
+            </h2>
+            <p className="text-[0.7rem] font-medium leading-tight text-white/85 sm:text-xs">
+              Lacak riwayat penyelesaian masalah yang dilaporkan.
+            </p>
+          </div>
+
+          <figure className="order-7 h-40 overflow-hidden lg:order-none lg:col-span-2 lg:col-start-4 lg:row-start-3 lg:h-auto">
+            <img
+              src="/grid/image5.png"
+              alt="Halte dan fasilitas publik yang terbengkalai"
+              className="h-full w-full object-cover grayscale"
+              loading="lazy"
+            />
+          </figure>
+        </motion.div>
+      </section>
+
       <section className="pt-20 pb-8 relative z-10 px-4 overflow-hidden">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -283,8 +364,10 @@ export default function Home() {
           className="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-8 max-w-7xl mx-auto"
         >
           <div className="flex flex-col items-center text-center gap-1 md:gap-2">
-            <h2 className="text-3xl md:text-[2.5rem] leading-tight font-heading font-black text-gray-900 tracking-tight">
-              <span className="text-[#db2744]">LaporPak</span> menghadirkan
+            <h2 className="text-3xl md:text-[2.5rem] leading-tight font-heading font-medium text-gray-900 tracking-tight">
+              <span className="font-black text-gray-950">Lapor</span>{" "}
+              <span className="font-black text-[#db2744]">Pak!</span>{" "}
+              menghadirkan
             </h2>
             <h2 className="text-3xl md:text-[2.5rem] leading-tight font-heading font-bold text-[#db2744] tracking-tight">
               3 kemudahan
