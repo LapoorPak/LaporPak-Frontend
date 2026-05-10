@@ -1,8 +1,15 @@
 import { Outlet, Link, useNavigate, useLocation } from "react-router";
 import { authClient } from "@/lib/auth-client";
 import {
-  LogOut, LayoutDashboard, Building2, MapPin, Tags, Users, FileText,
-  Menu, X,
+  LogOut,
+  LayoutDashboard,
+  Building2,
+  MapPin,
+  Tags,
+  Users,
+  FileText,
+  Menu,
+  X,
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { clearOAuthAttemptPortal } from "@/lib/oauth-attempt";
@@ -10,12 +17,42 @@ import { toast } from "sonner";
 import { AnimatePresence, motion } from "framer-motion";
 
 const SIDEBAR_ITEMS = [
-  { name: "Overview", path: "/admin/dashboard", icon: LayoutDashboard, desc: "Ringkasan sistem" },
-  { name: "Dinas", path: "/admin/dinas", icon: Building2, desc: "Instansi pemerintah" },
-  { name: "Cabang", path: "/admin/cabang", icon: MapPin, desc: "Unit & lokasi" },
-  { name: "Kategori", path: "/admin/kategori", icon: Tags, desc: "Klasifikasi laporan" },
-  { name: "Users", path: "/admin/users", icon: Users, desc: "Manajemen pengguna" },
-  { name: "Laporan", path: "/admin/laporan", icon: FileText, desc: "Manajemen laporan" },
+  {
+    name: "Overview",
+    path: "/admin/dashboard",
+    icon: LayoutDashboard,
+    desc: "Ringkasan sistem",
+  },
+  {
+    name: "Dinas",
+    path: "/admin/dinas",
+    icon: Building2,
+    desc: "Instansi pemerintah",
+  },
+  {
+    name: "Cabang",
+    path: "/admin/cabang",
+    icon: MapPin,
+    desc: "Unit & lokasi",
+  },
+  {
+    name: "Kategori",
+    path: "/admin/kategori",
+    icon: Tags,
+    desc: "Klasifikasi laporan",
+  },
+  {
+    name: "Users",
+    path: "/admin/users",
+    icon: Users,
+    desc: "Manajemen pengguna",
+  },
+  {
+    name: "Laporan",
+    path: "/admin/laporan",
+    icon: FileText,
+    desc: "Manajemen laporan",
+  },
 ];
 
 const PAGE_TITLES: Record<string, string> = {
@@ -36,9 +73,10 @@ export default function AdminLayout() {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
-  const currentTitle = Object.entries(PAGE_TITLES).find(([path]) =>
-    location.pathname.startsWith(path)
-  )?.[1] ?? "Admin";
+  const currentTitle =
+    Object.entries(PAGE_TITLES).find(([path]) =>
+      location.pathname.startsWith(path),
+    )?.[1] ?? "Admin";
 
   useEffect(() => {
     const handleResize = () => {
@@ -62,14 +100,19 @@ export default function AdminLayout() {
     } else {
       document.body.style.overflow = "";
     }
-    return () => { document.body.style.overflow = ""; };
+    return () => {
+      document.body.style.overflow = "";
+    };
   }, [isSidebarOpen]);
 
   // Close user menu on outside click
   useEffect(() => {
     if (!showUserMenu) return;
     const handler = (e: MouseEvent) => {
-      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+      if (
+        userMenuRef.current &&
+        !userMenuRef.current.contains(e.target as Node)
+      ) {
         setShowUserMenu(false);
       }
     };
@@ -95,7 +138,12 @@ export default function AdminLayout() {
   };
 
   const initials = session?.user?.name
-    ? session.user.name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase()
+    ? session.user.name
+        .split(" ")
+        .map((n) => n[0])
+        .slice(0, 2)
+        .join("")
+        .toUpperCase()
     : "A";
 
   return (
@@ -124,7 +172,9 @@ export default function AdminLayout() {
           "fixed inset-y-0 left-0",
           isSidebarOpen ? "translate-x-0" : "-translate-x-full",
           "lg:relative lg:translate-x-0 lg:inset-y-auto lg:left-auto",
-          isSidebarOpen ? "lg:w-64" : "lg:w-0 lg:border-r-0 lg:pointer-events-none",
+          isSidebarOpen
+            ? "lg:w-64"
+            : "lg:w-0 lg:border-r-0 lg:pointer-events-none",
         ].join(" ")}
       >
         {/* Inner wrapper fixed at w-64 so content doesn't squish */}
@@ -132,14 +182,19 @@ export default function AdminLayout() {
           {/* Logo */}
           <div className="h-16 flex items-center px-5 border-b border-gray-200 shrink-0">
             <a href="/">
-              <img src="/logo_lightbg.png" alt="LaporPak" className="h-8 w-auto object-contain" />
-              <div className="text-[9px] text-gray-400 font-semibold uppercase tracking-widest -mt-0.5">Admin Panel</div>
+              <img
+                src="/logo_lightbg.png"
+                alt="LaporPak"
+                className="h-8 w-auto object-contain"
+              />
             </a>
           </div>
 
           {/* Nav */}
           <div className="flex-1 overflow-y-auto py-4 px-3 space-y-0.5">
-            <div className="px-3 mb-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Menu Utama</div>
+            <div className="px-3 mb-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+              Menu Utama
+            </div>
             {SIDEBAR_ITEMS.map((item) => {
               const isActive = location.pathname.startsWith(item.path);
               const Icon = item.icon;
@@ -156,14 +211,31 @@ export default function AdminLayout() {
                   {isActive && (
                     <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-primary rounded-r-full" />
                   )}
-                  <div className={`w-8 h-8 rounded-sm flex items-center justify-center shrink-0 transition-colors ${
-                    isActive ? "bg-primary/15" : "bg-gray-100 group-hover:bg-gray-200"
-                  }`}>
-                    <Icon size={16} className={isActive ? "text-primary" : "text-gray-400 group-hover:text-gray-700"} />
+                  <div
+                    className={`w-8 h-8 rounded-sm flex items-center justify-center shrink-0 transition-colors ${
+                      isActive
+                        ? "bg-primary/15"
+                        : "bg-gray-100 group-hover:bg-gray-200"
+                    }`}
+                  >
+                    <Icon
+                      size={16}
+                      className={
+                        isActive
+                          ? "text-primary"
+                          : "text-gray-400 group-hover:text-gray-700"
+                      }
+                    />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className={`text-sm font-semibold truncate ${isActive ? "text-primary" : ""}`}>{item.name}</div>
-                    <div className="text-[10px] text-gray-400 truncate">{item.desc}</div>
+                    <div
+                      className={`text-sm font-semibold truncate ${isActive ? "text-primary" : ""}`}
+                    >
+                      {item.name}
+                    </div>
+                    <div className="text-[10px] text-gray-400 truncate">
+                      {item.desc}
+                    </div>
                   </div>
                 </Link>
               );
@@ -175,14 +247,23 @@ export default function AdminLayout() {
             <div className="flex items-center gap-3 p-2.5 rounded-sm bg-gray-50 border border-gray-200">
               <div className="w-8 h-8 rounded-full bg-white border-2 border-primary/25 shadow-sm flex items-center justify-center shrink-0 text-xs font-bold text-primary overflow-hidden">
                 {session?.user?.image ? (
-                  <img src={session.user.image} alt="" referrerPolicy="no-referrer" className="w-full h-full rounded-full object-cover" />
+                  <img
+                    src={session.user.image}
+                    alt=""
+                    referrerPolicy="no-referrer"
+                    className="w-full h-full rounded-full object-cover"
+                  />
                 ) : (
                   initials
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-bold text-gray-900 truncate">{session?.user?.name || "Admin"}</p>
-                <p className="text-[10px] text-gray-500 truncate">{session?.user?.email}</p>
+                <p className="text-xs font-bold text-gray-900 truncate">
+                  {session?.user?.name || "Admin"}
+                </p>
+                <p className="text-[10px] text-gray-500 truncate">
+                  {session?.user?.email}
+                </p>
               </div>
               <button
                 onClick={handleLogout}
@@ -209,8 +290,12 @@ export default function AdminLayout() {
               {isSidebarOpen ? <X size={18} /> : <Menu size={18} />}
             </button>
             <div>
-              <h1 className="text-sm font-heading font-bold text-gray-900">{currentTitle}</h1>
-              <p className="text-[10px] text-gray-400 hidden sm:block">LaporPak Admin System</p>
+              <h1 className="text-sm font-heading font-bold text-gray-900">
+                {currentTitle}
+              </h1>
+              <p className="text-[10px] text-gray-400 hidden sm:block">
+                LaporPak Admin System
+              </p>
             </div>
           </div>
 
@@ -222,7 +307,12 @@ export default function AdminLayout() {
               >
                 <div className="w-7 h-7 rounded-full bg-white border-2 border-primary/25 shadow-sm flex items-center justify-center text-xs font-bold text-primary shrink-0 overflow-hidden">
                   {session?.user?.image ? (
-                    <img src={session.user.image} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
+                    <img
+                      src={session.user.image}
+                      alt=""
+                      referrerPolicy="no-referrer"
+                      className="w-full h-full object-cover"
+                    />
                   ) : (
                     initials
                   )}
@@ -242,9 +332,15 @@ export default function AdminLayout() {
                     className="absolute right-0 top-full mt-1.5 w-52 bg-white border border-gray-200 rounded-sm shadow-lg overflow-hidden z-50"
                   >
                     <div className="px-4 py-3 border-b border-gray-100">
-                      <p className="text-sm font-bold text-gray-900 truncate">{session?.user?.name}</p>
-                      <p className="text-xs text-gray-500 truncate">{session?.user?.email}</p>
-                      <span className="mt-1.5 inline-block px-2 py-0.5 bg-primary/10 text-primary text-[10px] font-bold rounded border border-primary/20">ADMINISTRATOR</span>
+                      <p className="text-sm font-bold text-gray-900 truncate">
+                        {session?.user?.name}
+                      </p>
+                      <p className="text-xs text-gray-500 truncate">
+                        {session?.user?.email}
+                      </p>
+                      <span className="mt-1.5 inline-block px-2 py-0.5 bg-primary/10 text-primary text-[10px] font-bold rounded border border-primary/20">
+                        ADMINISTRATOR
+                      </span>
                     </div>
                     <button
                       onClick={handleLogout}
