@@ -22,7 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { AGENCY_REPORT_STATUS_MAP } from "../utils/reportStatus";
-import { API_BASE } from "@/config/api-client";
+import { resolvePhotoUrl } from "@/lib/resolve-photo-url";
 
 const STATUS_OPTIONS = [
   {
@@ -238,8 +238,6 @@ export function AgencyReportDetailDrawer({
                       </div>
                     );
                   }
-                  const resolveUrl = (url: string) =>
-                    url.startsWith("http") ? url : `${API_BASE}${url}`;
                   return (
                     <div className="grid grid-cols-2 gap-2">
                       {photos.map((url, i) => (
@@ -248,12 +246,12 @@ export function AgencyReportDetailDrawer({
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            onPhotoClick?.(photos.map(resolveUrl), i);
+                            onPhotoClick?.(photos.map(resolvePhotoUrl), i);
                           }}
                           className="relative w-full h-[78px] rounded-sm overflow-hidden group bg-gray-100"
                         >
                           <img
-                            src={resolveUrl(url)}
+                            src={resolvePhotoUrl(url)}
                             alt={`Foto ${i + 1}`}
                             className="w-full h-full object-cover"
                           />
@@ -425,10 +423,9 @@ export function AgencyReportDetailDrawer({
                           >
                             <img
                               src={
-                                url.startsWith("blob:") ||
-                                url.startsWith("http")
+                                url.startsWith("blob:")
                                   ? url
-                                  : `${API_BASE}${url}`
+                                  : resolvePhotoUrl(url)
                               }
                               alt={`Bukti update ${index + 1}`}
                               className="h-full w-full object-cover"
@@ -519,9 +516,9 @@ export function AgencyReportDetailDrawer({
                                           <img
                                             key={`${url}-${imageIndex}`}
                                             src={
-                                              url.startsWith("http")
+                                              url.startsWith("blob:")
                                                 ? url
-                                                : `${API_BASE}${url}`
+                                                : resolvePhotoUrl(url)
                                             }
                                             alt={`Bukti timeline ${imageIndex + 1}`}
                                             className="h-16 w-full rounded-sm object-cover"

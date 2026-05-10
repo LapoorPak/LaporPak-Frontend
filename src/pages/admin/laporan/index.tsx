@@ -30,7 +30,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { API_BASE } from "@/config/api-client";
+import { resolvePhotoUrl } from "@/lib/resolve-photo-url";
 import {
   Map,
   MapMarker,
@@ -70,9 +70,7 @@ function getStatusLabel(status: string) {
 }
 
 function getImageUrl(url: string) {
-  if (!url) return "";
-  if (url.startsWith("http") || url.startsWith("blob:")) return url;
-  return `${API_BASE}${url}`;
+  return resolvePhotoUrl(url);
 }
 
 function PhotoLightbox({

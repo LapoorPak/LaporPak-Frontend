@@ -43,7 +43,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { API_BASE, apiClient } from "@/config/api-client";
+import { apiClient } from "@/config/api-client";
+import { resolvePhotoUrl } from "@/lib/resolve-photo-url";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -118,9 +119,7 @@ function SkeletonRow() {
 }
 
 function getPhotoUrl(url: string) {
-  if (!url) return "";
-  if (url.startsWith("http") || url.startsWith("blob:")) return url;
-  return `${API_BASE}${url}`;
+  return resolvePhotoUrl(url);
 }
 
 function PhotoLightbox({
