@@ -365,8 +365,10 @@ export default function AdminCabangPage() {
           },
         );
         uploaded.push(res.data.data.url);
-      } catch {
-        toast.error(`Gagal mengupload ${file.name}`);
+      } catch (error) {
+        toast.error(`Gagal mengupload ${file.name}`, {
+          description: error instanceof Error ? error.message : "Upload gagal.",
+        });
       }
     }
     if (uploaded.length > 0) {

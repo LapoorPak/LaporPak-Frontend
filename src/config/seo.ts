@@ -73,6 +73,78 @@ const routeSeo: Record<string, SeoConfig> = {
     path: "/agency/login",
     noIndex: true,
   },
+  "/admin/login": {
+    title: "Portal Admin - LaporPak",
+    description:
+      "Masuk ke portal admin LaporPak untuk mengelola dinas, cabang, kategori, pengguna, dan laporan.",
+    keywords: defaultSeo.keywords,
+    path: "/admin/login",
+    noIndex: true,
+  },
+  "/dashboard": {
+    title: "Dashboard Warga - LaporPak",
+    description:
+      "Dashboard warga LaporPak untuk membuat laporan baru, melihat peta laporan, dan memantau riwayat aduan.",
+    keywords:
+      "dashboard warga LaporPak, buat laporan publik, pantau laporan warga, peta aduan publik",
+    path: "/dashboard",
+    noIndex: true,
+  },
+  "/agency/dashboard": {
+    title: "Dashboard Dinas - LaporPak",
+    description:
+      "Dashboard dinas LaporPak untuk meninjau, memproses, dan menyelesaikan laporan warga yang masuk.",
+    keywords:
+      "dashboard dinas LaporPak, kelola laporan warga, tindak lanjut aduan publik, portal petugas",
+    path: "/agency/dashboard",
+    noIndex: true,
+  },
+  "/admin/dashboard": {
+    title: "Dashboard Admin - LaporPak",
+    description:
+      "Dashboard admin LaporPak untuk melihat ringkasan operasional, pengguna, dinas, cabang, kategori, dan laporan.",
+    keywords: "dashboard admin LaporPak, admin laporan warga, overview operasional LaporPak",
+    path: "/admin/dashboard",
+    noIndex: true,
+  },
+  "/admin/dinas": {
+    title: "Manajemen Dinas - LaporPak",
+    description: "Kelola data dinas yang menangani kategori laporan publik di LaporPak.",
+    keywords: "manajemen dinas LaporPak, data dinas, admin LaporPak",
+    path: "/admin/dinas",
+    noIndex: true,
+  },
+  "/admin/cabang": {
+    title: "Manajemen Cabang Dinas - LaporPak",
+    description:
+      "Kelola cabang dinas, lokasi layanan, area cakupan, dan foto kantor pada admin LaporPak.",
+    keywords: "manajemen cabang dinas, lokasi dinas, admin LaporPak",
+    path: "/admin/cabang",
+    noIndex: true,
+  },
+  "/admin/kategori": {
+    title: "Manajemen Kategori - LaporPak",
+    description: "Kelola kategori laporan publik dan relasinya dengan dinas terkait di LaporPak.",
+    keywords: "kategori laporan LaporPak, admin kategori, klasifikasi laporan publik",
+    path: "/admin/kategori",
+    noIndex: true,
+  },
+  "/admin/users": {
+    title: "Manajemen Pengguna - LaporPak",
+    description:
+      "Kelola akun pengguna, admin, dan petugas dinas pada portal admin LaporPak.",
+    keywords: "manajemen pengguna LaporPak, admin user, petugas dinas",
+    path: "/admin/users",
+    noIndex: true,
+  },
+  "/admin/laporan": {
+    title: "Manajemen Laporan - LaporPak",
+    description:
+      "Kelola seluruh laporan warga, status tindak lanjut, dan penugasan cabang dinas pada admin LaporPak.",
+    keywords: "manajemen laporan LaporPak, admin laporan warga, status laporan publik",
+    path: "/admin/laporan",
+    noIndex: true,
+  },
 };
 
 export function getSeoForPath(pathname: string): SeoConfig {
