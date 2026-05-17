@@ -35,51 +35,33 @@ export default function HowItWorks() {
       <Navbar />
 
       {/* Hero */}
-      <section className="relative px-6 overflow-hidden min-h-[100dvh] lg:h-screen flex flex-col justify-start pt-8 md:justify-center md:pt-0 pb-12 lg:pb-0">
-        <div className="absolute top-1/2 right-0 w-[800px] h-[800px] bg-red-100/50 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/3 -z-20 pointer-events-none"></div>
+      <section className="relative h-[calc(100dvh-64px)] min-h-[520px] overflow-hidden bg-white sm:h-[calc(100dvh-80px)] sm:min-h-[620px] lg:h-[calc(100dvh-88px)]">
+        <motion.img
+          src="/images/cara_kerja.png"
+          alt="Halte dan bus Transjakarta"
+          initial={{ opacity: 0, scale: 1.03, x: -24 }}
+          animate={{ opacity: 1, scale: 1, x: 0 }}
+          transition={{ duration: 0.8, ease: "easeOut" }}
+          className="absolute bottom-0 left-1/2 h-[54vh] min-h-[315px] max-w-none -translate-x-[49%] object-contain object-bottom sm:left-0 sm:h-[88vh] sm:min-h-[520px] sm:translate-x-0 sm:object-left-bottom md:h-[104vh] lg:-left-4 lg:h-[118vh] lg:max-h-[940px]"
+        />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-white/30 via-white/75 to-white" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-[58%] bg-gradient-to-b from-white via-white/85 to-transparent" />
 
-        <div className="text-center z-10 w-full lg:absolute lg:top-28 mb-8 lg:mb-0 shrink-0">
-          <h1 className="text-3xl md:text-5xl font-extrabold text-[#C01D33] tracking-tight">Cara Kerja</h1>
-        </div>
-
-        <div className="max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-12 items-center relative z-10">
-          <div className="flex flex-col items-start lg:pl-10">
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, ease: "easeOut" }}
-            >
-              <h2 className="text-5xl md:text-[72px] font-extrabold text-[#111827] leading-[1.1] tracking-tight mb-2 md:mb-4">
-                Jangan Biarkan<br className="hidden md:block"/> Fasilitas Rusak
-              </h2>
-              <div className="inline-block bg-[#C01D33] text-white text-4xl md:text-[56px] font-extrabold px-8 py-3 rounded-2xl md:rounded-[24px] mt-2 mb-12 shadow-[0_10px_30px_rgba(192,29,51,0.25)]">
-                Dibiarkan!
-              </div>
-            </motion.div>
-            
-            <motion.div
-               initial={{ opacity: 0, pathLength: 0 }}
-               animate={{ opacity: 1, pathLength: 1 }}
-               transition={{ duration: 1, delay: 0.5 }}
-               className="ml-24 hidden lg:block"
-            >
-              <svg width="220" height="130" viewBox="0 0 200 120" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-[#C01D33]">
-                <path d="M10 10 C 60 120, 150 100, 180 80" stroke="currentColor" strokeWidth="6" strokeLinecap="round" fill="transparent" strokeDasharray="300" strokeDashoffset="0"/>
-                <path d="M165 60 L 185 78 L 155 95" stroke="currentColor" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" fill="transparent"/>
-              </svg>
-            </motion.div>
-          </div>
-
-          <div className="relative flex justify-center lg:justify-end items-center lg:items-end w-full h-[400px] md:h-[500px]">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
-              className="relative w-full max-w-lg z-10"
-            >
-              <img src="/images/hero.png" alt="Ilustrasi LaporPak" className="w-full h-auto object-contain mix-blend-multiply" />
-            </motion.div>
-          </div>
+        <div className="absolute left-5 right-5 top-[10vh] z-10 text-right sm:left-auto sm:right-10 sm:top-auto sm:bottom-[13vh] sm:w-[min(78vw,540px)] md:bottom-[16vh] md:right-14 lg:right-20 xl:right-24">
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.55, ease: "easeOut" }}
+            className="py-4"
+          >
+            <h1 className="text-[2rem] font-black leading-[1.03] tracking-tight text-gray-950 min-[390px]:text-[2.2rem] sm:text-[2.65rem] md:text-[3rem] lg:text-[3.35rem] xl:text-[3.65rem]">
+              Jangan Diam.
+              <span className="block text-[#db2744]">Laporkan Kerusakan.</span>
+            </h1>
+            <p className="mt-3 text-sm font-medium leading-relaxed text-gray-600 min-[390px]:text-base sm:text-lg md:text-xl">
+              Lihat bagaimana laporanmu ditindaklanjuti.
+            </p>
+          </motion.div>
         </div>
       </section>
 
@@ -87,8 +69,8 @@ export default function HowItWorks() {
       <section className="py-32 bg-[#F9FAFB]">
         <div className="max-w-6xl mx-auto px-6">
           <div className="mb-24 text-center">
-            <h2 className="text-4xl md:text-5xl font-extrabold text-[#111827] tracking-tight">Alurnya Sangat Mudah.</h2>
-            <p className="mt-4 text-xl text-[#6B7280]">Tiga tahapan sederhana sebelum ruas jalan teratasi.</p>
+            <h2 className="text-4xl md:text-5xl font-extrabold text-[#db0000] tracking-tight">Cara Kerjanya Sederhana</h2>
+            <p className="mt-6 text-xl text-[#555555]">Hanya 3 langkah dari laporan hingga penanganan.</p>
           </div>
 
           <div className="space-y-16 lg:space-y-32 relative">

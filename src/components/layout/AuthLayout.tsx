@@ -6,16 +6,26 @@ export default function AuthLayout() {
   const isVerifyEmail = location.pathname.includes("verify-email");
   const isAdminLogin = location.pathname.includes("/admin/login");
   const isAgencyLogin = location.pathname.includes("/agency/login");
+  const isCitizenLogin = !isRegister && !isVerifyEmail && !isAdminLogin && !isAgencyLogin;
+  const hasPhotoPanel = isCitizenLogin || isRegister || isAdminLogin || isAgencyLogin;
+  const photoAlt = isRegister
+    ? "LaporPak Pendaftaran"
+    : isAdminLogin
+      ? "LaporPak Administrator"
+      : isAgencyLogin
+        ? "LaporPak Portal Dinas"
+        : "LaporPak Otentikasi";
+  const photoObjectPosition = isCitizenLogin ? "object-[60%_center]" : "object-center";
 
   const imgSrc = isVerifyEmail
     ? "/illustrations/verify_email_illustration.png"
     : isRegister 
-      ? "/illustrations/register_illustration.png" 
+      ? "/images/register.png"
       : isAdminLogin
-        ? "/illustrations/admin_login_illustration.png"
+        ? "/images/admin.jpeg"
         : isAgencyLogin
-          ? "/illustrations/agency_login_illustration.png"
-          : "/illustrations/login_illustration.png";
+          ? "/images/dinas.jpeg"
+          : "/images/login.png";
 
   return (
     <div className="min-h-screen bg-white flex flex-col md:flex-row overflow-hidden font-sans">
@@ -34,14 +44,25 @@ export default function AuthLayout() {
         </p>
       </div>
 
-      <div className="hidden md:flex flex-1 bg-white relative items-center justify-center p-12 overflow-hidden">
-         <div className="relative z-10 w-full max-w-[600px] flex justify-center items-center">
-            <img 
-               src={imgSrc} 
-               alt={isVerifyEmail ? "LaporPak Verifikasi Email" : isRegister ? "LaporPak Pendaftaran" : isAdminLogin ? "LaporPak Administrator" : isAgencyLogin ? "LaporPak Portal Dinas" : "LaporPak Otentikasi"}
-               className="w-full h-auto object-contain mix-blend-multiply scale-110"
+      <div className={`hidden md:flex flex-1 bg-white relative items-center justify-center overflow-hidden ${hasPhotoPanel ? "" : "p-12"}`}>
+        {hasPhotoPanel ? (
+          <>
+            <img
+              src={imgSrc}
+              alt={photoAlt}
+              className={`absolute inset-0 h-full w-full scale-110 object-cover ${photoObjectPosition}`}
             />
-         </div>
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-[28%] bg-gradient-to-b from-white/80 via-white/25 to-transparent" />
+          </>
+        ) : (
+          <div className="relative z-10 w-full max-w-[600px] flex justify-center items-center">
+            <img
+              src={imgSrc}
+              alt={isVerifyEmail ? "LaporPak Verifikasi Email" : isRegister ? "LaporPak Pendaftaran" : isAdminLogin ? "LaporPak Administrator" : isAgencyLogin ? "LaporPak Portal Dinas" : "LaporPak Otentikasi"}
+              className="w-full h-auto object-contain mix-blend-multiply scale-110"
+            />
+          </div>
+        )}
       </div>
     </div>
   );
