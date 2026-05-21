@@ -100,7 +100,13 @@ export interface AdminLaporan {
   id: string;
   title: string;
   description: string;
-  status: "pending" | "verified" | "in_progress" | "resolved" | "rejected";
+  status:
+    | "pending"
+    | "verified"
+    | "in_progress"
+    | "clarification_requested"
+    | "resolved"
+    | "rejected";
   routingStatus: string;
   images: string[];
   latitude: number;
@@ -108,6 +114,9 @@ export interface AdminLaporan {
   address: string | null;
   agencyNote: string | null;
   resolutionNote: string | null;
+  upvotes?: number;
+  downvotes?: number;
+  voteScore?: number;
   aiDecisionStatus: string | null;
   aiConfidence: number | null;
   aiReasoning: string | null;

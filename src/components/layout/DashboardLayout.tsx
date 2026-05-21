@@ -10,7 +10,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { getDashboardPathForRole, getLoginPathForRole, getPortalFromRole } from "@/lib/auth-portal";
 import { clearOAuthAttemptPortal } from "@/lib/oauth-attempt";
-import { LogOut, User, Bell, X, CheckCircle2, Clock, AlertTriangle, ArrowUpRight, Info, type LucideIcon } from "lucide-react";
+import { DashboardViewModeProvider, useDashboardViewMode, type DashboardViewMode } from "@/context/dashboard-view-mode";
+import { LogOut, User, Bell, X, CheckCircle2, Clock, AlertTriangle, ArrowUpRight, Info, MapPin, ListFilter, type LucideIcon } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -28,6 +29,11 @@ const iconMap: Record<NotificationType, LucideIcon> = {
   danger: AlertTriangle,
   info: Info,
 };
+
+const citizenViewOptions: Array<{ key: DashboardViewMode; label: string; icon: LucideIcon }> = [
+  { key: "map", label: "Map", icon: MapPin },
+  { key: "feed", label: "Feed", icon: ListFilter },
+];
 
 const colorMap: Record<
   NotificationType,
@@ -98,10 +104,11 @@ const getDashboardIdentityLabel = ({
   return branchName || agencyName || formatRoleLabel(role);
 };
 
-export default function DashboardLayout() {
+function DashboardShell() {
   const { data: session } = authClient.useSession();
   const userPortal = getPortalFromRole(session?.user?.role);
   const dashboardPath = getDashboardPathForRole(session?.user?.role);
+  const { viewMode, setViewMode, mobileControls } = useDashboardViewMode();
   const { data: sessionDetailResponse } = useGetSessionDetail({
     enabled: !!session?.user && userPortal !== "citizen",
     staleTime: 5 * 60 * 1000,
@@ -226,6 +233,12 @@ export default function DashboardLayout() {
     setShowUserMenu((previous) => !previous);
   };
 
+  const handleChangeViewMode = (nextMode: DashboardViewMode) => {
+    setViewMode(nextMode);
+    setShowNotifications(false);
+    setShowUserMenu(false);
+  };
+
   const handleNotificationClick = (notification: NotificationItem) => {
     if (notification.read) {
       return;
@@ -287,12 +300,41 @@ export default function DashboardLayout() {
 
   return (
     <div className="h-[100dvh] w-full flex flex-col bg-gray-50 overflow-hidden relative font-sans">
-      <header className="absolute top-3 sm:top-4 left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-5xl rounded-[26px] sm:rounded-full bg-white shadow-lg px-3 sm:px-4 py-2 sm:py-2.5 flex items-center justify-between gap-3">
-        <Link to={dashboardPath} className="flex items-center gap-2 sm:gap-2.5 group hover:opacity-80 transition-opacity shrink-0 min-w-0">
-           <img src="/logo_lightbg.png" alt="LaporPak" className="h-8 sm:h-9 w-auto object-contain" />
-        </Link>
-        
-        <div className="flex items-center gap-2 sm:gap-3 md:gap-5 min-w-0">
+      <header className="absolute top-3 sm:top-4 left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-5xl rounded-[26px] sm:rounded-full bg-white shadow-lg px-3 sm:px-4 py-2 sm:py-2.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
+        <div className="flex w-full items-center justify-between gap-2 sm:min-w-0 sm:flex-1">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0 shrink">
+            <Link to={dashboardPath} className="flex items-center gap-2 sm:gap-2.5 group hover:opacity-80 transition-opacity shrink-0 min-w-0">
+               <img src="/logo_lightbg.png" alt="LaporPak" className="h-7 sm:h-9 w-auto max-w-[82px] sm:max-w-none object-contain" />
+            </Link>
+
+            {userPortal === "citizen" && (
+              <div className="flex rounded-full border border-gray-100 bg-gray-50 p-0.5 sm:p-1 shadow-inner">
+                {citizenViewOptions.map((option) => {
+                  const Icon = option.icon;
+                  const isActive = viewMode === option.key;
+
+                  return (
+                    <button
+                      key={option.key}
+                      type="button"
+                      aria-pressed={isActive}
+                      onClick={() => handleChangeViewMode(option.key)}
+                      className={`flex h-8 min-w-[52px] sm:min-w-[74px] items-center justify-center gap-1 sm:gap-1.5 rounded-full px-2 sm:px-3 text-[10px] sm:text-[11px] font-black transition-colors ${
+                        isActive
+                          ? "bg-gray-900 text-white shadow-sm"
+                          : "text-gray-500 hover:bg-white hover:text-gray-900"
+                      }`}
+                    >
+                      <Icon size={14} strokeWidth={2.5} />
+                      <span>{option.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 sm:ml-auto sm:justify-end sm:gap-3 md:gap-5 min-w-0">
           <div className="flex items-center gap-2 relative" ref={panelRef}>
              <button 
                 ref={bellRef}
@@ -572,11 +614,26 @@ export default function DashboardLayout() {
             </AnimatePresence>
           </div>
         </div>
+        </div>
+
+        {userPortal === "citizen" && mobileControls && (
+          <div className="w-full border-t border-gray-100 pt-2 sm:hidden">
+            {mobileControls}
+          </div>
+        )}
       </header>
 
       <main className="flex-1 w-full h-full relative">
         <Outlet />
       </main>
     </div>
+  );
+}
+
+export default function DashboardLayout() {
+  return (
+    <DashboardViewModeProvider>
+      <DashboardShell />
+    </DashboardViewModeProvider>
   );
 }

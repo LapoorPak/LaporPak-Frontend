@@ -12,6 +12,7 @@ import {
   ImagePlus,
   MapPin,
   Settings,
+  Star,
   Trash2,
   User,
   X,
@@ -23,6 +24,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { AGENCY_REPORT_STATUS_MAP } from "../utils/reportStatus";
 import { resolvePhotoUrl } from "@/lib/resolve-photo-url";
+import { maskCitizenName } from "@/lib/utils";
 
 const STATUS_OPTIONS = [
   {
@@ -282,6 +284,12 @@ export function AgencyReportDetailDrawer({
                     <span className="text-[9px] font-black px-2.5 py-1 rounded-sm border uppercase tracking-widest bg-gray-100 text-gray-500 border-gray-200">
                       {canEdit ? "Bisa Diedit" : "Lihat Saja"}
                     </span>
+                    {report.rating && (
+                      <span className="inline-flex items-center gap-1 text-[9px] font-black px-2.5 py-1 rounded-sm border uppercase tracking-widest bg-emerald-50 text-emerald-700 border-emerald-100">
+                        <Star size={10} className="fill-emerald-600" />
+                        {report.rating.score}/5
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs font-semibold text-gray-500 leading-relaxed mb-3">
                     {report.kategori?.name || "Laporan Warga"}
@@ -294,7 +302,7 @@ export function AgencyReportDetailDrawer({
                       </span>
                       <div className="flex items-center gap-1.5 text-xs font-bold text-gray-900">
                         <User size={11} className="text-[#C01D33]" />{" "}
-                        {report.createdBy?.name || "Warga"}
+                        {maskCitizenName(report.createdBy?.name)}
                       </div>
                     </div>
                     <div className="flex flex-col gap-0.5">

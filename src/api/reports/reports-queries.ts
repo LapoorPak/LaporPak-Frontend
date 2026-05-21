@@ -1,4 +1,4 @@
-import { keepPreviousData, useQuery, useMutation, type UseQueryOptions, type UseMutationOptions } from "@tanstack/react-query";
+import { keepPreviousData, useInfiniteQuery, useQuery, useMutation, type UseQueryOptions, type UseMutationOptions } from "@tanstack/react-query";
 import { QUERY_KEYS } from "../queryKeys";
 import { apiClient } from "@/config/api-client";
 import { Api } from "@/constants/api";
@@ -6,6 +6,7 @@ import { Api } from "@/constants/api";
 export type ReportsScope = "mine" | "all";
 export type ReportOwnership = "mine" | "other";
 export type ReportStatus = "pending" | "verified" | "in_progress" | "clarification_requested" | "resolved" | "rejected";
+export type ReportVoteValue = -1 | 0 | 1;
 
 // Base Types Based on the contract
 export interface ReportCategory {
@@ -71,9 +72,25 @@ export interface ReportLocation {
     id: string;
     name: string;
   } | null;
+  upvotes: number;
+  downvotes: number;
+  voteScore: number;
+  myVote: ReportVoteValue | null;
+  rating?: ReportRating | null;
   aiReview?: AiReview | null;
   images?: string[];
   timeline?: ReportTimelineItem[];
+}
+
+export interface ReportRating {
+  id: string;
+  score: number;
+  note: string | null;
+  userId: string;
+  dinasId: string | null;
+  cabangDinasId: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface ReportTimelineItem {
@@ -126,11 +143,16 @@ export interface CreateReportResponse {
 
 export interface GetReportLocationsRequest {
   scope?: ReportsScope;
+  page?: number;
+  limit?: number;
+  take?: number;
   status?: string;
   kategoriId?: string;
   dinasId?: string;
   cabangDinasId?: string;
   createdById?: string;
+  search?: string;
+  sort?: "top" | "newest";
   minLat?: number;
   maxLat?: number;
   minLng?: number;
@@ -220,6 +242,20 @@ export interface ResolveReportRequest {
   resolutionImages?: File[];
 }
 
+export interface SubmitReportClarificationRequest {
+  note: string;
+  images?: File[];
+}
+
+export interface VoteReportRequest {
+  vote: ReportVoteValue;
+}
+
+export interface RateReportRequest {
+  score: number;
+  note?: string | null;
+}
+
 export interface UpdateReportMutationResponse {
   data: Pick<
     ReportLocation,
@@ -287,6 +323,28 @@ export function useQueryGetReportLocations<TData = GetReportLocationsResponse, T
       return response.data;
     },
     ...options,
+  });
+}
+
+export function useInfiniteQueryGetReportLocations(
+  params?: GetReportLocationsRequest,
+  options?: { enabled?: boolean },
+) {
+  return useInfiniteQuery({
+    queryKey: [QUERY_KEYS.REPORTS_LOCATIONS, "infinite", params],
+    initialPageParam: params?.page ?? 1,
+    enabled: options?.enabled ?? true,
+    queryFn: async ({ pageParam }) => {
+      const response = await apiClient.get<GetReportLocationsResponse>(Api.reportLocations, {
+        params: {
+          ...params,
+          page: pageParam,
+        },
+      });
+      return response.data;
+    },
+    getNextPageParam: (lastPage) =>
+      lastPage.meta?.hasNextPage ? lastPage.meta.page + 1 : undefined,
   });
 }
 
@@ -365,6 +423,80 @@ export function useMutationResolveReport(
       payload.resolutionImages?.forEach((file) => formData.append("resolutionImages", file));
 
       const response = await apiClient.post<UpdateReportMutationResponse>(Api.reportResolve(id), formData);
+      return response.data;
+    },
+    ...options,
+  });
+}
+
+export function useMutationSubmitReportClarification(
+  options?: Omit<
+    UseMutationOptions<
+      UpdateReportMutationResponse,
+      Error,
+      { id: string; payload: SubmitReportClarificationRequest }
+    >,
+    "mutationFn"
+  >
+) {
+  return useMutation({
+    mutationFn: async ({ id, payload }: { id: string; payload: SubmitReportClarificationRequest }) => {
+      if (payload.images?.length) {
+        const formData = new FormData();
+        formData.append("note", payload.note);
+        payload.images.forEach((file) => formData.append("images", file));
+
+        const response = await apiClient.post<UpdateReportMutationResponse>(Api.reportClarification(id), formData);
+        return response.data;
+      }
+
+      const response = await apiClient.post<UpdateReportMutationResponse>(Api.reportClarification(id), {
+        note: payload.note,
+      });
+      return response.data;
+    },
+    ...options,
+  });
+}
+
+export function useMutationVoteReport(
+  options?: Omit<
+    UseMutationOptions<
+      { data: Pick<ReportLocation, "id" | "upvotes" | "downvotes" | "voteScore" | "myVote"> },
+      Error,
+      { id: string; payload: VoteReportRequest }
+    >,
+    "mutationFn"
+  >
+) {
+  return useMutation({
+    mutationFn: async ({ id, payload }: { id: string; payload: VoteReportRequest }) => {
+      const response = await apiClient.post<{ data: Pick<ReportLocation, "id" | "upvotes" | "downvotes" | "voteScore" | "myVote"> }>(
+        Api.reportVote(id),
+        payload,
+      );
+      return response.data;
+    },
+    ...options,
+  });
+}
+
+export function useMutationRateReport(
+  options?: Omit<
+    UseMutationOptions<
+      { data: Pick<ReportLocation, "id" | "rating"> },
+      Error,
+      { id: string; payload: RateReportRequest }
+    >,
+    "mutationFn"
+  >
+) {
+  return useMutation({
+    mutationFn: async ({ id, payload }: { id: string; payload: RateReportRequest }) => {
+      const response = await apiClient.post<{ data: Pick<ReportLocation, "id" | "rating"> }>(
+        Api.reportRating(id),
+        payload,
+      );
       return response.data;
     },
     ...options,

@@ -27,10 +27,13 @@ import {
   ZoomIn,
   Image as ImageIcon,
   Navigation,
+  ThumbsDown,
+  ThumbsUp,
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { resolvePhotoUrl } from "@/lib/resolve-photo-url";
+import { maskCitizenName } from "@/lib/utils";
 import {
   Map,
   MapMarker,
@@ -44,6 +47,7 @@ const STATUS_OPTIONS = [
   { value: "pending", label: "Pending" },
   { value: "verified", label: "Terverifikasi" },
   { value: "in_progress", label: "Diproses" },
+  { value: "clarification_requested", label: "Butuh Klarifikasi" },
   { value: "resolved", label: "Selesai" },
   { value: "rejected", label: "Ditolak" },
 ] as const;
@@ -56,6 +60,8 @@ function getStatusStyle(status: string) {
       return "bg-blue-50 text-blue-700 border-blue-200";
     case "in_progress":
       return "bg-indigo-50 text-indigo-700 border-indigo-200";
+    case "clarification_requested":
+      return "bg-violet-50 text-violet-700 border-violet-200";
     case "resolved":
       return "bg-green-50 text-green-700 border-green-200";
     case "rejected":
@@ -169,6 +175,9 @@ function SkeletonRow() {
         <div className="h-5 w-20 bg-gray-100 rounded" />
       </td>
       <td className="px-4 py-3.5">
+        <div className="h-8 w-24 bg-gray-100 rounded" />
+      </td>
+      <td className="px-4 py-3.5">
         <div className="h-4 w-28 bg-gray-100 rounded mb-1" />
         <div className="h-3 w-16 bg-gray-100 rounded" />
       </td>
@@ -191,6 +200,36 @@ function ScoreCell({ label, value }: { label: string; value: number }) {
     <div className="bg-gray-50 rounded-sm p-2 text-center border border-gray-100">
       <p className="text-[10px] text-gray-400 mb-1 truncate">{label}</p>
       <p className={`text-sm font-bold ${color}`}>{pct}%</p>
+    </div>
+  );
+}
+
+function VoteCell({ laporan }: { laporan: AdminLaporan }) {
+  const voteScore = laporan.voteScore ?? 0;
+  const upvotes = laporan.upvotes ?? 0;
+  const downvotes = laporan.downvotes ?? 0;
+  const scoreClass =
+    voteScore > 0
+      ? "text-emerald-700"
+      : voteScore < 0
+        ? "text-red-600"
+        : "text-gray-600";
+
+  return (
+    <div className="inline-flex min-w-[88px] items-center justify-between gap-2 rounded-sm border border-gray-100 bg-gray-50 px-2.5 py-1.5">
+      <span className={`text-sm font-black tabular-nums ${scoreClass}`}>
+        {voteScore > 0 ? `+${voteScore}` : voteScore}
+      </span>
+      <div className="flex flex-col gap-0.5 text-[10px] font-bold leading-none">
+        <span className="inline-flex items-center gap-1 text-emerald-600">
+          <ThumbsUp size={10} />
+          {upvotes}
+        </span>
+        <span className="inline-flex items-center gap-1 text-red-500">
+          <ThumbsDown size={10} />
+          {downvotes}
+        </span>
+      </div>
     </div>
   );
 }
@@ -406,6 +445,9 @@ export default function AdminLaporanPage() {
                     Status
                   </th>
                   <th className="px-4 py-2.5 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                    Vote
+                  </th>
+                  <th className="px-4 py-2.5 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
                     Kategori
                   </th>
                   <th className="px-4 py-2.5 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
@@ -420,7 +462,7 @@ export default function AdminLaporanPage() {
                   ))
                 ) : laporanList.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="py-16 text-center">
+                    <td colSpan={5} className="py-16 text-center">
                       <div className="flex flex-col items-center gap-3">
                         <div className="w-12 h-12 rounded-sm bg-gray-100 flex items-center justify-center">
                           <FileText size={20} className="text-gray-400" />
@@ -453,7 +495,7 @@ export default function AdminLaporanPage() {
                           {l.title}
                         </div>
                         <div className="text-xs text-gray-400 mt-0.5">
-                          {l.createdBy?.name ?? "—"}
+                          {maskCitizenName(l.createdBy?.name, "—")}
                         </div>
                       </td>
                       <td className="px-4 py-3.5">
@@ -462,6 +504,9 @@ export default function AdminLaporanPage() {
                         >
                           {getStatusLabel(l.status)}
                         </span>
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <VoteCell laporan={l} />
                       </td>
                       <td className="px-4 py-3.5">
                         <div className="text-xs font-medium text-gray-700">
@@ -732,7 +777,7 @@ export default function AdminLaporanPage() {
                         Pelapor
                       </label>
                       <div className="bg-gray-50 border border-gray-200 rounded-sm px-3 h-9 flex items-center text-sm text-gray-700 truncate">
-                        {selectedLaporan.createdBy?.name ?? "—"}
+                        {maskCitizenName(selectedLaporan.createdBy?.name, "—")}
                       </div>
                     </div>
                     <div className="space-y-1.5">

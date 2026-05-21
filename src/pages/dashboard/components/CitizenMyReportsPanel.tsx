@@ -1,9 +1,11 @@
-import type { PointerEvent as ReactPointerEvent } from "react";
+import type { ChangeEvent, PointerEvent as ReactPointerEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { AlertTriangle, Building2, Circle, Search, X } from "lucide-react";
+import { AlertTriangle, Building2, Circle, ImagePlus, Search, Send, Star, ThumbsDown, ThumbsUp, Trash2, X } from "lucide-react";
 import type { ReportLocation } from "@/api/reports/reports-queries";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { resolvePhotoUrl } from "@/lib/resolve-photo-url";
 
 interface CitizenMyReportsPanelProps {
@@ -16,6 +18,10 @@ interface CitizenMyReportsPanelProps {
   onClose: () => void;
   onFocusReport: (report: ReportLocation) => void;
   onPhotoClick: (images: string[], index: number) => void;
+  onSubmitClarification: (reportId: string, note: string, images: File[]) => Promise<void> | void;
+  clarificationSubmittingId?: string | null;
+  onSubmitRating: (reportId: string, score: number, note: string) => Promise<void> | void;
+  ratingSubmittingId?: string | null;
 }
 
 export function CitizenMyReportsPanel({
@@ -28,9 +34,17 @@ export function CitizenMyReportsPanel({
   onClose,
   onFocusReport,
   onPhotoClick,
+  onSubmitClarification,
+  clarificationSubmittingId,
+  onSubmitRating,
+  ratingSubmittingId,
 }: CitizenMyReportsPanelProps) {
   const isEmpty = myReports.length === 0;
   const [mobileSheetHeight, setMobileSheetHeight] = useState(72);
+  const [clarificationDrafts, setClarificationDrafts] = useState<Record<string, string>>({});
+  const [clarificationFiles, setClarificationFiles] = useState<Record<string, File[]>>({});
+  const [clarificationPreviews, setClarificationPreviews] = useState<Record<string, string[]>>({});
+  const [ratingDrafts, setRatingDrafts] = useState<Record<string, { score: number; note: string }>>({});
   const mobileResizeRef = useRef<{ startY: number; startHeight: number } | null>(null);
   const mobileResizeMovedRef = useRef(false);
 
@@ -74,6 +88,75 @@ export function CitizenMyReportsPanel({
     window.addEventListener("pointermove", handlePointerMove);
     window.addEventListener("pointerup", handlePointerUp);
     window.addEventListener("pointercancel", handlePointerUp);
+  };
+
+  const updateClarificationDraft = (reportId: string, value: string) => {
+    setClarificationDrafts((drafts) => ({ ...drafts, [reportId]: value }));
+  };
+
+  const handleClarificationFiles = (reportId: string, event: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    if (files.length === 0) return;
+
+    setClarificationFiles((current) => {
+      const existing = current[reportId] ?? [];
+      return { ...current, [reportId]: [...existing, ...files].slice(0, 5) };
+    });
+    setClarificationPreviews((current) => {
+      const existing = current[reportId] ?? [];
+      return {
+        ...current,
+        [reportId]: [...existing, ...files.map((file) => URL.createObjectURL(file))].slice(0, 5),
+      };
+    });
+    event.target.value = "";
+  };
+
+  const removeClarificationFile = (reportId: string, index: number) => {
+    setClarificationFiles((current) => ({
+      ...current,
+      [reportId]: (current[reportId] ?? []).filter((_, fileIndex) => fileIndex !== index),
+    }));
+    setClarificationPreviews((current) => ({
+      ...current,
+      [reportId]: (current[reportId] ?? []).filter((_, fileIndex) => fileIndex !== index),
+    }));
+  };
+
+  const submitClarification = async (reportId: string) => {
+    const note = clarificationDrafts[reportId]?.trim() ?? "";
+    if (!note) return;
+
+    await onSubmitClarification(reportId, note, clarificationFiles[reportId] ?? []);
+    setClarificationDrafts((drafts) => ({ ...drafts, [reportId]: "" }));
+    setClarificationFiles((files) => ({ ...files, [reportId]: [] }));
+    setClarificationPreviews((previews) => ({ ...previews, [reportId]: [] }));
+  };
+
+  const setRatingScore = (report: ReportLocation, score: number) => {
+    const current = ratingDrafts[report.id] ?? {
+      score: report.rating?.score ?? 0,
+      note: report.rating?.note ?? "",
+    };
+    setRatingDrafts((drafts) => ({ ...drafts, [report.id]: { ...current, score } }));
+  };
+
+  const setRatingNote = (report: ReportLocation, note: string) => {
+    const current = ratingDrafts[report.id] ?? {
+      score: report.rating?.score ?? 0,
+      note: report.rating?.note ?? "",
+    };
+    setRatingDrafts((drafts) => ({ ...drafts, [report.id]: { ...current, note } }));
+  };
+
+  const submitRating = async (report: ReportLocation) => {
+    const draft = ratingDrafts[report.id] ?? {
+      score: report.rating?.score ?? 0,
+      note: report.rating?.note ?? "",
+    };
+    if (!draft.score) return;
+
+    await onSubmitRating(report.id, draft.score, draft.note);
   };
 
   return (
@@ -196,6 +279,15 @@ export function CitizenMyReportsPanel({
                   const status = statusMap[report.status] || { label: report.status, color: "bg-gray-100 text-gray-700" };
                   const agencyNote = report.agencyNote?.trim();
                   const resolutionNote = report.resolutionNote?.trim();
+                  const clarificationDraft = clarificationDrafts[report.id] ?? "";
+                  const previews = clarificationPreviews[report.id] ?? [];
+                  const files = clarificationFiles[report.id] ?? [];
+                  const isClarificationSubmitting = clarificationSubmittingId === report.id;
+                  const ratingDraft = ratingDrafts[report.id] ?? {
+                    score: report.rating?.score ?? 0,
+                    note: report.rating?.note ?? "",
+                  };
+                  const isRatingSubmitting = ratingSubmittingId === report.id;
 
                   return (
                     <div
@@ -213,6 +305,20 @@ export function CitizenMyReportsPanel({
                       </div>
                       <h4 className="font-bold text-[#111827] text-sm leading-snug line-clamp-1 mb-1.5">{report.title}</h4>
                       <p className="text-xs text-gray-500 line-clamp-2 mb-3">{report.description || report.kategori?.name}</p>
+
+                      <div className="mb-3 flex items-center gap-2 text-[10px] font-black text-gray-500">
+                        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-100 bg-emerald-50 px-2 py-1 text-emerald-700">
+                          <ThumbsUp size={11} />
+                          {report.upvotes ?? 0}
+                        </span>
+                        <span className="inline-flex items-center gap-1 rounded-full border border-red-100 bg-red-50 px-2 py-1 text-red-700">
+                          <ThumbsDown size={11} />
+                          {report.downvotes ?? 0}
+                        </span>
+                        <span className="text-gray-400">
+                          Skor {(report.voteScore ?? 0) > 0 ? `+${report.voteScore}` : report.voteScore ?? 0}
+                        </span>
+                      </div>
 
                       {report.status === "rejected" && report.aiReview && (
                         <div className="mb-3 rounded-sm border border-red-100/50 bg-red-50/80 p-2.5">
@@ -249,6 +355,65 @@ export function CitizenMyReportsPanel({
                               </p>
                             </div>
                           )}
+                        </div>
+                      )}
+
+                      {report.status === "clarification_requested" && (
+                        <div
+                          className="mb-3 rounded-sm border border-violet-100 bg-violet-50/80 p-3"
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-violet-700">
+                            Balas Klarifikasi
+                          </p>
+                          <Textarea
+                            value={clarificationDraft}
+                            onChange={(event) => updateClarificationDraft(report.id, event.target.value)}
+                            placeholder="Tambahkan informasi yang diminta dinas..."
+                            className="min-h-[84px] resize-none rounded-sm border-violet-100 bg-white text-xs leading-relaxed focus:border-violet-400 focus:ring-violet-400"
+                          />
+
+                          {previews.length > 0 && (
+                            <div className="mt-2 grid grid-cols-3 gap-2">
+                              {previews.map((url, index) => (
+                                <div key={`${url}-${index}`} className="relative h-16 overflow-hidden rounded-sm bg-white">
+                                  <img src={url} alt={`Bukti klarifikasi ${index + 1}`} className="h-full w-full object-cover" />
+                                  <button
+                                    type="button"
+                                    onClick={() => removeClarificationFile(report.id, index)}
+                                    className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-sm bg-black/65 text-white"
+                                    aria-label="Hapus foto klarifikasi"
+                                  >
+                                    <Trash2 size={12} />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          <div className="mt-2 flex items-center justify-between gap-2">
+                            <label className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-sm border border-dashed border-violet-200 bg-white px-3 text-[10px] font-black uppercase tracking-widest text-violet-700 transition-colors hover:border-violet-300">
+                              <ImagePlus size={14} />
+                              Foto {files.length}/5
+                              <input
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                className="hidden"
+                                onChange={(event) => handleClarificationFiles(report.id, event)}
+                              />
+                            </label>
+                            <Button
+                              type="button"
+                              size="sm"
+                              disabled={!clarificationDraft.trim() || isClarificationSubmitting}
+                              onClick={() => void submitClarification(report.id)}
+                              className="h-9 rounded-sm bg-violet-700 px-3 text-[10px] font-black uppercase tracking-widest text-white hover:bg-violet-800"
+                            >
+                              <Send size={13} />
+                              {isClarificationSubmitting ? "Mengirim" : "Kirim"}
+                            </Button>
+                          </div>
                         </div>
                       )}
 
@@ -301,6 +466,55 @@ export function CitizenMyReportsPanel({
                               );
                             })}
                           </div>
+                        </div>
+                      )}
+
+                      {report.status === "resolved" && (
+                        <div
+                          className="mb-3 rounded-sm border border-emerald-100 bg-emerald-50/80 p-3"
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          <div className="mb-2 flex items-center justify-between gap-3">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700">
+                              {report.rating ? "Rating Anda" : "Beri Rating Dinas"}
+                            </p>
+                            {report.rating && (
+                              <span className="text-[10px] font-bold text-emerald-700">
+                                {report.rating.score}/5
+                              </span>
+                            )}
+                          </div>
+                          <div className="mb-2 flex items-center gap-1">
+                            {[1, 2, 3, 4, 5].map((score) => (
+                              <button
+                                key={score}
+                                type="button"
+                                onClick={() => setRatingScore(report, score)}
+                                className="rounded-sm p-1 text-amber-400 transition-transform hover:scale-110"
+                                aria-label={`Beri rating ${score}`}
+                              >
+                                <Star
+                                  size={20}
+                                  className={score <= ratingDraft.score ? "fill-amber-400" : "fill-transparent text-gray-300"}
+                                />
+                              </button>
+                            ))}
+                          </div>
+                          <Textarea
+                            value={ratingDraft.note}
+                            onChange={(event) => setRatingNote(report, event.target.value)}
+                            placeholder="Catatan opsional untuk dinas..."
+                            className="min-h-[72px] resize-none rounded-sm border-emerald-100 bg-white text-xs leading-relaxed focus:border-emerald-400 focus:ring-emerald-400"
+                          />
+                          <Button
+                            type="button"
+                            size="sm"
+                            disabled={!ratingDraft.score || isRatingSubmitting}
+                            onClick={() => void submitRating(report)}
+                            className="mt-2 h-9 w-full rounded-sm bg-emerald-700 text-[10px] font-black uppercase tracking-widest text-white hover:bg-emerald-800"
+                          >
+                            {isRatingSubmitting ? "Menyimpan..." : report.rating ? "Update Rating" : "Kirim Rating"}
+                          </Button>
                         </div>
                       )}
 
