@@ -278,11 +278,16 @@ export default function AgencyDashboard() {
     (report) => report.id === feedDetailReportId,
   );
   const canEditSelectedReport = selectedReport?.canEdit === true;
+  const isDraftResolved = draftStatus === "resolved";
+  const requiredNote = isDraftResolved ? resolutionNote : agencyNote;
   const hasDraftChanges = selectedReport
     ? (
         draftStatus !== selectedReport.status ||
-        agencyNote.trim() !== (selectedReport.agencyNote ?? "").trim() ||
-        resolutionNote.trim() !== (selectedReport.resolutionNote ?? "").trim() ||
+        (!isDraftResolved &&
+          agencyNote.trim() !== (selectedReport.agencyNote ?? "").trim()) ||
+        (isDraftResolved &&
+          resolutionNote.trim() !==
+            (selectedReport.resolutionNote ?? "").trim()) ||
         resolutionProofFiles.length > 0
       )
     : false;
@@ -291,9 +296,8 @@ export default function AgencyDashboard() {
     !draftStatus ||
     !canEditSelectedReport ||
     !hasDraftChanges ||
-    agencyNote.trim().length === 0 ||
-    resolutionProofFiles.length === 0 ||
-    (draftStatus === "resolved" && resolutionNote.trim().length === 0);
+    requiredNote.trim().length === 0 ||
+    resolutionProofFiles.length === 0;
   const handleAgencyMutationSuccess = async (status: ReportLocation["status"]) => {
     await Promise.allSettled([
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.REPORTS_LOCATIONS] }),
@@ -443,8 +447,8 @@ export default function AgencyDashboard() {
       resolveReport.mutate({
         id: selectedMarkerId,
         payload: {
-          agencyNote: trimmedAgencyNote,
-          catatanDinas: trimmedAgencyNote,
+          agencyNote: null,
+          catatanDinas: null,
           resolutionNote: trimmedResolutionNote,
           resolutionImages: resolutionProofFiles,
         },
@@ -661,6 +665,17 @@ export default function AgencyDashboard() {
     setShowSearch: setShowLocationSearch,
     setViewMode,
   });
+
+  const handleDraftStatusChange = useCallback((status: string) => {
+    setDraftStatus(status);
+
+    if (status === "resolved") {
+      setAgencyNote("");
+      return;
+    }
+
+    setResolutionNote("");
+  }, []);
 
   const handleToggleDashboardTab = useCallback((tab: ReportsDashboardTabKey) => {
     if (tab === "semua") {
@@ -1009,7 +1024,7 @@ export default function AgencyDashboard() {
             setSelectedMarkerId(null);
           }}
           onNavigateMap={() => handleSelectReport(feedDetailReport.id)}
-          onDraftStatusChange={setDraftStatus}
+          onDraftStatusChange={handleDraftStatusChange}
           onAgencyNoteChange={setAgencyNote}
           onResolutionNoteChange={setResolutionNote}
           onResolutionProofUpload={handleResolutionProofUpload}
@@ -1053,7 +1068,7 @@ export default function AgencyDashboard() {
         isSaving={updateReportStatus.isPending || resolveReport.isPending}
         isSaveDisabled={isSaveDisabled}
         onClose={() => setSelectedMarkerId(null)}
-        onDraftStatusChange={setDraftStatus}
+        onDraftStatusChange={handleDraftStatusChange}
         onAgencyNoteChange={setAgencyNote}
         onResolutionNoteChange={setResolutionNote}
         onResolutionProofUpload={handleResolutionProofUpload}

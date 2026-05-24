@@ -58,10 +58,7 @@ export function AgencyFeedReportDetail({
     ...(report.resolutionImages ?? []),
     ...resolutionProofPreviews,
   ];
-  const shouldShowResolutionNote =
-    draftStatus === "resolved" ||
-    Boolean(report.resolutionNote) ||
-    Boolean(resolutionNote.trim());
+  const isResolvedDraft = draftStatus === "resolved";
   const timelineItems = [...(report.timeline ?? [])].reverse();
 
   return (
@@ -306,23 +303,25 @@ export function AgencyFeedReportDetail({
                 </div>
               </div>
 
-              <div className="rounded-sm border border-gray-100 bg-gray-50 p-3">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400">
-                  Catatan Dinas <RequiredMark />
-                </Label>
-                <Textarea
-                  value={agencyNote}
-                  disabled={!canEdit}
-                  onChange={(event) => onAgencyNoteChange(event.target.value)}
-                  placeholder="Contoh: Tim sudah survei lokasi, pekerjaan dijadwalkan besok pagi..."
-                  className="mt-2 min-h-[96px] resize-none rounded-sm border-gray-200 bg-white text-sm shadow-none focus:border-[#db2744] focus:ring-0"
-                />
-                <p className="mt-1.5 text-[10px] font-semibold text-gray-400">
-                  Catatan wajib diisi sebelum update dikirim.
-                </p>
-              </div>
+              {!isResolvedDraft && (
+                <div className="rounded-sm border border-gray-100 bg-gray-50 p-3">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+                    Catatan Dinas <RequiredMark />
+                  </Label>
+                  <Textarea
+                    value={agencyNote}
+                    disabled={!canEdit}
+                    onChange={(event) => onAgencyNoteChange(event.target.value)}
+                    placeholder="Contoh: Tim sudah survei lokasi, pekerjaan dijadwalkan besok pagi..."
+                    className="mt-2 min-h-[96px] resize-none rounded-sm border-gray-200 bg-white text-sm shadow-none focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10"
+                  />
+                  <p className="mt-1.5 text-[10px] font-semibold text-gray-400">
+                    Catatan wajib diisi sebelum update dikirim.
+                  </p>
+                </div>
+              )}
 
-              {shouldShowResolutionNote && (
+              {isResolvedDraft && (
                 <div className="rounded-sm border border-gray-100 bg-gray-50 p-3">
                   <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400">
                     Catatan Hasil Akhir <RequiredMark />
@@ -334,7 +333,7 @@ export function AgencyFeedReportDetail({
                       onResolutionNoteChange(event.target.value)
                     }
                     placeholder="Ringkasan hasil penanganan..."
-                    className="mt-2 min-h-[86px] resize-none rounded-sm border-gray-200 bg-white text-sm shadow-none focus:border-emerald-500 focus:ring-0"
+                    className="mt-2 min-h-[86px] resize-none rounded-sm border-gray-200 bg-white text-sm shadow-none focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10"
                   />
                 </div>
               )}

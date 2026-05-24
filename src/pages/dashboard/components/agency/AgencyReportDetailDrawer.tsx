@@ -62,10 +62,7 @@ export function AgencyReportDetailDrawer({
         color: "bg-gray-100 text-gray-700 border-gray-200",
       }
     : null;
-  const shouldShowResolutionNote =
-    draftStatus === "resolved" ||
-    Boolean(report?.resolutionNote) ||
-    Boolean(resolutionNote.trim());
+  const isResolvedDraft = draftStatus === "resolved";
   const resolutionPhotos = [
     ...(report?.resolutionImages ?? []),
     ...resolutionProofPreviews,
@@ -298,25 +295,27 @@ export function AgencyReportDetailDrawer({
                     </div>
                   </div>
 
-                  <div className="rounded-sm border border-gray-100 bg-white p-3.5 space-y-2">
-                    <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                      Update Penanganan <RequiredMark />
-                    </Label>
-                    <Textarea
-                      value={agencyNote}
-                      disabled={!canEdit}
-                      onChange={(event) =>
-                        onAgencyNoteChange(event.target.value)
-                      }
-                      placeholder="Contoh: Tim sudah survei lokasi, pekerjaan dijadwalkan besok pagi..."
-                      className="rounded-sm min-h-[84px] bg-gray-50 border border-gray-200 focus:border-[#C01D33] focus:bg-white focus:ring-0 text-gray-900 text-sm resize-none p-3 shadow-none leading-relaxed"
-                    />
-                    <p className="text-[10px] font-semibold text-gray-400">
-                      Catatan wajib diisi sebelum update dikirim.
-                    </p>
-                  </div>
+                  {!isResolvedDraft && (
+                    <div className="rounded-sm border border-gray-100 bg-white p-3.5 space-y-2">
+                      <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                        Catatan Dinas <RequiredMark />
+                      </Label>
+                      <Textarea
+                        value={agencyNote}
+                        disabled={!canEdit}
+                        onChange={(event) =>
+                          onAgencyNoteChange(event.target.value)
+                        }
+                        placeholder="Contoh: Tim sudah survei lokasi, pekerjaan dijadwalkan besok pagi..."
+                        className="rounded-sm min-h-[84px] bg-gray-50 border border-gray-200 focus:border-[#db2744] focus:bg-white focus:ring-2 focus:ring-[#db2744]/10 text-gray-900 text-sm resize-none p-3 shadow-none leading-relaxed"
+                      />
+                      <p className="text-[10px] font-semibold text-gray-400">
+                        Catatan wajib diisi sebelum update dikirim.
+                      </p>
+                    </div>
+                  )}
 
-                  {shouldShowResolutionNote && (
+                  {isResolvedDraft && (
                     <div className="rounded-sm border border-gray-100 bg-white p-3.5 space-y-2">
                       <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
                         Catatan Hasil Akhir <RequiredMark />
@@ -328,7 +327,7 @@ export function AgencyReportDetailDrawer({
                           onResolutionNoteChange(event.target.value)
                         }
                         placeholder="Ringkasan pekerjaan akhir, kondisi setelah ditangani, atau tindak lanjut berikutnya..."
-                        className="rounded-sm min-h-[84px] bg-gray-50 border border-gray-200 focus:border-emerald-500 focus:bg-white focus:ring-0 text-gray-900 text-sm resize-none p-3 shadow-none leading-relaxed"
+                        className="rounded-sm min-h-[84px] bg-gray-50 border border-gray-200 focus:border-[#db2744] focus:bg-white focus:ring-2 focus:ring-[#db2744]/10 text-gray-900 text-sm resize-none p-3 shadow-none leading-relaxed"
                       />
                     </div>
                   )}
