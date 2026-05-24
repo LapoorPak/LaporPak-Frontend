@@ -17,7 +17,10 @@ import {
   User,
   ZoomIn,
 } from "lucide-react";
-import { CITIZEN_REPORT_STATUS_MAP } from "@/pages/dashboard/utils";
+import {
+  CITIZEN_REPORT_STATUS_MAP,
+  formatMachineText,
+} from "@/pages/dashboard/utils";
 
 export function ReportPopup({
   report,
@@ -414,7 +417,7 @@ export function ReportPopup({
                       Update Dinas
                     </p>
                     <p className="text-[10.5px] leading-relaxed text-sky-900">
-                      {agencyNote}
+                      {formatMachineText(agencyNote)}
                     </p>
                   </div>
                 )}
@@ -424,7 +427,7 @@ export function ReportPopup({
                       Hasil Penanganan
                     </p>
                     <p className="text-[10.5px] leading-relaxed text-emerald-900">
-                      {resolutionNote}
+                      {formatMachineText(resolutionNote)}
                     </p>
                   </div>
                 )}
@@ -499,7 +502,7 @@ export function ReportPopup({
                       </div>
                       {item.note && (
                         <p className="text-[11px] leading-relaxed text-gray-600">
-                          {item.note}
+                          {formatMachineText(item.note)}
                         </p>
                       )}
                       {item.images.length > 0 && (
@@ -712,7 +715,7 @@ export function ReportPopup({
                   Update Dinas
                 </p>
                 <p className="text-[10.5px] leading-relaxed text-sky-900">
-                  {agencyNote}
+                  {formatMachineText(agencyNote)}
                 </p>
               </div>
             )}
@@ -722,7 +725,7 @@ export function ReportPopup({
                   Hasil Penanganan
                 </p>
                 <p className="text-[10.5px] leading-relaxed text-emerald-900">
-                  {resolutionNote}
+                  {formatMachineText(resolutionNote)}
                 </p>
               </div>
             )}
@@ -781,7 +784,7 @@ export function ReportPopup({
                         </div>
                         {item.note && (
                           <p className="text-[11px] leading-relaxed text-gray-600">
-                            {item.note}
+                            {formatMachineText(item.note)}
                           </p>
                         )}
                         {item.images.length > 0 && (

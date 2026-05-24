@@ -15,7 +15,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { resolvePhotoUrl } from "@/lib/resolve-photo-url";
 import { maskCitizenName } from "@/lib/utils";
 import type { AgencyFeedReportDetailProps } from "@/types/dashboard";
-import { AGENCY_REPORT_STATUS_MAP } from "@/pages/dashboard/utils";
+import {
+  AGENCY_REPORT_STATUS_MAP,
+  formatMachineText,
+} from "@/pages/dashboard/utils";
 import {
   AGENCY_STATUS_OPTIONS,
   formatAgencyDetailDate,
@@ -222,7 +225,7 @@ export function AgencyFeedReportDetail({
                               </div>
                               {item.note && (
                                 <p className="mt-1 text-[11px] leading-relaxed text-gray-600 sm:text-xs">
-                                  {item.note}
+                                  {formatMachineText(item.note)}
                                 </p>
                               )}
                               {item.images.length > 0 && (

@@ -27,6 +27,7 @@ import type {
   CitizenMyReportsPanelProps,
   ClarificationDraft,
 } from "@/types/dashboard";
+import { formatMachineText } from "@/pages/dashboard/utils";
 
 export function CitizenMyReportsPanel({
   isOpen,
@@ -343,10 +344,10 @@ export function CitizenMyReportsPanel({
                       {report.status === "rejected" && report.aiReview && (
                         <div className="mb-3 rounded-sm border border-red-100/50 bg-red-50/80 p-2.5">
                           <p className="text-[11px] font-bold text-[#db2744] mb-1">Feedback AI:</p>
-                          <p className="text-[10px] text-gray-600 leading-relaxed mb-1">{report.aiReview.alasanAi}</p>
+                          <p className="text-[10px] text-gray-600 leading-relaxed mb-1">{formatMachineText(report.aiReview.alasanAi)}</p>
                           {report.aiReview.saranPerbaikanAi && (
                             <p className="text-[10px] text-gray-600 leading-relaxed">
-                              Saran: <span className="font-medium text-gray-800">{report.aiReview.saranPerbaikanAi}</span>
+                              Saran: <span className="font-medium text-gray-800">{formatMachineText(report.aiReview.saranPerbaikanAi)}</span>
                             </p>
                           )}
                         </div>
@@ -360,7 +361,7 @@ export function CitizenMyReportsPanel({
                                 Update Dinas
                               </p>
                               <p className="text-[11px] leading-relaxed text-sky-950">
-                                {agencyNote}
+                                {formatMachineText(agencyNote)}
                               </p>
                             </div>
                           )}
@@ -371,7 +372,7 @@ export function CitizenMyReportsPanel({
                                 Hasil Penanganan
                               </p>
                               <p className="text-[11px] leading-relaxed text-emerald-950">
-                                {resolutionNote}
+                                {formatMachineText(resolutionNote)}
                               </p>
                             </div>
                           )}
@@ -497,7 +498,7 @@ export function CitizenMyReportsPanel({
                                       </span>
                                     </div>
                                     {item.note && (
-                                      <p className="mt-1 line-clamp-2 leading-relaxed text-gray-600">{item.note}</p>
+                                      <p className="mt-1 line-clamp-2 leading-relaxed text-gray-600">{formatMachineText(item.note)}</p>
                                     )}
                                     {item.images.length > 0 && (
                                       <div className="mt-2 flex gap-1.5 overflow-hidden">

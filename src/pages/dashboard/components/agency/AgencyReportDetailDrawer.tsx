@@ -15,7 +15,10 @@ import { Button } from "@/components/ui/button";
 import { Label, RequiredMark } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useMobileSheetResize } from "@/hooks/common";
-import { AGENCY_REPORT_STATUS_MAP } from "@/pages/dashboard/utils";
+import {
+  AGENCY_REPORT_STATUS_MAP,
+  formatMachineText,
+} from "@/pages/dashboard/utils";
 import { resolvePhotoUrl } from "@/lib/resolve-photo-url";
 import { maskCitizenName } from "@/lib/utils";
 import type { AgencyReportDetailDrawerProps } from "@/types/dashboard";
@@ -462,7 +465,7 @@ export function AgencyReportDetailDrawer({
                                   </div>
                                   {item.note ? (
                                     <p className="mt-1 text-[11px] leading-relaxed text-gray-600">
-                                      {item.note}
+                                      {formatMachineText(item.note)}
                                     </p>
                                   ) : null}
                                   {item.images.length ? (

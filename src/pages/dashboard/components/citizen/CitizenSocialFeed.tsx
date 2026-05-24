@@ -18,7 +18,10 @@ import {
   ZoomIn,
 } from "lucide-react";
 import { motion } from "framer-motion";
-import { CITIZEN_REPORT_STATUS_MAP } from "@/pages/dashboard/utils";
+import {
+  CITIZEN_REPORT_STATUS_MAP,
+  formatMachineText,
+} from "@/pages/dashboard/utils";
 
 function formatFeedDate(value: string) {
   const date = new Date(value);
@@ -95,12 +98,13 @@ function FeedReportCard({
     report.status === "resolved" && report.resolutionImages?.length
       ? report.resolutionImages
       : (progressTimeline?.images ?? []);
-  const progressText = isClarificationRequested
+  const rawProgressText = isClarificationRequested
     ? progressTimeline?.note || report.agencyNote || null
     : report.resolutionNote ||
       report.agencyNote ||
       progressTimeline?.note ||
       null;
+  const progressText = formatMachineText(rawProgressText);
   const progressTitle = isClarificationRequested
     ? "Butuh Klarifikasi"
     : report.resolutionNote
