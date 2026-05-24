@@ -1,7 +1,6 @@
 import { Outlet, Link, useNavigate } from "react-router";
-import axios from "axios";
 import { authClient } from "@/lib/auth-client";
-import { useGetSessionDetail } from "@/hooks/useGetSessionDetail";
+import { useGetSessionDetail } from "@/hooks/auth";
 import { useGetNotifications, useGetUnreadNotificationCount, useMarkAllNotificationsRead, useMarkNotificationRead } from "@/hooks/notifications";
 import { QUERY_KEYS } from "@/api/queryKeys";
 import { setAuthRedirectSuppressed } from "@/config/api-client";
@@ -10,18 +9,12 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { getDashboardPathForRole, getLoginPathForRole, getPortalFromRole } from "@/lib/auth-portal";
 import { clearOAuthAttemptPortal } from "@/lib/oauth-attempt";
+import { getApiErrorMessage } from "@/lib/get-api-error-message";
+import { buildReportFocusSearch } from "@/lib/report-focus-navigation";
 import { DashboardViewModeProvider, useDashboardViewMode, type DashboardViewMode } from "@/context/dashboard-view-mode";
 import { LogOut, User, Bell, X, CheckCircle2, Clock, AlertTriangle, ArrowUpRight, Info, MapPin, ListFilter, type LucideIcon } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-
-const getNotificationErrorMessage = (error: unknown, fallback: string) => {
-  if (axios.isAxiosError<{ error?: string; message?: string }>(error)) {
-    return error.response?.data?.error ?? error.response?.data?.message ?? error.message ?? fallback;
-  }
-
-  return error instanceof Error ? error.message : fallback;
-};
 
 const iconMap: Record<NotificationType, LucideIcon> = {
   success: CheckCircle2,
@@ -142,7 +135,7 @@ function DashboardShell() {
   const notifications = notificationsResponse?.data ?? [];
   const unreadCount = unreadCountResponse?.data.unreadCount ?? notificationsResponse?.stats.unreadCount ?? 0;
   const notificationsErrorMessage = notificationsError
-    ? getNotificationErrorMessage(notificationsError, "Gagal memuat notifikasi.")
+    ? getApiErrorMessage(notificationsError, "Gagal memuat notifikasi.")
     : null;
   const userFullName = session?.user?.name || "Pengguna";
   const userDisplayName = session?.user?.name?.split(" ")[0] || "Pengguna";
@@ -175,7 +168,7 @@ function DashboardShell() {
     },
     onError: (error) => {
       toast.error("Gagal menandai notifikasi", {
-        description: getNotificationErrorMessage(error, "Notifikasi tidak bisa diperbarui."),
+        description: getApiErrorMessage(error, "Notifikasi tidak bisa diperbarui."),
       });
     },
   });
@@ -192,7 +185,7 @@ function DashboardShell() {
     },
     onError: (error) => {
       toast.error("Gagal menandai semua notifikasi", {
-        description: getNotificationErrorMessage(error, "Silakan coba lagi beberapa saat lagi."),
+        description: getApiErrorMessage(error, "Silakan coba lagi beberapa saat lagi."),
       });
     },
   });
@@ -240,11 +233,28 @@ function DashboardShell() {
   };
 
   const handleNotificationClick = (notification: NotificationItem) => {
-    if (notification.read) {
+    if (!notification.read) {
+      markNotificationRead.mutate(notification.id);
+    }
+
+    if (!notification.laporanId) {
+      setShowNotifications(false);
+      toast.info("Notifikasi ditandai dibaca", {
+        description: "Belum ada laporan yang bisa dibuka dari notifikasi ini.",
+      });
       return;
     }
 
-    markNotificationRead.mutate(notification.id);
+    if (userPortal === "citizen") {
+      setViewMode("map");
+    }
+
+    setShowNotifications(false);
+    setShowUserMenu(false);
+    navigate({
+      pathname: dashboardPath,
+      search: buildReportFocusSearch(notification.laporanId),
+    });
   };
 
   const handleMarkAllAsRead = () => {
@@ -439,18 +449,20 @@ function DashboardShell() {
                              const colors = colorMap[notif.type];
                              const isUpdatingCurrent =
                                markNotificationRead.isPending && markNotificationRead.variables === notif.id;
+                             const isActionable = !!notif.laporanId || !notif.read;
                              return (
-                               <motion.div
+                               <motion.button
                                  key={notif.id}
+                                 type="button"
                                  initial={{ opacity: 0 }}
                                  animate={{ opacity: 1 }}
                                  transition={{ delay: idx * 0.03, duration: 0.2 }}
                                  onClick={() => handleNotificationClick(notif)}
-                                 className={`group relative px-4 py-3.5 flex gap-3.5 transition-colors border-b border-gray-100 last:border-b-0 ${
+                                 className={`group relative w-full px-4 py-3.5 text-left flex gap-3.5 transition-colors border-b border-gray-100 last:border-b-0 ${
                                    !notif.read
                                      ? "bg-rose-50 border-l-4 border-l-[#db2744] hover:bg-rose-100/80"
                                      : "hover:bg-gray-50/80"
-                                 } ${!notif.read ? "cursor-pointer" : "cursor-default"} ${isUpdatingCurrent ? "opacity-70" : ""}`}
+                                 } ${isActionable ? "cursor-pointer" : "cursor-default"} ${isUpdatingCurrent ? "opacity-70" : ""}`}
                                >
                                  <div className={`w-10 h-10 rounded-full ${colors.bg} ${colors.text} flex items-center justify-center shrink-0 ${
                                    !notif.read ? "ring-2 ring-white shadow-sm" : ""
@@ -482,7 +494,7 @@ function DashboardShell() {
                                      {notif.time}
                                    </span>
                                  </div>
-                               </motion.div>
+                               </motion.button>
                              );
                            })}
                          </div>

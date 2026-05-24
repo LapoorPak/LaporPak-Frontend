@@ -11,6 +11,7 @@ import {
   Map,
   MapControls,
   MapMarker,
+  MapPopup,
   MarkerContent,
   MarkerPopup,
   type MapRef,
@@ -28,16 +29,17 @@ import { useGetAgencyLocations } from "@/hooks/agencies/useGetAgencyLocations";
 import { useQueryGetMyReports } from "@/api/reports/reports-queries";
 import { useGetReportLocations } from "@/hooks/reports/useGetReportLocations";
 import { useCreateReport } from "@/hooks/reports/useCreateReport";
-import {
-  useQuerySearchLocation,
-  type SearchResult,
-} from "@/hooks/search/useSearchLocation";
+import { useDebouncedValue } from "@/hooks/common";
+import { useQuerySearchLocation } from "@/hooks/search/useSearchLocation";
+import type { SearchResult } from "@/types/search";
 import { useQueryClient } from "@tanstack/react-query";
 import { QUERY_KEYS } from "@/api/queryKeys";
-import axios from "axios";
 import { toast } from "sonner";
+import { getApiErrorMessage } from "@/lib/get-api-error-message";
+import { createObjectUrls, revokeObjectUrls } from "@/lib/object-url";
 import { resolvePhotoUrl } from "@/lib/resolve-photo-url";
 import { maskCitizenName } from "@/lib/utils";
+import { readReportFocusParams } from "@/lib/report-focus-navigation";
 import { useDashboardViewMode } from "@/context/dashboard-view-mode";
 import {
   MapPin,
@@ -50,139 +52,31 @@ import {
   User,
   Navigation,
   Building2,
+  ImagePlus,
   ListFilter,
   Search,
+  Send,
   ChevronLeft,
   ChevronRight,
   ZoomIn,
+  Trash2,
   ThumbsDown,
   ThumbsUp,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
+import { useSearchParams } from "react-router";
 import { CitizenMyReportsPanel } from "./CitizenMyReportsPanel";
 import { CitizenReportFormPanel } from "./CitizenReportFormPanel";
 import { LocationSearchResultsDropdown } from "./LocationSearchResultsDropdown";
+import {
+  PhotoLightbox,
+  type PhotoLightboxState,
+} from "./PhotoLightbox";
 import { CITIZEN_REPORT_STATUS_MAP } from "../utils/reportStatus";
 
 type InteractionMode = "idle" | "pin_drop";
 
-type LightboxState = { images: string[]; index: number } | null;
-
 const EMPTY_SEARCH_RESULTS: SearchResult[] = [];
-
-function PhotoLightbox({
-  images,
-  index,
-  onClose,
-}: {
-  images: string[];
-  index: number;
-  onClose: () => void;
-}) {
-  const [current, setCurrent] = useState(index);
-
-  const prev = useCallback(
-    () => setCurrent((i) => (i > 0 ? i - 1 : images.length - 1)),
-    [images.length],
-  );
-  const next = useCallback(
-    () => setCurrent((i) => (i < images.length - 1 ? i + 1 : 0)),
-    [images.length],
-  );
-
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-      if (e.key === "ArrowLeft") prev();
-      if (e.key === "ArrowRight") next();
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [onClose, prev, next]);
-
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[9999] bg-black/92 flex items-center justify-center"
-      onClick={onClose}
-    >
-      <button
-        className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors z-10"
-        onClick={onClose}
-      >
-        <X size={18} />
-      </button>
-
-      {images.length > 1 && (
-        <span className="hidden md:inline absolute top-4 left-1/2 -translate-x-1/2 text-white/60 text-xs font-bold tracking-widest">
-          {current + 1} / {images.length}
-        </span>
-      )}
-
-      {images.length > 1 && (
-        <>
-          <button
-            className="hidden md:flex absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 hover:bg-white/25 text-white items-center justify-center transition-colors z-10"
-            onClick={(e) => {
-              e.stopPropagation();
-              prev();
-            }}
-          >
-            <ChevronLeft size={22} />
-          </button>
-          <button
-            className="hidden md:flex absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 hover:bg-white/25 text-white items-center justify-center transition-colors z-10"
-            onClick={(e) => {
-              e.stopPropagation();
-              next();
-            }}
-          >
-            <ChevronRight size={22} />
-          </button>
-        </>
-      )}
-
-      <motion.img
-        key={current}
-        initial={{ opacity: 0, scale: 0.96 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.18 }}
-        src={resolvePhotoUrl(images[current])}
-        alt={`Foto ${current + 1}`}
-        className="max-w-[92vw] max-h-[75vh] md:max-h-[88vh] object-contain rounded-sm shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      />
-
-      {images.length > 1 && (
-        <div className="md:hidden absolute bottom-8 left-0 right-0 flex items-center justify-center gap-6 z-10">
-          <button
-            className="w-12 h-12 rounded-full bg-white/15 active:bg-white/30 text-white flex items-center justify-center transition-colors"
-            onClick={(e) => {
-              e.stopPropagation();
-              prev();
-            }}
-          >
-            <ChevronLeft size={24} />
-          </button>
-          <span className="text-white/60 text-sm font-bold tracking-widest min-w-[48px] text-center">
-            {current + 1} / {images.length}
-          </span>
-          <button
-            className="w-12 h-12 rounded-full bg-white/15 active:bg-white/30 text-white flex items-center justify-center transition-colors"
-            onClick={(e) => {
-              e.stopPropagation();
-              next();
-            }}
-          >
-            <ChevronRight size={24} />
-          </button>
-        </div>
-      )}
-    </motion.div>
-  );
-}
 
 function ReportPopup({
   report,
@@ -190,16 +84,32 @@ function ReportPopup({
   onVote,
   isVoting = false,
   fullWidth = false,
+  onSubmitClarification,
+  clarificationSubmittingId,
+  onClarificationDraftActiveChange,
 }: {
   report: ReportLocation;
   onPhotoClick: (imgs: string[], idx: number) => void;
   onVote?: (report: ReportLocation, vote: ReportVoteValue) => void;
   isVoting?: boolean;
   fullWidth?: boolean;
+  onSubmitClarification?: (
+    reportId: string,
+    note: string,
+    images: File[],
+  ) => Promise<void> | void;
+  clarificationSubmittingId?: string | null;
+  onClarificationDraftActiveChange?: (reportId: string, active: boolean) => void;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showAllTimeline, setShowAllTimeline] = useState(false);
   const [photoIndex, setPhotoIndex] = useState(0);
+  const [clarificationDraft, setClarificationDraft] = useState("");
+  const [clarificationFiles, setClarificationFiles] = useState<File[]>([]);
+  const [clarificationPreviews, setClarificationPreviews] = useState<string[]>(
+    [],
+  );
+  const clarificationPreviewsRef = useRef<string[]>([]);
   const status = CITIZEN_REPORT_STATUS_MAP[report.status] || {
     label: report.status,
     color: "bg-gray-50 text-gray-700 border-gray-200",
@@ -224,6 +134,75 @@ function ReportPopup({
   const upvotes = report.upvotes ?? 0;
   const downvotes = report.downvotes ?? 0;
   const myVote = report.myVote ?? 0;
+  const isOwnReport = report.ownership === "mine" || report.canEdit;
+  const canReplyClarification =
+    report.status === "clarification_requested" &&
+    isOwnReport &&
+    !!onSubmitClarification;
+  const isClarificationSubmitting = clarificationSubmittingId === report.id;
+
+  useEffect(() => {
+    clarificationPreviewsRef.current = clarificationPreviews;
+  }, [clarificationPreviews]);
+
+  useEffect(() => {
+    return () => {
+      revokeObjectUrls(clarificationPreviewsRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    setClarificationDraft("");
+    setClarificationFiles([]);
+    setClarificationPreviews((current) => {
+      revokeObjectUrls(current);
+      return [];
+    });
+  }, [report.id]);
+
+  const handleClarificationFiles = (event: ChangeEvent<HTMLInputElement>) => {
+    const nextFiles = Array.from(event.target.files ?? []).filter((file) =>
+      file.type.startsWith("image/"),
+    );
+    if (nextFiles.length === 0) return;
+
+    const availableSlots = Math.max(0, 5 - clarificationFiles.length);
+    const acceptedFiles = nextFiles.slice(0, availableSlots);
+    if (acceptedFiles.length === 0) return;
+
+    setClarificationFiles((current) => [...current, ...acceptedFiles]);
+    setClarificationPreviews((current) => [
+      ...current,
+      ...createObjectUrls(acceptedFiles),
+    ]);
+    event.target.value = "";
+  };
+
+  const removeClarificationFile = (index: number) => {
+    setClarificationFiles((current) =>
+      current.filter((_, fileIndex) => fileIndex !== index),
+    );
+    setClarificationPreviews((current) => {
+      const removed = current[index];
+      if (removed) revokeObjectUrls([removed]);
+      return current.filter((_, fileIndex) => fileIndex !== index);
+    });
+  };
+
+  const submitClarificationReply = async () => {
+    const note = clarificationDraft.trim();
+    if (!note || !onSubmitClarification) return;
+
+    await onSubmitClarification(report.id, note, clarificationFiles);
+    onClarificationDraftActiveChange?.(report.id, false);
+    setClarificationDraft("");
+    setClarificationFiles([]);
+    setClarificationPreviews((current) => {
+      revokeObjectUrls(current);
+      return [];
+    });
+  };
+
   const renderVoteControls = (compact = false) => (
     <div
       className={`flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50/80 ${compact ? "px-3 py-2" : "px-3 py-2.5"}`}
@@ -274,6 +253,95 @@ function ReportPopup({
       </div>
     </div>
   );
+  const renderClarificationReply = () => {
+    if (!canReplyClarification) return null;
+
+    return (
+      <div
+        className="rounded-lg border border-violet-100 bg-violet-50/80 p-3"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <p className="text-[9px] font-black uppercase tracking-widest text-violet-700">
+            Balas Klarifikasi
+          </p>
+          <span className="shrink-0 text-[9px] font-black text-violet-500">
+            {clarificationFiles.length}/5 foto
+          </span>
+        </div>
+        <textarea
+          value={clarificationDraft}
+          onFocus={() => onClarificationDraftActiveChange?.(report.id, true)}
+          onBlur={(event) => {
+            if (!event.currentTarget.value.trim()) {
+              onClarificationDraftActiveChange?.(report.id, false);
+            }
+          }}
+          onChange={(event) => {
+            setClarificationDraft(event.target.value);
+            onClarificationDraftActiveChange?.(report.id, true);
+          }}
+          placeholder="Tulis jawaban untuk dinas..."
+          className="min-h-[78px] w-full resize-none rounded-sm border border-violet-100 bg-white px-3 py-2 text-[11px] leading-relaxed text-gray-800 outline-none transition-colors placeholder:text-gray-400 focus:border-violet-400"
+        />
+
+        {clarificationPreviews.length > 0 && (
+          <div className="mt-2 grid grid-cols-3 gap-2">
+            {clarificationPreviews.map((url, index) => (
+              <div
+                key={`${url}-${index}`}
+                className="relative h-14 overflow-hidden rounded-sm bg-white"
+              >
+                <img
+                  src={url}
+                  alt={`Bukti klarifikasi ${index + 1}`}
+                  className="h-full w-full object-cover"
+                />
+                <button
+                  type="button"
+                  onClick={() => removeClarificationFile(index)}
+                  className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-sm bg-black/65 text-white"
+                  aria-label="Hapus foto klarifikasi"
+                >
+                  <Trash2 size={11} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="mt-2 flex items-center justify-between gap-2">
+          <label
+            className={`inline-flex h-8 items-center gap-1.5 rounded-sm border border-dashed border-violet-200 bg-white px-2.5 text-[9px] font-black uppercase tracking-widest text-violet-700 transition-colors ${
+              clarificationFiles.length >= 5
+                ? "cursor-not-allowed opacity-60"
+                : "cursor-pointer hover:border-violet-300"
+            }`}
+          >
+            <ImagePlus size={13} />
+            Foto
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              disabled={clarificationFiles.length >= 5}
+              className="hidden"
+              onChange={handleClarificationFiles}
+            />
+          </label>
+          <button
+            type="button"
+            disabled={!clarificationDraft.trim() || isClarificationSubmitting}
+            onClick={() => void submitClarificationReply()}
+            className="inline-flex h-8 items-center gap-1.5 rounded-sm bg-violet-700 px-3 text-[9px] font-black uppercase tracking-widest text-white transition-colors hover:bg-violet-800 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Send size={12} />
+            {isClarificationSubmitting ? "Mengirim" : "Kirim"}
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   if (!fullWidth && hasTimelineColumn) {
     return (
@@ -443,6 +511,8 @@ function ReportPopup({
                 )}
               </div>
             )}
+
+            {renderClarificationReply()}
 
             <div className="flex items-center justify-between pt-2.5 border-t border-gray-100">
               <div className="flex items-center gap-1.5 min-w-0">
@@ -739,6 +809,8 @@ function ReportPopup({
             )}
           </div>
         )}
+
+        {renderClarificationReply()}
 
         {/* Riwayat */}
         {hasTimelineColumn && (
@@ -1207,7 +1279,7 @@ function FeedReportCard({
                 onClick={() => onOpenMyReports(report)}
                 className="mt-3 inline-flex h-8 items-center justify-center rounded-full bg-violet-600 px-3 text-[11px] font-black text-white shadow-sm transition-colors hover:bg-violet-700"
               >
-                Balas di Laporanku
+                Buka Laporan
               </button>
             )}
           </div>
@@ -1475,9 +1547,7 @@ export default function CitizenDashboard() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [myReportsSearch, setMyReportsSearch] = useState("");
-  const [debouncedMyReportsSearch, setDebouncedMyReportsSearch] = useState("");
   const [showSearch, setShowSearch] = useState(false);
   const [searchedLocation, setSearchedLocation] = useState<{
     name: string;
@@ -1486,7 +1556,12 @@ export default function CitizenDashboard() {
   const [userLocation, setUserLocation] = useState<[number, number] | null>(
     null,
   );
-  const [lightbox, setLightbox] = useState<LightboxState>(null);
+  const [lightbox, setLightbox] = useState<PhotoLightboxState>(null);
+  const [selectedMapReportId, setSelectedMapReportId] = useState<string | null>(
+    null,
+  );
+  const [activeClarificationReportId, setActiveClarificationReportId] =
+    useState<string | null>(null);
   const [selectedMobileReport, setSelectedMobileReport] =
     useState<ReportLocation | null>(null);
   const [reportSheetHeight, setReportSheetHeight] = useState(68);
@@ -1504,10 +1579,23 @@ export default function CitizenDashboard() {
     [],
   );
   const closeLightbox = useCallback(() => setLightbox(null), []);
+  const handleClarificationDraftActiveChange = useCallback(
+    (reportId: string, active: boolean) => {
+      setActiveClarificationReportId((current) => {
+        if (active) return reportId;
+        return current === reportId ? null : current;
+      });
+    },
+    [],
+  );
+  const debouncedSearchQuery = useDebouncedValue(searchQuery, 400);
+  const debouncedMyReportsSearch = useDebouncedValue(myReportsSearch, 400);
 
   // API Queries
-  const { data: publicReportsData } = useGetReportLocations();
-  const { data: myReportsData } = useQueryGetMyReports(
+  const { data: publicReportsData, isFetched: isPublicReportsFetched } =
+    useGetReportLocations();
+  const { data: myReportsData, isFetched: isMyReportsFetched } =
+    useQueryGetMyReports(
     { search: debouncedMyReportsSearch },
     { enabled: !!session?.user },
   );
@@ -1534,7 +1622,7 @@ export default function CitizenDashboard() {
   const myReports = myReportsData?.data || [];
   const agencies = agenciesData?.data || [];
   const visibleReportIds = new Set<string>();
-  const visibleReports = [...publicReports, ...myReports].filter((report) => {
+  const visibleReports = [...myReports, ...publicReports].filter((report) => {
     if (report.status === "rejected" || visibleReportIds.has(report.id)) {
       return false;
     }
@@ -1551,6 +1639,13 @@ export default function CitizenDashboard() {
     feedReportIds.add(report.id);
     return true;
   });
+  const selectedMapReport = selectedMapReportId
+    ? visibleReports.find((report) => report.id === selectedMapReportId)
+    : null;
+  const [searchParams] = useSearchParams();
+  const { reportId: focusedReportId, focusTrigger } =
+    readReportFocusParams(searchParams);
+  const handledReportFocusRef = useRef<string | null>(null);
 
   const refreshDashboardData = async () => {
     await Promise.allSettled([
@@ -1573,15 +1668,6 @@ export default function CitizenDashboard() {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.NOTIFICATIONS] }),
     ]);
   };
-
-  const getApiErrorMessage = (error: unknown, fallback: string) =>
-    axios.isAxiosError<{ error?: string; message?: string }>(error)
-      ? error.response?.data?.error ||
-        error.response?.data?.message ||
-        error.message
-      : error instanceof Error
-        ? error.message
-        : fallback;
 
   const createReport = useCreateReport({
     onSuccess: async (res) => {
@@ -1609,20 +1695,20 @@ export default function CitizenDashboard() {
     },
     onError: (error: unknown) => {
       console.error("Failed to create report", error);
-      const errorMessage = axios.isAxiosError<{ message?: string }>(error)
-        ? error.response?.data?.message || error.message
-        : error instanceof Error
-          ? error.message
-          : "Gagal membuat laporan terbaru.";
-
       toast.error("Gagal", {
-        description: errorMessage,
+        description: getApiErrorMessage(error, "Gagal membuat laporan terbaru."),
       });
     },
   });
 
   const submitClarification = useMutationSubmitReportClarification({
-    onSuccess: async () => {
+    onSuccess: async (response) => {
+      handleClarificationDraftActiveChange(response.data.id, false);
+      setSelectedMobileReport((currentReport) =>
+        currentReport?.id === response.data.id
+          ? { ...currentReport, ...response.data }
+          : currentReport,
+      );
       await refreshDashboardData();
       toast.success("Klarifikasi terkirim", {
         description: "Balasan Anda sudah masuk ke riwayat laporan.",
@@ -1750,6 +1836,30 @@ export default function CitizenDashboard() {
     [mapFocusPadding],
   );
 
+  const openReportCard = useCallback(
+    (report: ReportLocation) => {
+      if (report.status === "rejected") return;
+
+      setViewMode("map");
+      setMode("idle");
+      setIsFormOpen(false);
+      setShowSearch(false);
+      focusMapOnCoordinates([report.lng, report.lat], 15);
+
+      if (isDesktop) {
+        setSelectedMobileReport(null);
+        setSelectedMapReportId(report.id);
+        return;
+      }
+
+      setSelectedMapReportId(null);
+      setIsMyReportsOpen(false);
+      setReportSheetHeight(68);
+      setSelectedMobileReport(report);
+    },
+    [focusMapOnCoordinates, isDesktop, setViewMode],
+  );
+
   const startReportSheetResize = (event: ReactPointerEvent) => {
     event.preventDefault();
     event.stopPropagation();
@@ -1817,29 +1927,60 @@ export default function CitizenDashboard() {
   }, [showSearch]);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearchQuery(searchQuery);
-    }, 400);
-
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedMyReportsSearch(myReportsSearch);
-    }, 400);
-
-    return () => clearTimeout(timer);
-  }, [myReportsSearch]);
-
-  useEffect(() => {
     setShowSearch(false);
 
     if (viewMode === "feed") {
       setMode("idle");
+      setSelectedMapReportId(null);
       setSelectedMobileReport(null);
     }
   }, [viewMode]);
+
+  useEffect(() => {
+    if (!activeClarificationReportId) return;
+
+    const activeReport = visibleReports.find(
+      (report) => report.id === activeClarificationReportId,
+    );
+    if (!activeReport || activeReport.status !== "clarification_requested") {
+      setActiveClarificationReportId(null);
+    }
+  }, [activeClarificationReportId, visibleReports]);
+
+  useEffect(() => {
+    if (!focusedReportId) return;
+
+    const focusKey = `${focusedReportId}:${focusTrigger ?? ""}`;
+    if (handledReportFocusRef.current === focusKey) return;
+
+    handledReportFocusRef.current = focusKey;
+    const report = visibleReports.find((item) => item.id === focusedReportId);
+    if (!report) {
+      if (isPublicReportsFetched && (!session?.user || isMyReportsFetched)) {
+        toast.error("Laporan tidak ditemukan", {
+          description: "Data laporan dari notifikasi belum tersedia di peta.",
+        });
+      } else {
+        handledReportFocusRef.current = null;
+      }
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setIsMyReportsOpen(false);
+      openReportCard(report);
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    focusedReportId,
+    focusTrigger,
+    isMyReportsFetched,
+    isPublicReportsFetched,
+    openReportCard,
+    session?.user,
+    visibleReports,
+  ]);
 
   const handleSelectPlace = useCallback(
     (place: SearchResult) => {
@@ -1887,7 +2028,7 @@ export default function CitizenDashboard() {
         toast.error("Maksimal 5 foto per laporan");
         return;
       }
-      const urls = newFiles.map((file) => URL.createObjectURL(file));
+      const urls = createObjectUrls(newFiles);
       setPhotoFiles((prev) => [...prev, ...newFiles]);
       setPhotoPreviews((prev) => [...prev, ...urls]);
     }
@@ -2026,52 +2167,118 @@ export default function CitizenDashboard() {
             }}
           />
 
-          {visibleReports.map((report) => (
-            <MapMarker
-              key={report.id}
-              longitude={report.lng}
-              latitude={report.lat}
-              onClick={
-                !isDesktop
-                  ? () => {
-                      setReportSheetHeight(68);
-                      setSelectedMobileReport(report);
-                    }
-                  : undefined
-              }
-            >
-              {isDesktop && (
-                <MarkerPopup
-                  closeButton
-                  className="overflow-hidden rounded-sm border border-gray-100 bg-white p-0 shadow-[0_18px_44px_rgba(15,23,42,0.18)]"
-                >
-                  <ReportPopup
-                    report={report}
-                    onPhotoClick={openLightbox}
-                    onVote={handleVoteReport}
-                    isVoting={
-                      voteReport.isPending &&
-                      voteReport.variables?.id === report.id
-                    }
-                  />
-                </MarkerPopup>
-              )}
-              <MarkerContent className="[&>*]:!z-[10]">
-                <div
-                  className="w-10 h-10 -mt-5 -ml-5 bg-[#db2744]/20 rounded-full flex items-center justify-center"
-                  style={{ zIndex: 10 }}
-                >
-                  <div className="w-6 h-6 bg-[#db2744] hover:bg-rose-500 rounded-full flex items-center justify-center shadow-lg shadow-red-500/50 transition-colors border-2 border-white">
-                    <AlertTriangle
-                      size={12}
-                      className="text-white"
-                      strokeWidth={3}
+          {visibleReports.map((report) => {
+            const isClarificationReport =
+              report.status === "clarification_requested";
+            const isActiveClarificationReport =
+              report.id === activeClarificationReportId;
+            const markerOuterClass = isActiveClarificationReport
+              ? "bg-violet-500/25 ring-4 ring-violet-300/55"
+              : isClarificationReport
+                ? "bg-violet-500/20"
+                : "bg-[#db2744]/20";
+            const markerInnerClass = isActiveClarificationReport
+              ? "scale-125 border-white bg-violet-600 shadow-violet-500/70 hover:bg-violet-700"
+              : isClarificationReport
+                ? "border-white bg-violet-500 shadow-violet-500/50 hover:bg-violet-600"
+                : "border-white bg-[#db2744] shadow-red-500/50 hover:bg-rose-500";
+
+            return (
+              <MapMarker
+                key={report.id}
+                longitude={report.lng}
+                latitude={report.lat}
+                onClick={
+                  !isDesktop
+                    ? () => {
+                        setReportSheetHeight(68);
+                        setSelectedMobileReport(report);
+                      }
+                    : undefined
+                }
+              >
+                {isDesktop && (
+                  <MarkerPopup
+                    closeButton
+                    className="overflow-hidden rounded-sm border border-gray-100 bg-white p-0 shadow-[0_18px_44px_rgba(15,23,42,0.18)]"
+                  >
+                    <ReportPopup
+                      report={report}
+                      onPhotoClick={openLightbox}
+                      onVote={handleVoteReport}
+                      onSubmitClarification={handleSubmitClarification}
+                      onClarificationDraftActiveChange={
+                        handleClarificationDraftActiveChange
+                      }
+                      clarificationSubmittingId={
+                        submitClarification.isPending
+                          ? submitClarification.variables?.id
+                          : null
+                      }
+                      isVoting={
+                        voteReport.isPending &&
+                        voteReport.variables?.id === report.id
+                      }
                     />
+                  </MarkerPopup>
+                )}
+                <MarkerContent
+                  className={
+                    isActiveClarificationReport
+                      ? "[&>*]:!z-[60]"
+                      : "[&>*]:!z-[10]"
+                  }
+                >
+                  <div
+                    className={`relative flex h-10 w-10 -ml-5 -mt-5 items-center justify-center rounded-full transition-all ${markerOuterClass}`}
+                    style={{ zIndex: isActiveClarificationReport ? 60 : 10 }}
+                  >
+                    {isActiveClarificationReport && (
+                      <span className="absolute inset-0 rounded-full bg-violet-400/35 animate-ping" />
+                    )}
+                    <div
+                      className={`relative flex h-6 w-6 items-center justify-center rounded-full border-2 shadow-lg transition-all ${markerInnerClass}`}
+                    >
+                      <AlertTriangle
+                        size={12}
+                        className="text-white"
+                        strokeWidth={3}
+                      />
+                    </div>
                   </div>
-                </div>
-              </MarkerContent>
-            </MapMarker>
-          ))}
+                </MarkerContent>
+              </MapMarker>
+            );
+          })}
+
+          {isDesktop && selectedMapReport && (
+            <MapPopup
+              longitude={selectedMapReport.lng}
+              latitude={selectedMapReport.lat}
+              closeButton
+              onClose={() => setSelectedMapReportId(null)}
+              className="overflow-hidden rounded-sm border border-gray-100 bg-white p-0 shadow-[0_18px_44px_rgba(15,23,42,0.18)]"
+            >
+              <ReportPopup
+                report={selectedMapReport}
+                onPhotoClick={openLightbox}
+                onVote={handleVoteReport}
+                onSubmitClarification={handleSubmitClarification}
+                onClarificationDraftActiveChange={
+                  handleClarificationDraftActiveChange
+                }
+                clarificationSubmittingId={
+                  submitClarification.isPending
+                    ? submitClarification.variables?.id
+                    : null
+                }
+                isVoting={
+                  voteReport.isPending &&
+                  voteReport.variables?.id === selectedMapReport.id
+                }
+              />
+            </MapPopup>
+          )}
 
           {agencies.map((agency, idx) => (
             <MapMarker
@@ -2242,10 +2449,7 @@ export default function CitizenDashboard() {
             reports={visibleFeedReports}
             onPhotoClick={openLightbox}
             onVote={handleVoteReport}
-            onOpenMyReports={(report) => {
-              setMyReportsSearch(report.title);
-              setIsMyReportsOpen(true);
-            }}
+            onOpenMyReports={openReportCard}
             onLoadMore={() => {
               if (
                 feedReportsQuery.hasNextPage &&
@@ -2397,21 +2601,11 @@ export default function CitizenDashboard() {
         onSearchChange={setMyReportsSearch}
         onClose={() => setIsMyReportsOpen(false)}
         onPhotoClick={openLightbox}
-        onSubmitClarification={handleSubmitClarification}
-        clarificationSubmittingId={
-          submitClarification.isPending
-            ? submitClarification.variables?.id
-            : null
-        }
         onSubmitRating={handleRateReport}
         ratingSubmittingId={
           rateReport.isPending ? rateReport.variables?.id : null
         }
-        onFocusReport={(report) => {
-          if (report.status !== "rejected") {
-            focusMapOnCoordinates([report.lng, report.lat], 15);
-          }
-        }}
+        onFocusReport={openReportCard}
       />
 
       {/* Mobile report bottom sheet */}
@@ -2467,6 +2661,15 @@ export default function CitizenDashboard() {
                   report={selectedMobileReport}
                   onPhotoClick={openLightbox}
                   onVote={handleVoteReport}
+                  onSubmitClarification={handleSubmitClarification}
+                  onClarificationDraftActiveChange={
+                    handleClarificationDraftActiveChange
+                  }
+                  clarificationSubmittingId={
+                    submitClarification.isPending
+                      ? submitClarification.variables?.id
+                      : null
+                  }
                   isVoting={
                     voteReport.isPending &&
                     voteReport.variables?.id === selectedMobileReport.id

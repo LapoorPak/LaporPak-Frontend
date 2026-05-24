@@ -5,7 +5,7 @@ import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { ChevronRight, Plus, Minus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/hooks";
+import { useAuth } from "@/hooks/auth";
 import { getDashboardPathForRole, getLoginPathForRole } from "@/lib/auth-portal";
 
 const faqs = [

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   Map,
   MapControls,
@@ -16,15 +16,14 @@ import {
   ListFilter,
   Navigation,
   User,
-  X,
-  ChevronLeft,
-  ChevronRight,
 } from "lucide-react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence } from "framer-motion";
+import { useSearchParams } from "react-router";
 import type {
   ReportsDashboardSummary,
   ReportsDashboardTab,
   ReportsDashboardTabKey,
+  DashboardReportItem,
   ReportLocation,
   ReportsScope,
 } from "@/api/reports/reports-queries";
@@ -34,19 +33,23 @@ import {
 } from "@/api/reports/reports-queries";
 import { useGetReportLocations } from "@/hooks/reports/useGetReportLocations";
 import { useGetReportsDashboard } from "@/hooks/reports/useGetReportsDashboard";
-import {
-  useQuerySearchLocation,
-  type SearchResult,
-} from "@/hooks/search/useSearchLocation";
+import { useDebouncedValue } from "@/hooks/common";
+import { useQuerySearchLocation } from "@/hooks/search/useSearchLocation";
+import type { SearchResult } from "@/types/search";
 import { QUERY_KEYS } from "@/api/queryKeys";
 import { useQueryClient } from "@tanstack/react-query";
-import axios from "axios";
 import { toast } from "sonner";
-import { resolvePhotoUrl } from "@/lib/resolve-photo-url";
+import { getApiErrorMessage } from "@/lib/get-api-error-message";
+import { createObjectUrls, revokeObjectUrls } from "@/lib/object-url";
+import { readReportFocusParams } from "@/lib/report-focus-navigation";
 import { AgencyReportDetailDrawer } from "./AgencyReportDetailDrawer";
 import { AgencyReportsBottomSheet } from "./AgencyReportsBottomSheet";
 import { AgencyReportsSidebar } from "./AgencyReportsSidebar";
 import { LocationSearchResultsDropdown } from "./LocationSearchResultsDropdown";
+import {
+  PhotoLightbox,
+  type PhotoLightboxState,
+} from "./PhotoLightbox";
 import {
   AGENCY_REPORT_STATUS_MAP,
   getDashboardStatusToneStyle,
@@ -75,6 +78,9 @@ const DEFAULT_REPORTS_DASHBOARD_SUMMARY: ReportsDashboardSummary = {
   },
 };
 
+const EMPTY_LOCATION_REPORTS: ReportLocation[] = [];
+const EMPTY_DASHBOARD_REPORTS: DashboardReportItem[] = [];
+
 const SUMMARY_CARD_META = [
   {
     key: "totalTarget",
@@ -102,7 +108,7 @@ const SUMMARY_CARD_META = [
   },
   {
     key: "klarifikasi",
-    label: "Klarifikasi",
+    label: "Butuh Klarifikasi",
     icon: AlertCircle,
     color: "text-violet-600",
     bg: "bg-violet-100",
@@ -122,14 +128,6 @@ const REPORT_SCOPE_OPTIONS: { value: ReportsScope; label: string; shortLabel: st
   { value: "mine", label: "Milik Saya", shortLabel: "Saya" },
   { value: "all", label: "Semua Tiket", shortLabel: "Semua" },
 ];
-
-const getAgencyUpdateErrorMessage = (error: unknown) => {
-  if (axios.isAxiosError<{ error?: string; message?: string }>(error)) {
-    return error.response?.data?.error ?? error.response?.data?.message ?? error.message;
-  }
-
-  return error instanceof Error ? error.message : "Gagal memperbarui tiket.";
-};
 
 const matchesAgencyDashboardTab = (
   status: ReportLocation["status"],
@@ -161,95 +159,6 @@ const matchesAgencyDashboardSearch = (
   );
 };
 
-type LightboxState = { images: string[]; index: number } | null;
-
-function PhotoLightbox({ images, index, onClose }: { images: string[]; index: number; onClose: () => void }) {
-  const [current, setCurrent] = useState(index);
-  const prev = useCallback(() => setCurrent((i) => (i > 0 ? i - 1 : images.length - 1)), [images.length]);
-  const next = useCallback(() => setCurrent((i) => (i < images.length - 1 ? i + 1 : 0)), [images.length]);
-
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-      if (e.key === "ArrowLeft") prev();
-      if (e.key === "ArrowRight") next();
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [onClose, prev, next]);
-
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[9999] bg-black/92 flex items-center justify-center"
-      onClick={onClose}
-    >
-      <button
-        className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors z-10"
-        onClick={onClose}
-      >
-        <X size={18} />
-      </button>
-
-      {images.length > 1 && (
-        <span className="hidden md:inline absolute top-4 left-1/2 -translate-x-1/2 text-white/60 text-xs font-bold tracking-widest">
-          {current + 1} / {images.length}
-        </span>
-      )}
-
-      {images.length > 1 && (
-        <>
-          <button
-            className="hidden md:flex absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 hover:bg-white/25 text-white items-center justify-center transition-colors z-10"
-            onClick={(e) => { e.stopPropagation(); prev(); }}
-          >
-            <ChevronLeft size={22} />
-          </button>
-          <button
-            className="hidden md:flex absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 hover:bg-white/25 text-white items-center justify-center transition-colors z-10"
-            onClick={(e) => { e.stopPropagation(); next(); }}
-          >
-            <ChevronRight size={22} />
-          </button>
-        </>
-      )}
-
-      <motion.img
-        key={current}
-        initial={{ opacity: 0, scale: 0.96 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.18 }}
-        src={resolvePhotoUrl(images[current])}
-        alt={`Foto ${current + 1}`}
-        className="max-w-[92vw] max-h-[75vh] md:max-h-[88vh] object-contain rounded-sm shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      />
-
-      {images.length > 1 && (
-        <div className="md:hidden absolute bottom-8 left-0 right-0 flex items-center justify-center gap-6 z-10">
-          <button
-            className="w-12 h-12 rounded-full bg-white/15 active:bg-white/30 text-white flex items-center justify-center transition-colors"
-            onClick={(e) => { e.stopPropagation(); prev(); }}
-          >
-            <ChevronLeft size={24} />
-          </button>
-          <span className="text-white/60 text-sm font-bold tracking-widest min-w-[48px] text-center">
-            {current + 1} / {images.length}
-          </span>
-          <button
-            className="w-12 h-12 rounded-full bg-white/15 active:bg-white/30 text-white flex items-center justify-center transition-colors"
-            onClick={(e) => { e.stopPropagation(); next(); }}
-          >
-            <ChevronRight size={24} />
-          </button>
-        </div>
-      )}
-    </motion.div>
-  );
-}
-
 export default function AgencyDashboard() {
   const [activeTab, setActiveTab] = useState<ReportsDashboardTabKey>("semua");
   const [scope, setScope] = useState<ReportsScope>("mine");
@@ -261,15 +170,12 @@ export default function AgencyDashboard() {
   const [resolutionNote, setResolutionNote] = useState("");
   const [resolutionProofFiles, setResolutionProofFiles] = useState<File[]>([]);
   const [resolutionProofPreviews, setResolutionProofPreviews] = useState<string[]>([]);
+  const resolutionProofPreviewsRef = useRef<string[]>([]);
   const [userLocation, setUserLocation] = useState<[number, number] | null>(
     null,
   );
   const [reportSearchQuery, setReportSearchQuery] = useState("");
-  const [debouncedReportSearchQuery, setDebouncedReportSearchQuery] =
-    useState("");
   const [locationSearchQuery, setLocationSearchQuery] = useState("");
-  const [debouncedLocationSearchQuery, setDebouncedLocationSearchQuery] =
-    useState("");
   const [showLocationSearch, setShowLocationSearch] = useState(false);
   const [searchedLocation, setSearchedLocation] = useState<{
     name: string;
@@ -277,12 +183,27 @@ export default function AgencyDashboard() {
   } | null>(null);
   const searchRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapRef | null>(null);
+  const handledReportFocusRef = useRef<string | null>(null);
+  const [searchParams] = useSearchParams();
+  const { reportId: focusedReportId, focusTrigger } =
+    readReportFocusParams(searchParams);
   const queryClient = useQueryClient();
-  const [lightbox, setLightbox] = useState<LightboxState>(null);
+  const [lightbox, setLightbox] = useState<PhotoLightboxState>(null);
   const openLightbox = useCallback((images: string[], index: number) => setLightbox({ images, index }), []);
   const closeLightbox = useCallback(() => setLightbox(null), []);
+  const debouncedReportSearchQuery = useDebouncedValue(reportSearchQuery, 400).trim();
+  const debouncedLocationSearchQuery = useDebouncedValue(locationSearchQuery, 400);
 
-  const { data: reportLocationsData } = useGetReportLocations({ scope });
+  useEffect(() => {
+    resolutionProofPreviewsRef.current = resolutionProofPreviews;
+  }, [resolutionProofPreviews]);
+
+  useEffect(() => {
+    return () => revokeObjectUrls(resolutionProofPreviewsRef.current);
+  }, []);
+
+  const { data: reportLocationsData, isFetched: isReportLocationsFetched } =
+    useGetReportLocations({ scope });
   const {
     data: reportsDashboardData,
     isLoading: isReportsDashboardLoading,
@@ -295,8 +216,8 @@ export default function AgencyDashboard() {
   const { data: locationSearchResults = [], isFetching: isSearchingLocations } =
     useQuerySearchLocation(debouncedLocationSearchQuery);
 
-  const locationReports = reportLocationsData?.data || [];
-  const dashboardReports = reportsDashboardData?.data || [];
+  const locationReports = reportLocationsData?.data ?? EMPTY_LOCATION_REPORTS;
+  const dashboardReports = reportsDashboardData?.data ?? EMPTY_DASHBOARD_REPORTS;
   const dashboardTabs =
     reportsDashboardData?.stats.tabs || DEFAULT_REPORTS_DASHBOARD_TABS;
   const dashboardSummary =
@@ -345,7 +266,7 @@ export default function AgencyDashboard() {
           ? "Laporan ditandai selesai dan perubahan sudah tersimpan."
           : "Catatan penanganan terbaru sudah masuk ke tiket.",
     });
-    resolutionProofPreviews.forEach((url) => URL.revokeObjectURL(url));
+    revokeObjectUrls(resolutionProofPreviews);
     setResolutionProofFiles([]);
     setResolutionProofPreviews([]);
     setSelectedMarkerId(null);
@@ -353,7 +274,7 @@ export default function AgencyDashboard() {
 
   const handleAgencyMutationError = (error: unknown) => {
     toast.error("Gagal mengirim update tiket", {
-      description: getAgencyUpdateErrorMessage(error),
+      description: getApiErrorMessage(error, "Gagal memperbarui tiket."),
     });
   };
 
@@ -377,36 +298,25 @@ export default function AgencyDashboard() {
     pitch: 45,
     bearing: 0,
   });
-  const mapFocusPadding = isDesktop
-    ? {
-        top: 32,
-        bottom: 40,
-        left: isSidebarOpen ? 420 : 32,
-        right: selectedReport ? 460 : 32,
-      }
-    : { top: 112, bottom: 104, left: 20, right: 20 };
+  const hasSelectedReport = !!selectedReport;
+  const mapFocusPadding = useMemo(
+    () =>
+      isDesktop
+        ? {
+            top: 32,
+            bottom: 40,
+            left: isSidebarOpen ? 420 : 32,
+            right: hasSelectedReport ? 460 : 32,
+          }
+        : { top: 112, bottom: 104, left: 20, right: 20 },
+    [hasSelectedReport, isDesktop, isSidebarOpen],
+  );
 
   useEffect(() => {
     const handleResize = () => setIsDesktop(window.innerWidth >= 768);
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedReportSearchQuery(reportSearchQuery.trim());
-    }, 400);
-
-    return () => clearTimeout(timer);
-  }, [reportSearchQuery]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedLocationSearchQuery(locationSearchQuery);
-    }, 400);
-
-    return () => clearTimeout(timer);
-  }, [locationSearchQuery]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -443,7 +353,7 @@ export default function AgencyDashboard() {
     }
   }, [selectedMarkerId, selectedReport]);
 
-  const focusMapOnCoordinates = (coords: [number, number], zoom = 15) => {
+  const focusMapOnCoordinates = useCallback((coords: [number, number], zoom = 15) => {
     if (mapRef.current) {
       mapRef.current.flyTo({
         center: coords,
@@ -459,7 +369,7 @@ export default function AgencyDashboard() {
       center: coords,
       zoom,
     }));
-  };
+  }, [mapFocusPadding, setViewport]);
 
   const handleSaveStatus = () => {
     if (!draftStatus || !selectedMarkerId || !selectedReport || isSaveDisabled) {
@@ -494,7 +404,7 @@ export default function AgencyDashboard() {
     });
   };
 
-  const handleSelectReport = (reportId: string) => {
+  const handleSelectReport = useCallback((reportId: string) => {
     setSelectedMarkerId(reportId);
 
     const locationReport = locationReports.find((item) => item.id === reportId);
@@ -507,7 +417,7 @@ export default function AgencyDashboard() {
       setDraftStatus(locationReport.status);
       setAgencyNote(locationReport.agencyNote ?? "");
       setResolutionNote(locationReport.resolutionNote ?? "");
-      resolutionProofPreviews.forEach((url) => URL.revokeObjectURL(url));
+      revokeObjectUrls(resolutionProofPreviews);
       setResolutionProofFiles([]);
       setResolutionProofPreviews([]);
       return;
@@ -517,11 +427,49 @@ export default function AgencyDashboard() {
       setDraftStatus(dashboardReport.status);
       setAgencyNote("");
       setResolutionNote("");
-      resolutionProofPreviews.forEach((url) => URL.revokeObjectURL(url));
+      revokeObjectUrls(resolutionProofPreviews);
       setResolutionProofFiles([]);
       setResolutionProofPreviews([]);
     }
-  };
+  }, [
+    dashboardReports,
+    focusMapOnCoordinates,
+    locationReports,
+    resolutionProofPreviews,
+  ]);
+
+  useEffect(() => {
+    if (!focusedReportId) return;
+
+    const focusKey = `${focusedReportId}:${focusTrigger ?? ""}`;
+    if (handledReportFocusRef.current === focusKey) return;
+
+    handledReportFocusRef.current = focusKey;
+    const report = locationReports.find((item) => item.id === focusedReportId);
+    if (!report) {
+      if (isReportLocationsFetched) {
+        toast.error("Laporan tidak ditemukan", {
+          description: "Data laporan dari notifikasi belum tersedia di peta.",
+        });
+      } else {
+        handledReportFocusRef.current = null;
+      }
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setIsSidebarOpen(false);
+      handleSelectReport(report.id);
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    focusTrigger,
+    focusedReportId,
+    handleSelectReport,
+    isReportLocationsFetched,
+    locationReports,
+  ]);
 
   const handleResolutionProofUpload = (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -535,13 +483,13 @@ export default function AgencyDashboard() {
       return;
     }
     setResolutionProofFiles((prev) => [...prev, ...nextFiles]);
-    setResolutionProofPreviews((prev) => [...prev, ...nextFiles.map((file) => URL.createObjectURL(file))]);
+    setResolutionProofPreviews((prev) => [...prev, ...createObjectUrls(nextFiles)]);
   };
 
   const handleRemoveResolutionProof = (index: number) => {
     setResolutionProofPreviews((prev) => {
       const removed = prev[index];
-      if (removed) URL.revokeObjectURL(removed);
+      if (removed) revokeObjectUrls([removed]);
       return prev.filter((_, i) => i !== index);
     });
     setResolutionProofFiles((prev) => prev.filter((_, i) => i !== index));

@@ -1,4 +1,5 @@
 import { useQuery, type UseQueryOptions } from "@tanstack/react-query";
+import type { SearchResult } from "@/types/search";
 
 interface NominatimResponse {
   place_id: number;
@@ -13,13 +14,6 @@ interface NominatimResponse {
     village?: string;
     state?: string;
   };
-}
-
-export interface SearchResult {
-  name: string;
-  sub: string;
-  lng: number;
-  lat: number;
 }
 
 export function useQuerySearchLocation(

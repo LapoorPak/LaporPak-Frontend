@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { Navbar, Footer } from "@/components/layout";
 import { HeroWave, HeroSlash, HeroFade } from "@/components/ui/hero-svgs";
-import { useAuth } from "@/hooks";
+import { useAuth } from "@/hooks/auth";
 import { getDashboardPathForRole } from "@/lib/auth-portal";
 
 const IDEA_SPARKS = [

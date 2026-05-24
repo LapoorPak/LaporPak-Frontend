@@ -39,7 +39,7 @@ const STATUS_OPTIONS = [
   },
   {
     value: "clarification_requested",
-    label: "Klarifikasi",
+    label: "Butuh Klarifikasi",
     activeClass: "border-violet-500 bg-violet-50 text-violet-600",
   },
   {

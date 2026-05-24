@@ -8,7 +8,7 @@ export const useGetSessionDetail = (
   options?: Omit<
     UseQueryOptions<GetSessionDetailResponse, Error, GetSessionDetailResponse, [string]>,
     "queryKey" | "queryFn"
-  >
+  >,
 ) => {
   const query = useQueryGetSessionDetail(options);
 

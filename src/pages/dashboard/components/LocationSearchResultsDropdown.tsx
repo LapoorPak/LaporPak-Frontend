@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { MapPin } from "lucide-react";
-import { type SearchResult } from "@/hooks/search/useSearchLocation";
+import type { SearchResult } from "@/types/search";
 import { cn } from "@/lib/utils";
 
 type LocationSearchResultsDropdownProps = {

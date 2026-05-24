@@ -1,7 +1,7 @@
-import type { ChangeEvent, PointerEvent as ReactPointerEvent } from "react";
+import type { PointerEvent as ReactPointerEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { AlertTriangle, Building2, Circle, ImagePlus, Search, Send, Star, ThumbsDown, ThumbsUp, Trash2, X } from "lucide-react";
+import { AlertTriangle, Building2, Circle, Search, Star, ThumbsDown, ThumbsUp, X } from "lucide-react";
 import type { ReportLocation } from "@/api/reports/reports-queries";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,8 +18,6 @@ interface CitizenMyReportsPanelProps {
   onClose: () => void;
   onFocusReport: (report: ReportLocation) => void;
   onPhotoClick: (images: string[], index: number) => void;
-  onSubmitClarification: (reportId: string, note: string, images: File[]) => Promise<void> | void;
-  clarificationSubmittingId?: string | null;
   onSubmitRating: (reportId: string, score: number, note: string) => Promise<void> | void;
   ratingSubmittingId?: string | null;
 }
@@ -34,16 +32,11 @@ export function CitizenMyReportsPanel({
   onClose,
   onFocusReport,
   onPhotoClick,
-  onSubmitClarification,
-  clarificationSubmittingId,
   onSubmitRating,
   ratingSubmittingId,
 }: CitizenMyReportsPanelProps) {
   const isEmpty = myReports.length === 0;
   const [mobileSheetHeight, setMobileSheetHeight] = useState(72);
-  const [clarificationDrafts, setClarificationDrafts] = useState<Record<string, string>>({});
-  const [clarificationFiles, setClarificationFiles] = useState<Record<string, File[]>>({});
-  const [clarificationPreviews, setClarificationPreviews] = useState<Record<string, string[]>>({});
   const [ratingDrafts, setRatingDrafts] = useState<Record<string, { score: number; note: string }>>({});
   const mobileResizeRef = useRef<{ startY: number; startHeight: number } | null>(null);
   const mobileResizeMovedRef = useRef(false);
@@ -88,49 +81,6 @@ export function CitizenMyReportsPanel({
     window.addEventListener("pointermove", handlePointerMove);
     window.addEventListener("pointerup", handlePointerUp);
     window.addEventListener("pointercancel", handlePointerUp);
-  };
-
-  const updateClarificationDraft = (reportId: string, value: string) => {
-    setClarificationDrafts((drafts) => ({ ...drafts, [reportId]: value }));
-  };
-
-  const handleClarificationFiles = (reportId: string, event: ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files ?? []);
-    if (files.length === 0) return;
-
-    setClarificationFiles((current) => {
-      const existing = current[reportId] ?? [];
-      return { ...current, [reportId]: [...existing, ...files].slice(0, 5) };
-    });
-    setClarificationPreviews((current) => {
-      const existing = current[reportId] ?? [];
-      return {
-        ...current,
-        [reportId]: [...existing, ...files.map((file) => URL.createObjectURL(file))].slice(0, 5),
-      };
-    });
-    event.target.value = "";
-  };
-
-  const removeClarificationFile = (reportId: string, index: number) => {
-    setClarificationFiles((current) => ({
-      ...current,
-      [reportId]: (current[reportId] ?? []).filter((_, fileIndex) => fileIndex !== index),
-    }));
-    setClarificationPreviews((current) => ({
-      ...current,
-      [reportId]: (current[reportId] ?? []).filter((_, fileIndex) => fileIndex !== index),
-    }));
-  };
-
-  const submitClarification = async (reportId: string) => {
-    const note = clarificationDrafts[reportId]?.trim() ?? "";
-    if (!note) return;
-
-    await onSubmitClarification(reportId, note, clarificationFiles[reportId] ?? []);
-    setClarificationDrafts((drafts) => ({ ...drafts, [reportId]: "" }));
-    setClarificationFiles((files) => ({ ...files, [reportId]: [] }));
-    setClarificationPreviews((previews) => ({ ...previews, [reportId]: [] }));
   };
 
   const setRatingScore = (report: ReportLocation, score: number) => {
@@ -279,10 +229,6 @@ export function CitizenMyReportsPanel({
                   const status = statusMap[report.status] || { label: report.status, color: "bg-gray-100 text-gray-700" };
                   const agencyNote = report.agencyNote?.trim();
                   const resolutionNote = report.resolutionNote?.trim();
-                  const clarificationDraft = clarificationDrafts[report.id] ?? "";
-                  const previews = clarificationPreviews[report.id] ?? [];
-                  const files = clarificationFiles[report.id] ?? [];
-                  const isClarificationSubmitting = clarificationSubmittingId === report.id;
                   const ratingDraft = ratingDrafts[report.id] ?? {
                     score: report.rating?.score ?? 0,
                     note: report.rating?.note ?? "",
@@ -355,65 +301,6 @@ export function CitizenMyReportsPanel({
                               </p>
                             </div>
                           )}
-                        </div>
-                      )}
-
-                      {report.status === "clarification_requested" && (
-                        <div
-                          className="mb-3 rounded-sm border border-violet-100 bg-violet-50/80 p-3"
-                          onClick={(event) => event.stopPropagation()}
-                        >
-                          <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-violet-700">
-                            Balas Klarifikasi
-                          </p>
-                          <Textarea
-                            value={clarificationDraft}
-                            onChange={(event) => updateClarificationDraft(report.id, event.target.value)}
-                            placeholder="Tambahkan informasi yang diminta dinas..."
-                            className="min-h-[84px] resize-none rounded-sm border-violet-100 bg-white text-xs leading-relaxed focus:border-violet-400 focus:ring-violet-400"
-                          />
-
-                          {previews.length > 0 && (
-                            <div className="mt-2 grid grid-cols-3 gap-2">
-                              {previews.map((url, index) => (
-                                <div key={`${url}-${index}`} className="relative h-16 overflow-hidden rounded-sm bg-white">
-                                  <img src={url} alt={`Bukti klarifikasi ${index + 1}`} className="h-full w-full object-cover" />
-                                  <button
-                                    type="button"
-                                    onClick={() => removeClarificationFile(report.id, index)}
-                                    className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-sm bg-black/65 text-white"
-                                    aria-label="Hapus foto klarifikasi"
-                                  >
-                                    <Trash2 size={12} />
-                                  </button>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-
-                          <div className="mt-2 flex items-center justify-between gap-2">
-                            <label className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-sm border border-dashed border-violet-200 bg-white px-3 text-[10px] font-black uppercase tracking-widest text-violet-700 transition-colors hover:border-violet-300">
-                              <ImagePlus size={14} />
-                              Foto {files.length}/5
-                              <input
-                                type="file"
-                                accept="image/*"
-                                multiple
-                                className="hidden"
-                                onChange={(event) => handleClarificationFiles(report.id, event)}
-                              />
-                            </label>
-                            <Button
-                              type="button"
-                              size="sm"
-                              disabled={!clarificationDraft.trim() || isClarificationSubmitting}
-                              onClick={() => void submitClarification(report.id)}
-                              className="h-9 rounded-sm bg-violet-700 px-3 text-[10px] font-black uppercase tracking-widest text-white hover:bg-violet-800"
-                            >
-                              <Send size={13} />
-                              {isClarificationSubmitting ? "Mengirim" : "Kirim"}
-                            </Button>
-                          </div>
                         </div>
                       )}
 

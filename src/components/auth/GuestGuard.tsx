@@ -1,5 +1,5 @@
 import { Navigate, Outlet } from "react-router";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/hooks/auth";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
 import { getDashboardPathForRole, type AuthPortal } from "@/lib/auth-portal";
 

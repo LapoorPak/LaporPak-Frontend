@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router";
 import { Building2, LogIn, LayoutDashboard, Menu, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useAuth } from "@/hooks";
+import { useAuth } from "@/hooks/auth";
 import { getDashboardPathForRole } from "@/lib/auth-portal";
 
 export function Navbar() {
