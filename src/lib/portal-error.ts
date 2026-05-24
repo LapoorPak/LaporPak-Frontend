@@ -1,4 +1,4 @@
-import type { AuthPortal } from "./auth-portal";
+import type { AuthPortal } from "@/lib/auth-portal";
 
 const PORTAL_ERROR_COOKIE = "lp_portal_error";
 const DEFAULT_PORTAL_ERROR_MESSAGE =

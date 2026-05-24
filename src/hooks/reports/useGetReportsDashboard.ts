@@ -2,7 +2,7 @@ import {
   useQueryGetReportsDashboard,
   type GetReportsDashboardRequest,
   type GetReportsDashboardResponse,
-} from "@/api/reports/reports-queries";
+} from "@/api/reports";
 import type { UseQueryOptions } from "@tanstack/react-query";
 
 export const useGetReportsDashboard = (

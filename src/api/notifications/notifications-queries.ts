@@ -1,7 +1,7 @@
 import { useMutation, useQuery, type UseMutationOptions, type UseQueryOptions } from "@tanstack/react-query";
 import { apiClient } from "@/config/api-client";
 import { Api } from "@/constants/api";
-import { QUERY_KEYS } from "../queryKeys";
+import { QUERY_KEYS } from "@/api/queryKeys";
 import type {
   GetNotificationsRequest,
   GetNotificationsResponse,

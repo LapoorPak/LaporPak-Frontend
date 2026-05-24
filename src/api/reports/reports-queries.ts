@@ -1,5 +1,5 @@
 import { keepPreviousData, useInfiniteQuery, useQuery, useMutation, type UseQueryOptions, type UseMutationOptions } from "@tanstack/react-query";
-import { QUERY_KEYS } from "../queryKeys";
+import { QUERY_KEYS } from "@/api/queryKeys";
 import { apiClient } from "@/config/api-client";
 import { Api } from "@/constants/api";
 import type {
