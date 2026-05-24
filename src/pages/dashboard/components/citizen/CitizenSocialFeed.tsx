@@ -390,6 +390,7 @@ function FeedReportCard({
 
 export function CitizenSocialFeed({
   reports,
+  totalCount,
   onPhotoClick,
   onVote,
   onOpenReportDetail,
@@ -407,6 +408,7 @@ export function CitizenSocialFeed({
       (b.upvotes ?? 0) - (a.upvotes ?? 0) ||
       new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   );
+  const displayedTotalCount = totalCount ?? sortedReports.length;
 
   useEffect(() => {
     if (!hasNextPage || isFetchingNextPage) return;
@@ -436,7 +438,7 @@ export function CitizenSocialFeed({
               Isu Terkini
             </h2>
             <p className="text-xs font-bold text-gray-400">
-              {sortedReports.length} laporan warga
+              {displayedTotalCount} laporan warga
             </p>
           </div>
           <div className="hidden rounded-full border border-gray-200 bg-white px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-gray-500 sm:block">

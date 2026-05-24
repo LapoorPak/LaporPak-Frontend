@@ -207,6 +207,11 @@ export default function CitizenDashboard() {
     feedReportIds.add(report.id);
     return true;
   });
+  const totalVisibleFeedReports =
+    reportStatusFilter.length === CITIZEN_REPORT_FILTER_STATUSES.length &&
+    feedReportsQuery.data?.pages[0]?.meta
+      ? feedReportsQuery.data.pages[0].meta.total
+      : visibleFeedReports.length;
   const selectedMapReport = selectedMapReportId
     ? visibleReports.find((report) => report.id === selectedMapReportId)
     : null;
@@ -969,6 +974,7 @@ export default function CitizenDashboard() {
         ) : viewMode === "feed" ? (
           <CitizenSocialFeed
             reports={visibleFeedReports}
+            totalCount={totalVisibleFeedReports}
             onPhotoClick={openLightbox}
             onVote={handleVoteReport}
             onOpenReportDetail={openReportDetail}

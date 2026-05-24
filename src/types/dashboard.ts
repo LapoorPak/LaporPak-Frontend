@@ -109,6 +109,7 @@ export type CitizenFeedReportCardProps = {
 
 export type CitizenSocialFeedProps = {
   reports: ReportLocation[];
+  totalCount?: number;
   onPhotoClick: (images: string[], index: number) => void;
   onVote: (report: ReportLocation, vote: ReportVoteValue) => void;
   onOpenReportDetail: (report: ReportLocation) => void;
