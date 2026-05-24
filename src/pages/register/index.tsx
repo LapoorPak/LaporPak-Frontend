@@ -141,7 +141,7 @@ export default function Register() {
   };
 
   const inputCls =
-    "w-full bg-white border border-gray-200 hover:border-gray-300 text-gray-900 placeholder:text-gray-400 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#db2744] focus:ring-1 focus:ring-[#db2744] transition-all";
+    "w-full bg-white border border-gray-200 hover:border-gray-300 text-gray-900 placeholder:text-gray-400 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10 transition-all";
 
   return (
     <motion.div

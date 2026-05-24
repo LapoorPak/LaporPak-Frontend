@@ -178,13 +178,13 @@ export default function AdminKategoriPage() {
               placeholder="Cari nama atau kode..."
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              className="w-full pl-9 pr-3 h-9 bg-white border border-gray-200 text-gray-900 text-sm rounded-sm placeholder:text-gray-400 focus:outline-none focus:border-primary transition-colors"
+              className="w-full pl-9 pr-3 h-9 bg-white border border-gray-200 text-gray-900 text-sm rounded-sm placeholder:text-gray-400 focus:outline-none focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10 transition-colors"
             />
           </div>
           <select
             value={filterDinas}
             onChange={(e) => { setFilterDinas(e.target.value); setPage(1); }}
-            className="h-9 bg-white border border-gray-200 text-gray-700 text-sm rounded-sm px-3 focus:outline-none focus:border-primary appearance-none"
+            className="h-9 bg-white border border-gray-200 text-gray-700 text-sm rounded-sm px-3 focus:outline-none focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10 appearance-none"
           >
             <option value="">Semua Dinas</option>
             {dinasData?.data?.map((d) => (
@@ -362,7 +362,7 @@ export default function AdminKategoriPage() {
                     <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">
                       Induk Dinas <span className="text-[#db2744]" aria-hidden="true">*</span>
                     </label>
-                    <select {...register("dinasId")} className="w-full bg-white border border-gray-200 text-gray-900 rounded-sm h-9 px-3 text-sm focus:outline-none focus:border-primary appearance-none">
+                    <select {...register("dinasId")} className="w-full bg-white border border-gray-200 text-gray-900 rounded-sm h-9 px-3 text-sm focus:outline-none focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10 appearance-none">
                       <option value="">— Pilih Dinas —</option>
                       {dinasData?.data?.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
                     </select>
@@ -374,21 +374,21 @@ export default function AdminKategoriPage() {
                       <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">
                         Kode <span className="text-[#db2744]" aria-hidden="true">*</span>
                       </label>
-                      <Input placeholder="INF" {...register("code")} className="bg-white border-gray-200 text-gray-900 rounded-sm focus:border-primary h-9 font-mono uppercase" />
+                      <Input placeholder="INF" {...register("code")} className="bg-white border-gray-200 text-gray-900 rounded-sm focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10 h-9 font-mono uppercase" />
                       {errors.code && <p className="text-red-500 text-xs">{errors.code.message}</p>}
                     </div>
                     <div className="space-y-1.5 col-span-2">
                       <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">
                         Nama Kategori <span className="text-[#db2744]" aria-hidden="true">*</span>
                       </label>
-                      <Input placeholder="Infrastruktur & Jalan" {...register("name")} className="bg-white border-gray-200 text-gray-900 rounded-sm focus:border-primary h-9" />
+                      <Input placeholder="Infrastruktur & Jalan" {...register("name")} className="bg-white border-gray-200 text-gray-900 rounded-sm focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10 h-9" />
                       {errors.name && <p className="text-red-500 text-xs">{errors.name.message}</p>}
                     </div>
                   </div>
 
                   <div className="space-y-1.5">
                     <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Deskripsi</label>
-                    <Textarea placeholder="Laporan terkait infrastruktur jalan, jembatan, drainase..." {...register("description")} className="bg-white border-gray-200 text-gray-900 rounded-sm focus:border-primary resize-none h-16" />
+                    <Textarea placeholder="Laporan terkait infrastruktur jalan, jembatan, drainase..." {...register("description")} className="bg-white border-gray-200 text-gray-900 rounded-sm focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10 resize-none h-16" />
                   </div>
 
                   {/* Keywords chip input */}
@@ -418,13 +418,13 @@ export default function AdminKategoriPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                       <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">SLA (Jam)</label>
-                      <Input type="number" placeholder="24" {...register("slaHours", { setValueAs: (v) => v === "" || v == null ? null : Number(v) })} className="bg-white border-gray-200 text-gray-900 rounded-sm focus:border-primary h-9" />
+                      <Input type="number" placeholder="24" {...register("slaHours", { setValueAs: (v) => v === "" || v == null ? null : Number(v) })} className="bg-white border-gray-200 text-gray-900 rounded-sm focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10 h-9" />
                     </div>
                     <div className="space-y-1.5">
                       <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">
                         Bobot Urgency (1-100) <span className="text-[#db2744]" aria-hidden="true">*</span>
                       </label>
-                      <Input type="number" min="1" max="100" {...register("urgencyWeight", { valueAsNumber: true })} className="bg-white border-gray-200 text-gray-900 rounded-sm focus:border-primary h-9" />
+                      <Input type="number" min="1" max="100" {...register("urgencyWeight", { valueAsNumber: true })} className="bg-white border-gray-200 text-gray-900 rounded-sm focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10 h-9" />
                     </div>
                   </div>
 

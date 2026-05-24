@@ -186,14 +186,14 @@ export default function AdminUsersPage() {
                 placeholder="Cari nama atau email..."
                 value={search}
                 onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                className="pl-9 h-9 bg-white border-gray-200 text-gray-900 text-sm placeholder:text-gray-400 rounded-sm focus-visible:ring-primary/40"
+                className="pl-9 h-9 bg-white border-gray-200 text-gray-900 text-sm placeholder:text-gray-400 rounded-sm focus-visible:border-[#db2744] focus-visible:ring-2 focus-visible:ring-[#db2744]/10"
               />
             </div>
             <div className="flex gap-2 flex-wrap">
               <select
                 value={filterRole}
                 onChange={(e) => { setFilterRole(e.target.value); setPage(1); }}
-                className="h-8 bg-white border border-gray-200 text-gray-700 text-xs rounded-sm px-2.5 outline-none focus:border-primary"
+                className="h-8 bg-white border border-gray-200 text-gray-700 text-xs rounded-sm px-2.5 outline-none focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10"
               >
                 <option value="">Semua Role</option>
                 <option value="admin">Admin</option>
@@ -603,7 +603,7 @@ export default function AdminUsersPage() {
                             value={cabangSearch}
                             onChange={(e) => setCabangSearch(e.target.value)}
                             placeholder="Cari cabang..."
-                            className="w-full h-9 pl-8 pr-3 bg-white border border-gray-200 rounded-sm text-xs text-gray-900 placeholder:text-gray-400 outline-none focus:border-primary"
+                            className="w-full h-9 pl-8 pr-3 bg-white border border-gray-200 rounded-sm text-xs text-gray-900 placeholder:text-gray-400 outline-none focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10"
                           />
                         </div>
                         <div className="max-h-48 overflow-y-auto space-y-1 rounded-sm border border-gray-200 bg-gray-50">
@@ -658,7 +658,7 @@ export default function AdminUsersPage() {
                           placeholder="Contoh: 198801012010011001"
                           value={wizardNip}
                           onChange={(e) => setWizardNip(e.target.value)}
-                          className="h-10 bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 rounded-sm focus-visible:ring-primary/40 font-mono"
+                          className="h-10 bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 rounded-sm focus-visible:border-[#db2744] focus-visible:ring-2 focus-visible:ring-[#db2744]/10 font-mono"
                         />
                         <p className="text-[10px] text-gray-400 mt-1.5">Biarkan kosong untuk melewati langkah ini</p>
                       </div>
@@ -775,7 +775,7 @@ export default function AdminUsersPage() {
                     placeholder="Kosongkan untuk reset ke default"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    className="h-10 bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 rounded-sm focus-visible:ring-primary/40"
+                    className="h-10 bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 rounded-sm focus-visible:border-[#db2744] focus-visible:ring-2 focus-visible:ring-[#db2744]/10"
                   />
                   <p className="text-[10px] text-gray-400 mt-1.5">Jika dikosongkan, password akan direset ke nilai default sistem</p>
                 </div>
@@ -847,7 +847,7 @@ export default function AdminUsersPage() {
                         placeholder="Tuliskan alasan pemblokiran..."
                         value={banReason}
                         onChange={(e) => setBanReason(e.target.value)}
-                        className="w-full bg-white border border-gray-200 text-gray-900 text-xs placeholder:text-gray-400 rounded-sm px-3 py-2.5 outline-none focus:border-primary resize-none"
+                        className="w-full bg-white border border-gray-200 text-gray-900 text-xs placeholder:text-gray-400 rounded-sm px-3 py-2.5 outline-none focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10 resize-none"
                       />
                     </div>
                   </>

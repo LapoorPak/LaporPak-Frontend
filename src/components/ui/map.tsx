@@ -1025,7 +1025,7 @@ function MapPopup({
         <button
           type="button"
           onClick={handleClose}
-          className="ring-offset-background focus:ring-ring absolute top-1 right-1 z-10 rounded-sm opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-none"
+          className="ring-offset-background focus:ring-[#db2744]/10 absolute top-1 right-1 z-10 rounded-sm opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-none"
           aria-label="Close popup"
         >
           <X className="h-4 w-4" />

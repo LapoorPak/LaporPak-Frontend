@@ -135,7 +135,7 @@ export default function AdminDinasPage() {
               placeholder="Cari dinas..."
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              className="w-full pl-9 pr-3 h-9 bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-sm placeholder:text-gray-400 focus:outline-none focus:border-primary transition-colors"
+              className="w-full pl-9 pr-3 h-9 bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-sm placeholder:text-gray-400 focus:outline-none focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10 transition-colors"
             />
           </div>
           <div className="flex items-center gap-1 bg-gray-100 rounded-sm p-1">
@@ -352,7 +352,7 @@ export default function AdminDinasPage() {
                       <Input
                         placeholder="cth: DPU"
                         {...register("code")}
-                        className="bg-white border-gray-200 text-gray-900 rounded-sm focus:border-primary h-9"
+                        className="bg-white border-gray-200 text-gray-900 rounded-sm focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10 h-9"
                       />
                       {errors.code && <p className="text-red-500 text-xs">{errors.code.message}</p>}
                     </div>
@@ -361,7 +361,7 @@ export default function AdminDinasPage() {
                       <Input
                         placeholder="cth: DPUPR"
                         {...register("short")}
-                        className="bg-white border-gray-200 text-gray-900 rounded-sm focus:border-primary h-9"
+                        className="bg-white border-gray-200 text-gray-900 rounded-sm focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10 h-9"
                       />
                     </div>
                   </div>
@@ -373,7 +373,7 @@ export default function AdminDinasPage() {
                     <Input
                       placeholder="Dinas Pekerjaan Umum dan Penataan Ruang"
                       {...register("name")}
-                      className="bg-white border-gray-200 text-gray-900 rounded-sm focus:border-primary h-9"
+                      className="bg-white border-gray-200 text-gray-900 rounded-sm focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10 h-9"
                     />
                     {errors.name && <p className="text-red-500 text-xs">{errors.name.message}</p>}
                   </div>
@@ -384,7 +384,7 @@ export default function AdminDinasPage() {
                       <Input
                         placeholder="cth: Daerah"
                         {...register("type")}
-                        className="bg-white border-gray-200 text-gray-900 rounded-sm focus:border-primary h-9"
+                        className="bg-white border-gray-200 text-gray-900 rounded-sm focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10 h-9"
                       />
                     </div>
                     <div className="space-y-1.5">
@@ -392,7 +392,7 @@ export default function AdminDinasPage() {
                       <Input
                         placeholder="cth: Provinsi"
                         {...register("wilayah")}
-                        className="bg-white border-gray-200 text-gray-900 rounded-sm focus:border-primary h-9"
+                        className="bg-white border-gray-200 text-gray-900 rounded-sm focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10 h-9"
                       />
                     </div>
                   </div>
@@ -402,7 +402,7 @@ export default function AdminDinasPage() {
                     <Textarea
                       placeholder="Uraian singkat tentang ruang lingkup dinas..."
                       {...register("description")}
-                      className="bg-white border-gray-200 text-gray-900 rounded-sm focus:border-primary resize-none h-20"
+                      className="bg-white border-gray-200 text-gray-900 rounded-sm focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10 resize-none h-20"
                     />
                   </div>
 
@@ -414,7 +414,7 @@ export default function AdminDinasPage() {
                       type="number"
                       placeholder="100"
                       {...register("routingPriority", { valueAsNumber: true })}
-                      className="bg-white border-gray-200 text-gray-900 rounded-sm focus:border-primary h-9"
+                      className="bg-white border-gray-200 text-gray-900 rounded-sm focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10 h-9"
                     />
                     <p className="text-[11px] text-gray-400">Nilai lebih kecil = prioritas lebih tinggi.</p>
                   </div>

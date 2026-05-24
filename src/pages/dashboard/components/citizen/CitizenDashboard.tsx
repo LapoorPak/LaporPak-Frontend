@@ -546,7 +546,7 @@ export default function CitizenDashboard() {
         )}
 
         <div className="flex h-10 items-center rounded-full border border-gray-100 bg-gray-50 px-1.5 shadow-inner">
-          <div className="flex min-w-0 flex-1 items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1">
+          <div className="flex min-w-0 flex-1 items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1 transition-all focus-within:border-[#db2744] focus-within:ring-2 focus-within:ring-[#db2744]/10">
             <Search
               size={14}
               strokeWidth={2.5}
@@ -1024,7 +1024,7 @@ export default function CitizenDashboard() {
             className="w-full max-w-[520px] md:max-w-[700px] pointer-events-auto"
           >
             <div className="bg-white rounded-full shadow-[0_8px_32px_-8px_rgba(0,0,0,0.18)] border border-gray-100 flex items-center px-2 py-1.5 gap-1">
-              <div className="flex items-center flex-1 gap-1 bg-gray-50 border border-gray-200 rounded-full px-3 py-1 min-w-0">
+              <div className="flex items-center flex-1 gap-1 bg-gray-50 border border-gray-200 rounded-full px-3 py-1 min-w-0 transition-all focus-within:border-[#db2744] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#db2744]/10">
                 <Search
                   size={15}
                   strokeWidth={2.5}

@@ -40,7 +40,7 @@ export default function HelpCenter() {
                     <input 
                       type="text" 
                       placeholder="Masukkan nama lengkap Anda" 
-                      className="w-full px-5 py-4 bg-white border border-gray-300 rounded-xl focus:outline-none focus:border-[#C01D33] focus:ring-1 focus:ring-[#C01D33] transition-all"
+                      className="w-full px-5 py-4 bg-white border border-gray-300 rounded-xl focus:outline-none focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10 transition-all"
                     />
                   </div>
                   <div className="space-y-2">
@@ -48,7 +48,7 @@ export default function HelpCenter() {
                     <input 
                       type="email" 
                       placeholder="Masukkan Email Anda" 
-                      className="w-full px-5 py-4 bg-white border border-gray-300 rounded-xl focus:outline-none focus:border-[#C01D33] focus:ring-1 focus:ring-[#C01D33] transition-all"
+                      className="w-full px-5 py-4 bg-white border border-gray-300 rounded-xl focus:outline-none focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10 transition-all"
                     />
                   </div>
                 </div>
@@ -58,7 +58,7 @@ export default function HelpCenter() {
                    <input 
                      type="text" 
                      placeholder="Masukkan subjek pesan" 
-                     className="w-full px-5 py-4 bg-white border border-gray-300 rounded-xl focus:outline-none focus:border-[#C01D33] focus:ring-1 focus:ring-[#C01D33] transition-all"
+                     className="w-full px-5 py-4 bg-white border border-gray-300 rounded-xl focus:outline-none focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10 transition-all"
                    />
                 </div>
 
@@ -67,7 +67,7 @@ export default function HelpCenter() {
                    <textarea 
                      rows={5}
                      placeholder="Tuliskan pesan atau keluhan Anda di sini..." 
-                     className="w-full px-5 py-4 bg-white border border-gray-300 rounded-xl focus:outline-none focus:border-[#C01D33] focus:ring-1 focus:ring-[#C01D33] transition-all resize-none"
+                     className="w-full px-5 py-4 bg-white border border-gray-300 rounded-xl focus:outline-none focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10 transition-all resize-none"
                    ></textarea>
                 </div>
 

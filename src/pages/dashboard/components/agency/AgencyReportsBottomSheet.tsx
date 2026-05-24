@@ -124,7 +124,7 @@ export function AgencyReportsBottomSheet({
                   placeholder="Cari ID, kategori, atau lokasi..."
                   value={searchQuery}
                   onChange={(event) => onSearchChange(event.target.value)}
-                  className="w-full rounded-sm border border-gray-200 bg-gray-50 py-2 pl-9 pr-4 text-xs font-semibold text-gray-700 placeholder:text-gray-400/80 transition-all focus:border-[#db2744] focus:bg-white focus:outline-none"
+                  className="w-full rounded-sm border border-gray-200 bg-gray-50 py-2 pl-9 pr-4 text-xs font-semibold text-gray-700 placeholder:text-gray-400/80 transition-all focus:border-[#db2744] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#db2744]/10"
                 />
               </div>
             </div>

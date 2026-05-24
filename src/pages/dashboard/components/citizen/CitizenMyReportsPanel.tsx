@@ -276,8 +276,8 @@ export function CitizenMyReportsPanel({
                   placeholder="Cari laporan saya..."
                   className={`w-full pl-10 h-10 rounded-sm text-sm transition-all ${
                     isEmpty
-                      ? "bg-gray-200 border-gray-200 text-gray-400 placeholder:text-gray-400 focus:bg-gray-200 focus:border-gray-300 focus:ring-gray-300"
-                      : "bg-gray-50 border-transparent focus:bg-white focus:border-[#db2744] focus:ring-[#db2744]"
+                      ? "bg-gray-200 border-gray-200 text-gray-400 placeholder:text-gray-400 focus:bg-white focus:border-[#db2744] focus:ring-[#db2744]/10"
+                      : "bg-gray-50 border-transparent focus:bg-white focus:border-[#db2744] focus:ring-[#db2744]/10"
                   }`}
                 />
               </div>
@@ -409,7 +409,7 @@ export function CitizenMyReportsPanel({
                               setClarificationNote(report, event.target.value)
                             }
                             placeholder="Tulis jawaban untuk dinas..."
-                            className="min-h-[92px] resize-none rounded-sm border-violet-100 bg-white text-xs leading-relaxed focus:border-violet-400 focus:ring-violet-400"
+                            className="min-h-[92px] resize-none rounded-sm border-gray-200 bg-white text-xs leading-relaxed focus:border-[#db2744] focus:ring-[#db2744]/10"
                           />
 
                           {clarificationDraft.previews.length > 0 && (
@@ -564,7 +564,7 @@ export function CitizenMyReportsPanel({
                             value={ratingDraft.note}
                             onChange={(event) => setRatingNote(report, event.target.value)}
                             placeholder="Catatan opsional untuk dinas..."
-                            className="min-h-[72px] resize-none rounded-sm border-emerald-100 bg-white text-xs leading-relaxed focus:border-emerald-400 focus:ring-emerald-400"
+                            className="min-h-[72px] resize-none rounded-sm border-gray-200 bg-white text-xs leading-relaxed focus:border-[#db2744] focus:ring-[#db2744]/10"
                           />
                           <Button
                             type="button"

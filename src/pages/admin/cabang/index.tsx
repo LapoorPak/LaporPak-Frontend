@@ -410,7 +410,7 @@ export default function AdminCabangPage() {
                   setSearch(e.target.value);
                   setPage(1);
                 }}
-                className="w-full pl-8 pr-3 h-8 bg-gray-50 border border-gray-200 text-gray-900 text-xs rounded-sm placeholder:text-gray-400 focus:outline-none focus:border-primary transition-colors"
+                className="w-full pl-8 pr-3 h-8 bg-gray-50 border border-gray-200 text-gray-900 text-xs rounded-sm placeholder:text-gray-400 focus:outline-none focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10 transition-colors"
               />
             </div>
             <select
@@ -419,7 +419,7 @@ export default function AdminCabangPage() {
                 setFilterDinas(e.target.value);
                 setPage(1);
               }}
-              className="h-8 bg-gray-50 border border-gray-200 text-gray-700 text-xs rounded-sm px-2 focus:outline-none focus:border-primary appearance-none"
+              className="h-8 bg-gray-50 border border-gray-200 text-gray-700 text-xs rounded-sm px-2 focus:outline-none focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10 appearance-none"
             >
               <option value="">Semua Dinas</option>
               {dinasData?.data?.map((d) => (
@@ -973,7 +973,7 @@ export default function AdminCabangPage() {
                     </label>
                     <select
                       {...register("dinasId")}
-                      className="w-full bg-white border border-gray-200 text-gray-900 rounded-sm h-9 px-3 text-sm focus:outline-none focus:border-primary appearance-none transition-colors"
+                      className="w-full bg-white border border-gray-200 text-gray-900 rounded-sm h-9 px-3 text-sm focus:outline-none focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10 appearance-none transition-colors"
                     >
                       <option value="">— Pilih Dinas —</option>
                       {dinasData?.data?.map((d) => (
@@ -997,7 +997,7 @@ export default function AdminCabangPage() {
                       <Input
                         placeholder="cth: UPTD Wilayah I"
                         {...register("name")}
-                        className="bg-white border-gray-200 text-gray-900 rounded-sm focus:border-primary h-9"
+                        className="bg-white border-gray-200 text-gray-900 rounded-sm focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10 h-9"
                       />
                       {errors.name && (
                         <p className="text-red-500 text-xs">
@@ -1012,7 +1012,7 @@ export default function AdminCabangPage() {
                       <Input
                         placeholder="cth: Jakarta Barat"
                         {...register("wilayah")}
-                        className="bg-white border-gray-200 text-gray-900 rounded-sm focus:border-primary h-9"
+                        className="bg-white border-gray-200 text-gray-900 rounded-sm focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10 h-9"
                       />
                       {errors.wilayah && (
                         <p className="text-red-500 text-xs">
@@ -1029,7 +1029,7 @@ export default function AdminCabangPage() {
                     <Textarea
                       placeholder="Jl. Raya No. 1..."
                       {...register("address")}
-                      className="bg-white border-gray-200 text-gray-900 rounded-sm focus:border-primary resize-none h-16"
+                      className="bg-white border-gray-200 text-gray-900 rounded-sm focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10 resize-none h-16"
                     />
                   </div>
 
@@ -1095,7 +1095,7 @@ export default function AdminCabangPage() {
                       <Input
                         placeholder="021-..."
                         {...register("phone")}
-                        className="bg-white border-gray-200 text-gray-900 rounded-sm focus:border-primary h-9"
+                        className="bg-white border-gray-200 text-gray-900 rounded-sm focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10 h-9"
                       />
                     </div>
                     <div className="space-y-1.5">
@@ -1105,7 +1105,7 @@ export default function AdminCabangPage() {
                       <Input
                         placeholder="Jakarta Barat"
                         {...register("cityRegency")}
-                        className="bg-white border-gray-200 text-gray-900 rounded-sm focus:border-primary h-9"
+                        className="bg-white border-gray-200 text-gray-900 rounded-sm focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10 h-9"
                       />
                     </div>
                     <div className="space-y-1.5">
@@ -1120,7 +1120,7 @@ export default function AdminCabangPage() {
                           setValueAs: (v) =>
                             v === "" || v == null ? null : Number(v),
                         })}
-                        className="bg-white border-gray-200 text-gray-900 rounded-sm focus:border-primary h-9"
+                        className="bg-white border-gray-200 text-gray-900 rounded-sm focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10 h-9"
                       />
                     </div>
                   </div>

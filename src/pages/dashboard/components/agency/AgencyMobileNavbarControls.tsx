@@ -46,7 +46,7 @@ export function AgencyMobileNavbarControls({
       )}
 
       <div className="flex h-10 items-center gap-1.5 rounded-full border border-gray-100 bg-gray-50 px-1.5 shadow-inner">
-        <div className="flex min-w-0 flex-1 items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1">
+        <div className="flex min-w-0 flex-1 items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1 transition-all focus-within:border-[#db2744] focus-within:ring-2 focus-within:ring-[#db2744]/10">
           <Search
             size={14}
             strokeWidth={2.5}

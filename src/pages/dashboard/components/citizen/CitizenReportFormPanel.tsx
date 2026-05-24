@@ -120,7 +120,7 @@ export function CitizenReportFormPanel({
                   value={title}
                   onChange={(event) => onTitleChange(event.target.value)}
                   placeholder="Contoh: Lampu lalu lintas mati"
-                  className="rounded-sm h-14 bg-white border border-gray-200 focus:bg-gray-50 focus:border-[#db2744] focus:ring-0 transition-all font-bold text-gray-900 text-sm shadow-none"
+                  className="rounded-sm h-14 bg-white border border-gray-200 focus:bg-white focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10 transition-all font-bold text-gray-900 text-sm shadow-none"
                 />
               </div>
 
@@ -133,7 +133,7 @@ export function CitizenReportFormPanel({
                   value={description}
                   onChange={(event) => onDescriptionChange(event.target.value)}
                   placeholder="Ceritakan urutan dan kondisi yang terjadi..."
-                  className="rounded-sm min-h-[120px] bg-white border border-gray-200 focus:bg-gray-50 focus:border-[#db2744] focus:ring-0 transition-all font-bold text-gray-900 text-sm resize-none p-5 shadow-none leading-relaxed"
+                  className="rounded-sm min-h-[120px] bg-white border border-gray-200 focus:bg-white focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10 transition-all font-bold text-gray-900 text-sm resize-none p-5 shadow-none leading-relaxed"
                 />
               </div>
 

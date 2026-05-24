@@ -204,7 +204,7 @@ export function ReportPopup({
             onClarificationDraftActiveChange?.(report.id, true);
           }}
           placeholder="Tulis jawaban untuk dinas..."
-          className="min-h-[78px] w-full resize-none rounded-sm border border-violet-100 bg-white px-3 py-2 text-[11px] leading-relaxed text-gray-800 outline-none transition-colors placeholder:text-gray-400 focus:border-violet-400"
+          className="min-h-[78px] w-full resize-none rounded-sm border border-gray-200 bg-white px-3 py-2 text-[11px] leading-relaxed text-gray-800 outline-none transition-colors placeholder:text-gray-400 focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10"
         />
 
         {clarificationPreviews.length > 0 && (

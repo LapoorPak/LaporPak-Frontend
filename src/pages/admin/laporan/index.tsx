@@ -394,7 +394,7 @@ export default function AdminLaporanPage() {
                   setSearch(e.target.value);
                   setPage(1);
                 }}
-                className="w-full pl-8 pr-3 h-8 bg-gray-50 border border-gray-200 text-gray-900 text-xs rounded-sm placeholder:text-gray-400 focus:outline-none focus:border-primary transition-colors"
+                className="w-full pl-8 pr-3 h-8 bg-gray-50 border border-gray-200 text-gray-900 text-xs rounded-sm placeholder:text-gray-400 focus:outline-none focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10 transition-colors"
               />
             </div>
             <select
@@ -403,7 +403,7 @@ export default function AdminLaporanPage() {
                 setFilterStatus(e.target.value);
                 setPage(1);
               }}
-              className="h-8 bg-gray-50 border border-gray-200 text-gray-700 text-xs rounded-sm px-2 focus:outline-none focus:border-primary appearance-none"
+              className="h-8 bg-gray-50 border border-gray-200 text-gray-700 text-xs rounded-sm px-2 focus:outline-none focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10 appearance-none"
             >
               <option value="">Semua Status</option>
               {STATUS_OPTIONS.map((s) => (
@@ -418,7 +418,7 @@ export default function AdminLaporanPage() {
                 setFilterDinas(e.target.value);
                 setPage(1);
               }}
-              className="h-8 bg-gray-50 border border-gray-200 text-gray-700 text-xs rounded-sm px-2 focus:outline-none focus:border-primary appearance-none"
+              className="h-8 bg-gray-50 border border-gray-200 text-gray-700 text-xs rounded-sm px-2 focus:outline-none focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10 appearance-none"
             >
               <option value="">Semua Dinas</option>
               {dinasData?.data?.map((d) => (
@@ -646,7 +646,7 @@ export default function AdminLaporanPage() {
                         <select
                           value={statusVal}
                           onChange={(e) => setStatusVal(e.target.value)}
-                          className="w-full h-8 bg-white border border-gray-200 text-gray-700 text-xs rounded-sm px-2 focus:outline-none focus:border-primary"
+                          className="w-full h-8 bg-white border border-gray-200 text-gray-700 text-xs rounded-sm px-2 focus:outline-none focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10"
                         >
                           {STATUS_OPTIONS.map((s) => (
                             <option key={s.value} value={s.value}>
@@ -659,7 +659,7 @@ export default function AdminLaporanPage() {
                           value={agencyNote}
                           onChange={(e) => setAgencyNote(e.target.value)}
                           rows={2}
-                          className="w-full bg-white border border-gray-200 text-gray-700 text-xs rounded-sm px-3 py-2 focus:outline-none focus:border-primary resize-none"
+                          className="w-full bg-white border border-gray-200 text-gray-700 text-xs rounded-sm px-3 py-2 focus:outline-none focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10 resize-none"
                         />
                         {statusVal === "resolved" && (
                           <textarea
@@ -667,7 +667,7 @@ export default function AdminLaporanPage() {
                             value={resolutionNote}
                             onChange={(e) => setResolutionNote(e.target.value)}
                             rows={2}
-                            className="w-full bg-white border border-gray-200 text-gray-700 text-xs rounded-sm px-3 py-2 focus:outline-none focus:border-primary resize-none"
+                            className="w-full bg-white border border-gray-200 text-gray-700 text-xs rounded-sm px-3 py-2 focus:outline-none focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10 resize-none"
                           />
                         )}
                         <div className="flex gap-2">
@@ -713,7 +713,7 @@ export default function AdminLaporanPage() {
                             setAssignDinasId(e.target.value);
                             setAssignCabangId("");
                           }}
-                          className="w-full h-8 bg-white border border-gray-200 text-gray-700 text-xs rounded-sm px-2 focus:outline-none focus:border-primary"
+                          className="w-full h-8 bg-white border border-gray-200 text-gray-700 text-xs rounded-sm px-2 focus:outline-none focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10"
                         >
                           <option value="">Pilih Dinas</option>
                           {dinasData?.data?.map((d) => (
@@ -726,7 +726,7 @@ export default function AdminLaporanPage() {
                           <select
                             value={assignCabangId}
                             onChange={(e) => setAssignCabangId(e.target.value)}
-                            className="w-full h-8 bg-white border border-gray-200 text-gray-700 text-xs rounded-sm px-2 focus:outline-none focus:border-primary"
+                            className="w-full h-8 bg-white border border-gray-200 text-gray-700 text-xs rounded-sm px-2 focus:outline-none focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10"
                           >
                             <option value="">Pilih Cabang</option>
                             {(cabangForAssign?.data ?? []).map((c) => (

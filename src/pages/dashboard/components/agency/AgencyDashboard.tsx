@@ -1098,7 +1098,7 @@ export default function AgencyDashboard() {
 
         <div className="bg-white rounded-full shadow-[0_8px_32px_-8px_rgba(0,0,0,0.18)] border border-gray-100 flex items-center px-2 py-1.5 gap-1 w-full max-w-xl md:max-w-2xl pointer-events-auto">
           {/* Search - always open */}
-          <div className="flex items-center flex-1 gap-1 bg-gray-50 border border-gray-200 rounded-full px-3 py-1 min-w-0">
+          <div className="flex items-center flex-1 gap-1 bg-gray-50 border border-gray-200 rounded-full px-3 py-1 min-w-0 transition-all focus-within:border-[#db2744] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#db2744]/10">
             <Search
               size={15}
               strokeWidth={2.5}

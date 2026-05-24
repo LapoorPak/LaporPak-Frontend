@@ -91,7 +91,7 @@ export function AgencyReportsSidebar({
                   placeholder="Cari ID, kategori, atau lokasi..."
                   value={searchQuery}
                   onChange={(event) => onSearchChange(event.target.value)}
-                  className="w-full rounded-sm border border-gray-200 bg-white py-2.5 pl-9 pr-4 text-xs font-semibold text-gray-700 placeholder:text-gray-400/80 transition-all focus:border-[#db2744] focus:outline-none"
+                  className="w-full rounded-sm border border-gray-200 bg-white py-2.5 pl-9 pr-4 text-xs font-semibold text-gray-700 placeholder:text-gray-400/80 transition-all focus:border-[#db2744] focus:outline-none focus:ring-2 focus:ring-[#db2744]/10"
                 />
               </div>
 
