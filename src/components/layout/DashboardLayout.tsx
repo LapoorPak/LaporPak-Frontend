@@ -12,9 +12,10 @@ import { clearOAuthAttemptPortal } from "@/lib/oauth-attempt";
 import { getApiErrorMessage } from "@/lib/get-api-error-message";
 import { buildReportFocusSearch } from "@/lib/report-focus-navigation";
 import { DashboardViewModeProvider, useDashboardViewMode, type DashboardViewMode } from "@/context/dashboard-view-mode";
-import { LogOut, User, Bell, X, CheckCircle2, Clock, AlertTriangle, ArrowUpRight, Info, MapPin, ListFilter, type LucideIcon } from "lucide-react";
+import { LogOut, User, Bell, X, CheckCircle2, Clock, AlertTriangle, ArrowUpRight, Info, type LucideIcon } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { DashboardViewModeToggle } from "@/pages/dashboard/components/shared";
 
 const iconMap: Record<NotificationType, LucideIcon> = {
   success: CheckCircle2,
@@ -22,11 +23,6 @@ const iconMap: Record<NotificationType, LucideIcon> = {
   danger: AlertTriangle,
   info: Info,
 };
-
-const citizenViewOptions: Array<{ key: DashboardViewMode; label: string; icon: LucideIcon }> = [
-  { key: "map", label: "Map", icon: MapPin },
-  { key: "feed", label: "Feed", icon: ListFilter },
-];
 
 const colorMap: Record<
   NotificationType,
@@ -245,7 +241,7 @@ function DashboardShell() {
       return;
     }
 
-    if (userPortal === "citizen") {
+    if (userPortal !== "admin") {
       setViewMode("map");
     }
 
@@ -317,30 +313,11 @@ function DashboardShell() {
                <img src="/logo_lightbg.png" alt="LaporPak" className="h-7 sm:h-9 w-auto max-w-[82px] sm:max-w-none object-contain" />
             </Link>
 
-            {userPortal === "citizen" && (
-              <div className="flex rounded-full border border-gray-100 bg-gray-50 p-0.5 sm:p-1 shadow-inner">
-                {citizenViewOptions.map((option) => {
-                  const Icon = option.icon;
-                  const isActive = viewMode === option.key;
-
-                  return (
-                    <button
-                      key={option.key}
-                      type="button"
-                      aria-pressed={isActive}
-                      onClick={() => handleChangeViewMode(option.key)}
-                      className={`flex h-8 min-w-[52px] sm:min-w-[74px] items-center justify-center gap-1 sm:gap-1.5 rounded-full px-2 sm:px-3 text-[10px] sm:text-[11px] font-black transition-colors ${
-                        isActive
-                          ? "bg-gray-900 text-white shadow-sm"
-                          : "text-gray-500 hover:bg-white hover:text-gray-900"
-                      }`}
-                    >
-                      <Icon size={14} strokeWidth={2.5} />
-                      <span>{option.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
+            {userPortal !== "admin" && (
+              <DashboardViewModeToggle
+                value={viewMode}
+                onChange={handleChangeViewMode}
+              />
             )}
           </div>
 
@@ -370,7 +347,7 @@ function DashboardShell() {
                      animate={{ opacity: 1, scale: 1, y: 0 }}
                      exit={{ opacity: 0, scale: 0.95, y: 6 }}
                      transition={{ duration: 0.15, ease: "easeOut" }}
-                     className="fixed top-[75px] left-4 right-4 sm:absolute sm:top-full sm:-right-2 sm:left-auto sm:mt-3 sm:w-[400px] w-auto bg-white rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] sm:shadow-2xl border border-gray-100 z-50 text-left sm:origin-top-right flex flex-col overflow-hidden max-h-[85vh] sm:max-h-[500px]"
+                     className="fixed top-[154px] left-4 right-4 max-h-[calc(100dvh-170px)] sm:absolute sm:top-full sm:-right-2 sm:left-auto sm:mt-3 sm:w-[400px] w-auto bg-white rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] sm:shadow-2xl border border-gray-100 z-50 text-left sm:origin-top-right flex flex-col overflow-hidden sm:max-h-[500px]"
                    >
                      <div className="px-5 pt-4 pb-3 bg-white border-b border-gray-100">
                        <div className="flex justify-between items-center mb-3">
@@ -628,7 +605,7 @@ function DashboardShell() {
         </div>
         </div>
 
-        {userPortal === "citizen" && mobileControls && (
+        {mobileControls && (
           <div className="w-full border-t border-gray-100 pt-2 sm:hidden">
             {mobileControls}
           </div>

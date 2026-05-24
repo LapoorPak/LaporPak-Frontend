@@ -1,44 +1,15 @@
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { MapPin, Search, TicketCheck, X, type LucideIcon } from "lucide-react";
-import type {
-  DashboardReportItem,
-  ReportsDashboardTab,
-  ReportsDashboardTabKey,
-} from "@/api/reports/reports-queries";
-import { getDashboardStatusToneStyle } from "../utils/reportStatus";
-import { AnimatedCount } from "./AnimatedCount";
-
-interface SummaryStat {
-  label: string;
-  value: number;
-  icon: LucideIcon;
-  color: string;
-  bg: string;
-  border: string;
-}
-
-interface AgencyReportsBottomSheetProps {
-  isOpen: boolean;
-  activeTab: ReportsDashboardTabKey;
-  reports: DashboardReportItem[];
-  searchQuery: string;
-  selectedMarkerId: string | null;
-  stats: SummaryStat[];
-  tabs: ReportsDashboardTab[];
-  totalCount: number;
-  isLoading: boolean;
-  onTabChange: (tab: ReportsDashboardTabKey) => void;
-  onSearchChange: (value: string) => void;
-  onClose: () => void;
-  onSelectReport: (reportId: string) => void;
-}
+import { MapPin, Search, TicketCheck, X } from "lucide-react";
+import { useMobileSheetResize } from "@/hooks/common";
+import { AnimatedCount } from "@/pages/dashboard/components/shared";
+import { getDashboardStatusToneStyle } from "@/pages/dashboard/utils";
+import type { AgencyReportsListPanelProps } from "@/types/dashboard";
 
 const BOTTOM_SHEET_LIST_SKELETONS = Array.from({ length: 4 });
 
 export function AgencyReportsBottomSheet({
   isOpen,
-  activeTab,
+  activeTabs,
   reports,
   searchQuery,
   selectedMarkerId,
@@ -50,50 +21,17 @@ export function AgencyReportsBottomSheet({
   onSearchChange,
   onClose,
   onSelectReport,
-}: AgencyReportsBottomSheetProps) {
-  const [mobileSheetHeight, setMobileSheetHeight] = useState(72);
-  const mobileResizeRef = useRef<{ startY: number; startHeight: number } | null>(null);
-  const mobileResizeMovedRef = useRef(false);
-
-  useEffect(() => {
-    if (isOpen) {
-      setMobileSheetHeight(72);
-    }
-  }, [isOpen]);
-
-  const startMobileResize = (event: ReactPointerEvent) => {
-    event.preventDefault();
-    event.stopPropagation();
-    mobileResizeMovedRef.current = false;
-    mobileResizeRef.current = {
-      startY: event.clientY,
-      startHeight: mobileSheetHeight,
-    };
-
-    const handlePointerMove = (moveEvent: PointerEvent) => {
-      const resizeState = mobileResizeRef.current;
-      if (!resizeState) return;
-
-      const deltaY = resizeState.startY - moveEvent.clientY;
-      if (Math.abs(deltaY) > 2) {
-        mobileResizeMovedRef.current = true;
-      }
-
-      const nextHeight = resizeState.startHeight + (deltaY / window.innerHeight) * 100;
-      setMobileSheetHeight(Math.min(94, Math.max(48, nextHeight)));
-    };
-
-    const handlePointerUp = () => {
-      mobileResizeRef.current = null;
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerup", handlePointerUp);
-      window.removeEventListener("pointercancel", handlePointerUp);
-    };
-
-    window.addEventListener("pointermove", handlePointerMove);
-    window.addEventListener("pointerup", handlePointerUp);
-    window.addEventListener("pointercancel", handlePointerUp);
-  };
+}: AgencyReportsListPanelProps) {
+  const {
+    height: mobileSheetHeight,
+    resizeMovedRef: mobileResizeMovedRef,
+    setHeight: setMobileSheetHeight,
+    startResize: startMobileResize,
+  } = useMobileSheetResize({
+    maxHeight: 82,
+    minHeight: 48,
+    resetWhen: isOpen,
+  });
 
   return (
     <AnimatePresence>
@@ -118,11 +56,11 @@ export function AgencyReportsBottomSheet({
               type="button"
               onClick={() => {
                 if (mobileResizeMovedRef.current) return;
-                setMobileSheetHeight((height) => (height > 82 ? 72 : 94));
+                setMobileSheetHeight((height) => (height > 78 ? 72 : 82));
               }}
               onPointerDown={startMobileResize}
               className="flex w-full touch-none items-center justify-center pt-3 pb-1.5 cursor-grab active:cursor-grabbing"
-              aria-label={mobileSheetHeight > 82 ? "Perkecil daftar tiket" : "Perbesar daftar tiket"}
+              aria-label={mobileSheetHeight > 78 ? "Perkecil daftar tiket" : "Perbesar daftar tiket"}
             >
               <span className="w-11 h-1.5 rounded-full bg-gray-200" />
             </button>
@@ -197,7 +135,7 @@ export function AgencyReportsBottomSheet({
                   key={tab.key}
                   onClick={() => onTabChange(tab.key)}
                   className={`px-3 py-1.5 rounded-sm text-[11px] font-black whitespace-nowrap transition-all ${
-                    activeTab === tab.key ? "bg-gray-900 text-white shadow-sm" : "bg-gray-100 text-gray-500"
+                    activeTabs.includes(tab.key) ? "bg-gray-900 text-white shadow-sm" : "bg-gray-100 text-gray-500"
                   }`}
                 >
                   {tab.label}

@@ -1,10 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-
-interface AnimatedCountProps {
-  value: number;
-  durationMs?: number;
-  className?: string;
-}
+import type { AnimatedCountProps } from "@/types/dashboard";
 
 export function AnimatedCount({
   value,
@@ -19,11 +14,15 @@ export function AnimatedCount({
     const endValue = value;
 
     if (startValue === endValue) {
-      setDisplayValue(endValue);
-      return;
+      const frameId = window.requestAnimationFrame(() => {
+        setDisplayValue(endValue);
+      });
+
+      return () => window.cancelAnimationFrame(frameId);
     }
 
     let frameId = 0;
+
     const startTime = performance.now();
     const delta = endValue - startValue;
 

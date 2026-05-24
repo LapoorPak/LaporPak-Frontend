@@ -1,31 +1,12 @@
-import type { ChangeEvent, PointerEvent as ReactPointerEvent } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Camera, Images, ImagePlus, Loader2, MapPin, Navigation, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Label, RequiredMark } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-
-interface CitizenReportFormPanelProps {
-  isOpen: boolean;
-  isDesktop: boolean;
-  title: string;
-  description: string;
-  photoPreviews: string[];
-  selectedLocation: [number, number];
-  userLocation: [number, number] | null;
-  isSubmitting: boolean;
-  onClose: () => void;
-  onTitleChange: (value: string) => void;
-  onDescriptionChange: (value: string) => void;
-  onPhotoUpload: (event: ChangeEvent<HTMLInputElement>) => void;
-  onRemovePhoto: (index: number) => void;
-  onPhotoClick: (images: string[], index: number) => void;
-  onEditLocation: () => void;
-  onUseGpsLocation: () => void;
-  onSubmit: () => void;
-}
+import { useMobileSheetResize } from "@/hooks/common";
+import type { CitizenReportFormPanelProps } from "@/types/dashboard";
 
 export function CitizenReportFormPanel({
   isOpen,
@@ -46,9 +27,17 @@ export function CitizenReportFormPanel({
   onUseGpsLocation,
   onSubmit,
 }: CitizenReportFormPanelProps) {
-  const [mobileSheetHeight, setMobileSheetHeight] = useState(72);
-  const mobileResizeRef = useRef<{ startY: number; startHeight: number } | null>(null);
-  const mobileResizeMovedRef = useRef(false);
+  const {
+    height: mobileSheetHeight,
+    resizeMovedRef: mobileResizeMovedRef,
+    setHeight: setMobileSheetHeight,
+    startResize: startMobileResize,
+  } = useMobileSheetResize({
+    enabled: !isDesktop,
+    maxHeight: 82,
+    minHeight: 48,
+    resetWhen: isOpen && !isDesktop,
+  });
   const canUseGpsLocation =
     !!userLocation &&
     (selectedLocation[0] !== userLocation[0] || selectedLocation[1] !== userLocation[1]);
@@ -56,48 +45,6 @@ export function CitizenReportFormPanel({
   // Refs untuk hidden inputs di mobile
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (isOpen && !isDesktop) {
-      setMobileSheetHeight(72);
-    }
-  }, [isDesktop, isOpen]);
-
-  const startMobileResize = (event: ReactPointerEvent) => {
-    if (isDesktop) return;
-
-    event.preventDefault();
-    event.stopPropagation();
-    mobileResizeMovedRef.current = false;
-    mobileResizeRef.current = {
-      startY: event.clientY,
-      startHeight: mobileSheetHeight,
-    };
-
-    const handlePointerMove = (moveEvent: PointerEvent) => {
-      const resizeState = mobileResizeRef.current;
-      if (!resizeState) return;
-
-      const deltaY = resizeState.startY - moveEvent.clientY;
-      if (Math.abs(deltaY) > 2) {
-        mobileResizeMovedRef.current = true;
-      }
-
-      const nextHeight = resizeState.startHeight + (deltaY / window.innerHeight) * 100;
-      setMobileSheetHeight(Math.min(92, Math.max(48, nextHeight)));
-    };
-
-    const handlePointerUp = () => {
-      mobileResizeRef.current = null;
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerup", handlePointerUp);
-      window.removeEventListener("pointercancel", handlePointerUp);
-    };
-
-    window.addEventListener("pointermove", handlePointerMove);
-    window.addEventListener("pointerup", handlePointerUp);
-    window.addEventListener("pointercancel", handlePointerUp);
-  };
 
   return (
     <AnimatePresence>
@@ -130,11 +77,11 @@ export function CitizenReportFormPanel({
                 type="button"
                 onClick={() => {
                   if (mobileResizeMovedRef.current) return;
-                  setMobileSheetHeight((height) => (height > 82 ? 72 : 92));
+                  setMobileSheetHeight((height) => (height > 78 ? 72 : 82));
                 }}
                 onPointerDown={startMobileResize}
                 className="flex w-full touch-none justify-center pt-3 pb-1 cursor-grab active:cursor-grabbing"
-                aria-label={mobileSheetHeight > 82 ? "Perkecil panel laporan" : "Perbesar panel laporan"}
+                aria-label={mobileSheetHeight > 78 ? "Perkecil panel laporan" : "Perbesar panel laporan"}
               >
                 <span className="h-1.5 w-12 rounded-full bg-gray-200" />
               </button>
@@ -166,7 +113,7 @@ export function CitizenReportFormPanel({
               {/* Judul */}
               <div className="space-y-2">
                 <Label htmlFor="title" className="text-xs font-black text-gray-300 tracking-widest leading-none">
-                  JUDUL LAPORAN
+                  JUDUL LAPORAN <RequiredMark />
                 </Label>
                 <Input
                   id="title"
@@ -179,7 +126,7 @@ export function CitizenReportFormPanel({
 
               <div className="space-y-2">
                 <Label htmlFor="description" className="text-xs font-black text-gray-300 tracking-widest leading-none">
-                  DETAIL KRONOLOGI
+                  DETAIL KRONOLOGI <RequiredMark />
                 </Label>
                 <Textarea
                   id="description"
@@ -193,7 +140,7 @@ export function CitizenReportFormPanel({
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <Label className="text-xs font-black text-gray-300 tracking-widest leading-none">
-                    BUKTI FOTO
+                    BUKTI FOTO <RequiredMark />
                   </Label>
                   {photoPreviews.length === 0 ? (
                     <span className="text-[10px] font-bold text-[#db2744] uppercase tracking-widest">
@@ -326,7 +273,9 @@ export function CitizenReportFormPanel({
 
               {/* Lokasi */}
               <div className="space-y-2">
-                <Label className="text-xs font-black text-gray-300 tracking-widest leading-none">LOKASI TERPILIH</Label>
+                <Label className="text-xs font-black text-gray-300 tracking-widest leading-none">
+                  LOKASI TERPILIH <RequiredMark />
+                </Label>
                 <div className="flex items-center justify-between p-1.5 border border-transparent">
                   <div className="flex items-center gap-3">
                     <div className="text-[#db2744]">

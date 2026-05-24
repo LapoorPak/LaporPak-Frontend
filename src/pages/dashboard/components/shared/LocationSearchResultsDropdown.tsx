@@ -1,17 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { MapPin } from "lucide-react";
-import type { SearchResult } from "@/types/search";
 import { cn } from "@/lib/utils";
-
-type LocationSearchResultsDropdownProps = {
-  isOpen: boolean;
-  query: string;
-  isLoading: boolean;
-  results: SearchResult[];
-  onSelectPlace: (place: SearchResult) => void;
-  className?: string;
-  emptyMessage?: string;
-};
+import type { LocationSearchResultsDropdownProps } from "@/types/dashboard";
 
 export function LocationSearchResultsDropdown({
   isOpen,

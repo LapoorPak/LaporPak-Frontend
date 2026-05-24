@@ -1,42 +1,13 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { MapPin, Search, X, type LucideIcon } from "lucide-react";
-import type {
-  DashboardReportItem,
-  ReportsDashboardTab,
-  ReportsDashboardTabKey,
-} from "@/api/reports/reports-queries";
-import { getDashboardStatusToneStyle } from "../utils/reportStatus";
-import { AnimatedCount } from "./AnimatedCount";
-
-interface SummaryStat {
-  label: string;
-  value: number;
-  icon: LucideIcon;
-  color: string;
-  bg: string;
-  border: string;
-}
-
-interface AgencyReportsSidebarProps {
-  isOpen: boolean;
-  activeTab: ReportsDashboardTabKey;
-  reports: DashboardReportItem[];
-  searchQuery: string;
-  selectedMarkerId: string | null;
-  stats: SummaryStat[];
-  tabs: ReportsDashboardTab[];
-  totalCount: number;
-  isLoading: boolean;
-  onTabChange: (tab: ReportsDashboardTabKey) => void;
-  onSearchChange: (value: string) => void;
-  onClose: () => void;
-  onSelectReport: (reportId: string) => void;
-}
+import { MapPin, Search, X } from "lucide-react";
+import { AnimatedCount } from "@/pages/dashboard/components/shared";
+import { getDashboardStatusToneStyle } from "@/pages/dashboard/utils";
+import type { AgencyReportsListPanelProps } from "@/types/dashboard";
 
 const SIDEBAR_LIST_SKELETONS = Array.from({ length: 4 });
 export function AgencyReportsSidebar({
   isOpen,
-  activeTab,
+  activeTabs,
   reports,
   searchQuery,
   selectedMarkerId,
@@ -48,7 +19,7 @@ export function AgencyReportsSidebar({
   onSearchChange,
   onClose,
   onSelectReport,
-}: AgencyReportsSidebarProps) {
+}: AgencyReportsListPanelProps) {
   return (
     <AnimatePresence>
       {isOpen && (
@@ -104,7 +75,7 @@ export function AgencyReportsSidebar({
                   key={tab.key}
                   onClick={() => onTabChange(tab.key)}
                   className={`px-3 py-1.5 rounded-sm text-[11px] font-black whitespace-nowrap transition-all ${
-                    activeTab === tab.key ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                    activeTabs.includes(tab.key) ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
                   }`}
                 >
                   {tab.label}

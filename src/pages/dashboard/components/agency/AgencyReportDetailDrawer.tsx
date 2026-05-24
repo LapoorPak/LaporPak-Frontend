@@ -1,13 +1,6 @@
-import {
-  useEffect,
-  useRef,
-  useState,
-  type PointerEvent as ReactPointerEvent,
-} from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertCircle,
-  Circle,
   Clock,
   ImagePlus,
   MapPin,
@@ -18,57 +11,15 @@ import {
   X,
   ZoomIn,
 } from "lucide-react";
-import type { ReportLocation } from "@/api/reports/reports-queries";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
+import { Label, RequiredMark } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { AGENCY_REPORT_STATUS_MAP } from "../utils/reportStatus";
+import { useMobileSheetResize } from "@/hooks/common";
+import { AGENCY_REPORT_STATUS_MAP } from "@/pages/dashboard/utils";
 import { resolvePhotoUrl } from "@/lib/resolve-photo-url";
 import { maskCitizenName } from "@/lib/utils";
-
-const STATUS_OPTIONS = [
-  {
-    value: "verified",
-    label: "Verifikasi",
-    activeClass: "border-blue-500 bg-blue-50 text-blue-600",
-  },
-  {
-    value: "in_progress",
-    label: "Proses",
-    activeClass: "border-orange-500 bg-orange-50 text-orange-600",
-  },
-  {
-    value: "clarification_requested",
-    label: "Butuh Klarifikasi",
-    activeClass: "border-violet-500 bg-violet-50 text-violet-600",
-  },
-  {
-    value: "resolved",
-    label: "Selesai",
-    activeClass: "border-emerald-500 bg-emerald-50 text-emerald-600",
-  },
-] as const;
-
-interface AgencyReportDetailDrawerProps {
-  isOpen: boolean;
-  isDesktop: boolean;
-  report: ReportLocation | null;
-  draftStatus: string | null;
-  agencyNote: string;
-  resolutionNote: string;
-  resolutionProofPreviews: string[];
-  canEdit: boolean;
-  isSaving: boolean;
-  isSaveDisabled: boolean;
-  onClose: () => void;
-  onDraftStatusChange: (status: string) => void;
-  onAgencyNoteChange: (value: string) => void;
-  onResolutionNoteChange: (value: string) => void;
-  onResolutionProofUpload: (files: FileList | null) => void;
-  onRemoveResolutionProof: (index: number) => void;
-  onSave: () => void;
-  onPhotoClick?: (images: string[], index: number) => void;
-}
+import type { AgencyReportDetailDrawerProps } from "@/types/dashboard";
+import { AGENCY_STATUS_OPTIONS } from "@/pages/dashboard/config";
 
 export function AgencyReportDetailDrawer({
   isOpen,
@@ -90,12 +41,18 @@ export function AgencyReportDetailDrawer({
   onSave,
   onPhotoClick,
 }: AgencyReportDetailDrawerProps) {
-  const [mobileSheetHeight, setMobileSheetHeight] = useState(78);
-  const mobileResizeRef = useRef<{
-    startY: number;
-    startHeight: number;
-  } | null>(null);
-  const mobileResizeMovedRef = useRef(false);
+  const {
+    height: mobileSheetHeight,
+    resizeMovedRef: mobileResizeMovedRef,
+    resetHeight: resetMobileSheetHeight,
+    setHeight: setMobileSheetHeight,
+    startResize: startMobileResize,
+  } = useMobileSheetResize({
+    enabled: !isDesktop,
+    initialHeight: 76,
+    maxHeight: 82,
+    minHeight: 50,
+  });
   const currentStatusMeta = report
     ? AGENCY_REPORT_STATUS_MAP[report.status] || {
         label: report.status,
@@ -111,48 +68,14 @@ export function AgencyReportDetailDrawer({
     ...resolutionProofPreviews,
   ];
   const uploadedProofCount = resolutionProofPreviews.length;
+  const timelineItems = report?.timeline ? [...report.timeline].reverse() : [];
 
-  useEffect(() => {
-    if (isOpen && !isDesktop) {
-      setMobileSheetHeight(78);
+  const closeDrawer = () => {
+    if (!isDesktop) {
+      resetMobileSheetHeight();
     }
-  }, [isDesktop, isOpen, report?.id]);
 
-  const startMobileResize = (event: ReactPointerEvent) => {
-    if (isDesktop) return;
-
-    event.preventDefault();
-    event.stopPropagation();
-    mobileResizeMovedRef.current = false;
-    mobileResizeRef.current = {
-      startY: event.clientY,
-      startHeight: mobileSheetHeight,
-    };
-
-    const handlePointerMove = (moveEvent: PointerEvent) => {
-      const resizeState = mobileResizeRef.current;
-      if (!resizeState) return;
-
-      const deltaY = resizeState.startY - moveEvent.clientY;
-      if (Math.abs(deltaY) > 2) {
-        mobileResizeMovedRef.current = true;
-      }
-
-      const nextHeight =
-        resizeState.startHeight + (deltaY / window.innerHeight) * 100;
-      setMobileSheetHeight(Math.min(94, Math.max(50, nextHeight)));
-    };
-
-    const handlePointerUp = () => {
-      mobileResizeRef.current = null;
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerup", handlePointerUp);
-      window.removeEventListener("pointercancel", handlePointerUp);
-    };
-
-    window.addEventListener("pointermove", handlePointerMove);
-    window.addEventListener("pointerup", handlePointerUp);
-    window.addEventListener("pointercancel", handlePointerUp);
+    onClose();
   };
 
   return (
@@ -187,12 +110,12 @@ export function AgencyReportDetailDrawer({
                 type="button"
                 onClick={() => {
                   if (mobileResizeMovedRef.current) return;
-                  setMobileSheetHeight((height) => (height > 84 ? 78 : 94));
+                  setMobileSheetHeight((height) => (height > 78 ? 76 : 82));
                 }}
                 onPointerDown={startMobileResize}
                 className="flex w-full touch-none items-center justify-center pt-3 pb-1 shrink-0 cursor-grab active:cursor-grabbing"
                 aria-label={
-                  mobileSheetHeight > 84
+                  mobileSheetHeight > 78
                     ? "Perkecil tinjauan tiket"
                     : "Perbesar tinjauan tiket"
                 }
@@ -215,7 +138,7 @@ export function AgencyReportDetailDrawer({
               </div>
               <button
                 onPointerDown={(event) => event.stopPropagation()}
-                onClick={onClose}
+                onClick={closeDrawer}
                 className="text-gray-400 hover:text-gray-900 transition-colors p-1.5 z-10"
               >
                 <X size={20} strokeWidth={2.5} />
@@ -349,10 +272,10 @@ export function AgencyReportDetailDrawer({
 
                   <div className="rounded-sm border border-gray-100 bg-white p-3.5 space-y-2.5">
                     <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                      Status Update
+                      Status Update <RequiredMark />
                     </Label>
                     <div className="grid grid-cols-2 gap-2">
-                      {STATUS_OPTIONS.map((statusOption) => (
+                      {AGENCY_STATUS_OPTIONS.map((statusOption) => (
                         <button
                           key={statusOption.value}
                           type="button"
@@ -374,7 +297,7 @@ export function AgencyReportDetailDrawer({
 
                   <div className="rounded-sm border border-gray-100 bg-white p-3.5 space-y-2">
                     <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                      Update Penanganan
+                      Update Penanganan <RequiredMark />
                     </Label>
                     <Textarea
                       value={agencyNote}
@@ -385,12 +308,15 @@ export function AgencyReportDetailDrawer({
                       placeholder="Contoh: Tim sudah survei lokasi, pekerjaan dijadwalkan besok pagi..."
                       className="rounded-sm min-h-[84px] bg-gray-50 border border-gray-200 focus:border-[#C01D33] focus:bg-white focus:ring-0 text-gray-900 text-sm resize-none p-3 shadow-none leading-relaxed"
                     />
+                    <p className="text-[10px] font-semibold text-gray-400">
+                      Catatan wajib diisi sebelum update dikirim.
+                    </p>
                   </div>
 
                   {shouldShowResolutionNote && (
                     <div className="rounded-sm border border-gray-100 bg-white p-3.5 space-y-2">
                       <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                        Catatan Hasil Akhir
+                        Catatan Hasil Akhir <RequiredMark />
                       </Label>
                       <Textarea
                         value={resolutionNote}
@@ -408,11 +334,10 @@ export function AgencyReportDetailDrawer({
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                          Foto Update
+                          Foto Update <RequiredMark />
                         </Label>
                         <p className="mt-1 text-xs font-semibold leading-relaxed text-gray-500">
-                          Bukti kondisi lapangan, progres, atau hasil
-                          penanganan.
+                          Bukti kondisi lapangan wajib untuk setiap update.
                         </p>
                       </div>
                       {uploadedProofCount > 0 && (
@@ -427,27 +352,48 @@ export function AgencyReportDetailDrawer({
                         {resolutionPhotos.map((url, index) => (
                           <div
                             key={`${url}-${index}`}
-                            className="relative h-16 overflow-hidden rounded-sm border border-gray-100 bg-gray-50"
+                            className="group relative h-16 overflow-hidden rounded-sm border border-gray-100 bg-gray-50"
                           >
-                            <img
-                              src={
-                                url.startsWith("blob:")
-                                  ? url
-                                  : resolvePhotoUrl(url)
+                            <button
+                              type="button"
+                              onClick={() =>
+                                onPhotoClick?.(
+                                  resolutionPhotos.map((photo) =>
+                                    photo.startsWith("blob:")
+                                      ? photo
+                                      : resolvePhotoUrl(photo),
+                                  ),
+                                  index,
+                                )
                               }
-                              alt={`Bukti update ${index + 1}`}
-                              className="h-full w-full object-cover"
-                            />
+                              className="block h-full w-full cursor-zoom-in"
+                              aria-label={`Preview bukti update ${index + 1}`}
+                            >
+                              <img
+                                src={
+                                  url.startsWith("blob:")
+                                    ? url
+                                    : resolvePhotoUrl(url)
+                                }
+                                alt={`Bukti update ${index + 1}`}
+                                className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
+                              />
+                              <span className="absolute inset-0 flex items-center justify-center bg-black/0 text-white opacity-0 transition-all duration-200 group-hover:bg-black/30 group-hover:opacity-100">
+                                <ZoomIn size={16} />
+                              </span>
+                            </button>
                             {url.startsWith("blob:") && (
                               <button
                                 type="button"
-                                onClick={() =>
+                                onClick={(event) => {
+                                  event.stopPropagation();
                                   onRemoveResolutionProof(
                                     index -
                                       (report.resolutionImages?.length ?? 0),
-                                  )
-                                }
+                                  );
+                                }}
                                 className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-sm bg-black/65 text-white"
+                                aria-label={`Hapus bukti update ${index + 1}`}
                               >
                                 <Trash2 size={12} />
                               </button>
@@ -477,63 +423,79 @@ export function AgencyReportDetailDrawer({
                     )}
                   </div>
 
-                  {report.timeline && report.timeline.length > 0 && (
+                  {timelineItems.length > 0 && (
                     <div className="rounded-sm border border-gray-100 bg-white p-3.5 space-y-3">
                       <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                        Riwayat Tiket
+                        Riwayat
                       </Label>
-                      <div>
-                        <div className="space-y-3">
-                          {report.timeline.map((item) => {
-                            const statusMeta = AGENCY_REPORT_STATUS_MAP[
-                              item.status
-                            ] || {
+                      <div className="relative">
+                        <div className="absolute left-1.5 top-2 bottom-2 w-px bg-gray-100" />
+                        <div className="space-y-3.5">
+                          {timelineItems.map((item, index) => {
+                            const statusMeta =
+                              AGENCY_REPORT_STATUS_MAP[item.status] || {
                               label: item.status,
                               color:
                                 "bg-gray-100 text-gray-700 border-gray-200",
                             };
+
                             return (
-                              <div key={item.id} className="flex gap-2.5">
-                                <Circle
-                                  size={10}
-                                  className="mt-1.5 shrink-0 fill-white text-gray-300"
+                              <div
+                                key={item.id}
+                                className="relative flex gap-3"
+                              >
+                                <div
+                                  className={`relative z-10 mt-0.5 h-3 w-3 shrink-0 rounded-full border-2 bg-white ${index === 0 ? "border-[#db2744]" : "border-gray-300"}`}
                                 />
                                 <div className="min-w-0 flex-1">
-                                  <div className="flex flex-wrap items-center gap-2">
+                                  <div className="flex flex-wrap items-center gap-1.5">
                                     <span
-                                      className={`rounded-sm border px-2 py-0.5 text-[8px] font-black uppercase tracking-wider ${statusMeta.color}`}
+                                      className={`rounded-full border px-2 py-0.5 text-[8px] font-black uppercase tracking-wider ${
+                                        statusMeta.color
+                                      }`}
                                     >
                                       {statusMeta.label}
                                     </span>
-                                    <span className="text-[10px] font-semibold text-gray-400">
-                                      {new Date(
-                                        item.createdAt,
-                                      ).toLocaleString()}
+                                    <span className="text-[9px] font-medium text-gray-400">
+                                      {new Date(item.createdAt).toLocaleDateString("id-ID")}
                                     </span>
                                   </div>
-                                  {item.note && (
-                                    <p className="mt-1.5 text-xs leading-relaxed text-gray-600">
+                                  {item.note ? (
+                                    <p className="mt-1 text-[11px] leading-relaxed text-gray-600">
                                       {item.note}
                                     </p>
-                                  )}
-                                  {item.images.length > 0 && (
-                                    <div className="mt-2 grid grid-cols-3 gap-2">
+                                  ) : null}
+                                  {item.images.length ? (
+                                    <div className="mt-2 flex gap-1.5">
                                       {item.images
                                         .slice(0, 3)
                                         .map((url, imageIndex) => (
-                                          <img
+                                          <button
                                             key={`${url}-${imageIndex}`}
-                                            src={
-                                              url.startsWith("blob:")
-                                                ? url
-                                                : resolvePhotoUrl(url)
+                                            type="button"
+                                            onClick={() =>
+                                              onPhotoClick?.(
+                                                item.images.map(resolvePhotoUrl),
+                                                imageIndex,
+                                              )
                                             }
-                                            alt={`Bukti timeline ${imageIndex + 1}`}
-                                            className="h-16 w-full rounded-sm object-cover"
-                                          />
+                                            className="group relative overflow-hidden rounded-md bg-gray-50"
+                                            aria-label={`Preview bukti timeline ${imageIndex + 1}`}
+                                          >
+                                            <img
+                                              src={
+                                                url.startsWith("blob:")
+                                                  ? url
+                                                  : resolvePhotoUrl(url)
+                                              }
+                                              alt={`Bukti timeline ${imageIndex + 1}`}
+                                              className="h-11 w-14 object-cover transition-transform duration-200 group-hover:scale-105"
+                                            />
+                                            <div className="absolute inset-0 rounded-md bg-black/0 transition-colors group-hover:bg-black/20" />
+                                          </button>
                                         ))}
                                     </div>
-                                  )}
+                                  ) : null}
                                 </div>
                               </div>
                             );

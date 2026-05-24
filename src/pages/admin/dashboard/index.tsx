@@ -10,34 +10,72 @@ import {
   ResponsiveContainer, PieChart, Pie, Cell,
 } from "recharts";
 import { motion } from "framer-motion";
+import { normalizeReportStatus, REPORT_STATUSES } from "@/constants/report";
 
-const STATUS_COLORS: Record<string, string> = {
-  selesai: "#22c55e",
-  resolved: "#22c55e",
-  proses: "#3b82f6",
-  in_progress: "#3b82f6",
-  menunggu: "#f59e0b",
-  pending: "#f59e0b",
-  ditolak: "#ef4444",
-  rejected: "#ef4444",
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  selesai: "Selesai",
-  resolved: "Selesai",
-  proses: "Diproses",
-  in_progress: "Diproses",
-  menunggu: "Menunggu",
-  pending: "Menunggu",
-  ditolak: "Ditolak",
-  rejected: "Ditolak",
-};
+const UNKNOWN_STATUS_COLOR = "#6b7280";
 
 const FALLBACK_STATUS = [
-  { name: "Selesai", value: 0, color: "#22c55e" },
-  { name: "Diproses", value: 0, color: "#3b82f6" },
-  { name: "Menunggu", value: 0, color: "#f59e0b" },
-  { name: "Ditolak", value: 0, color: "#ef4444" },
+  REPORT_STATUSES.pending,
+  REPORT_STATUSES.verified,
+  REPORT_STATUSES.in_progress,
+  REPORT_STATUSES.clarification_requested,
+  REPORT_STATUSES.resolved,
+  REPORT_STATUSES.rejected,
+].map((status) => ({
+  name: status.label,
+  value: 0,
+  color: status.chartColor,
+}));
+
+const STATUS_SUMMARY_ITEMS = [
+  {
+    label: "Menunggu Tindakan",
+    icon: AlertCircle,
+    color: "text-amber-500",
+    trackColor: "bg-amber-500",
+    bg: "bg-amber-50",
+    keys: ["menunggu", "pending"],
+  },
+  {
+    label: "Terverifikasi",
+    icon: CheckCircle,
+    color: "text-blue-500",
+    trackColor: "bg-blue-500",
+    bg: "bg-blue-50",
+    keys: ["verifikasi", "verified"],
+  },
+  {
+    label: "Sedang Diproses",
+    icon: Clock,
+    color: "text-sky-500",
+    trackColor: "bg-sky-500",
+    bg: "bg-sky-50",
+    keys: ["proses", "in_progress"],
+  },
+  {
+    label: "Butuh Klarifikasi",
+    icon: AlertCircle,
+    color: "text-violet-500",
+    trackColor: "bg-violet-500",
+    bg: "bg-violet-50",
+    keys: ["klarifikasi", "clarification_requested"],
+  },
+  {
+    label: "Laporan Selesai",
+    icon: CheckCircle,
+    color: "text-emerald-500",
+    trackColor: "bg-emerald-500",
+    bg: "bg-emerald-50",
+    keys: ["selesai", "resolved"],
+  },
+  {
+    label: "Laporan Ditolak",
+    icon: XCircle,
+    color: "text-red-500",
+    trackColor: "bg-red-500",
+    bg: "bg-red-50",
+    keys: ["ditolak", "rejected"],
+  },
 ];
 
 const containerVariants = {
@@ -120,11 +158,16 @@ export default function AdminDashboardPage() {
   const overview = data?.data;
 
   const reportStatusData = overview?.reports?.byStatus
-    ? Object.entries(overview.reports.byStatus).map(([key, value]) => ({
-        name: STATUS_LABELS[key] ?? key,
-        value,
-        color: STATUS_COLORS[key] ?? "#6b7280",
-      }))
+    ? Object.entries(overview.reports.byStatus).map(([key, value]) => {
+        const status = normalizeReportStatus(key);
+        const statusMeta = status ? REPORT_STATUSES[status] : null;
+
+        return {
+          name: statusMeta?.label ?? key,
+          value: value ?? 0,
+          color: statusMeta?.chartColor ?? UNKNOWN_STATUS_COLOR,
+        };
+      })
     : FALLBACK_STATUS;
 
   const dinasChartData = overview?.topDinas?.map((d) => ({
@@ -325,13 +368,8 @@ export default function AdminDashboardPage() {
         >
           <h3 className="text-sm font-bold text-gray-900 mb-4">Ringkasan Status</h3>
           <div className="space-y-3">
-            {[
-              { label: "Laporan Selesai", icon: CheckCircle, color: "text-emerald-500", trackColor: "bg-emerald-500", bg: "bg-emerald-50", key: ["selesai", "resolved"] },
-              { label: "Sedang Diproses", icon: Clock, color: "text-blue-500", trackColor: "bg-blue-500", bg: "bg-blue-50", key: ["proses", "in_progress"] },
-              { label: "Menunggu Tindakan", icon: AlertCircle, color: "text-amber-500", trackColor: "bg-amber-500", bg: "bg-amber-50", key: ["menunggu", "pending"] },
-              { label: "Laporan Ditolak", icon: XCircle, color: "text-red-500", trackColor: "bg-red-500", bg: "bg-red-50", key: ["ditolak", "rejected"] },
-            ].map(({ label, icon: Icon, color, trackColor, bg, key }) => {
-              const count = key.reduce((acc, k) => acc + (overview?.reports?.byStatus?.[k] ?? 0), 0);
+            {STATUS_SUMMARY_ITEMS.map(({ label, icon: Icon, color, trackColor, bg, keys }) => {
+              const count = keys.reduce((acc, key) => acc + (overview?.reports?.byStatus?.[key] ?? 0), 0);
               const total = overview?.reports?.total ?? 1;
               const pct = total > 0 ? Math.round((count / total) * 100) : 0;
               return (

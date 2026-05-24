@@ -2,18 +2,14 @@ import { useCallback, useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { motion } from "framer-motion";
 import { resolvePhotoUrl } from "@/lib/resolve-photo-url";
-
-export type PhotoLightboxState = { images: string[]; index: number } | null;
+import type { PhotoLightboxProps } from "@/types/dashboard";
+export type { PhotoLightboxState } from "@/types/dashboard";
 
 export function PhotoLightbox({
   images,
   index,
   onClose,
-}: {
-  images: string[];
-  index: number;
-  onClose: () => void;
-}) {
+}: PhotoLightboxProps) {
   const [current, setCurrent] = useState(index);
 
   const prev = useCallback(

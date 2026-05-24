@@ -1,3 +1,5 @@
+import type { ReportStatus } from "@/types/reports";
+
 export interface BaseResponse<T> {
   success: boolean;
   message: string;
@@ -31,7 +33,7 @@ export interface AdminOverview {
   petugas: number;
   reports: {
     total: number;
-    byStatus: Record<string, number>;
+    byStatus: Partial<Record<ReportStatus, number>> & Record<string, number | undefined>;
   };
   topDinas?: { name: string; short?: string; count: number }[];
 }
@@ -100,13 +102,7 @@ export interface AdminLaporan {
   id: string;
   title: string;
   description: string;
-  status:
-    | "pending"
-    | "verified"
-    | "in_progress"
-    | "clarification_requested"
-    | "resolved"
-    | "rejected";
+  status: ReportStatus;
   routingStatus: string;
   images: string[];
   latitude: number;

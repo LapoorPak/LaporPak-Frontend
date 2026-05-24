@@ -8,7 +8,6 @@ import {
   type MapRef,
 } from "@/components/ui/map";
 import {
-  FileText,
   CheckCircle2,
   Clock,
   AlertCircle,
@@ -20,149 +19,70 @@ import {
 import { AnimatePresence } from "framer-motion";
 import { useSearchParams } from "react-router";
 import type {
-  ReportsDashboardSummary,
-  ReportsDashboardTab,
   ReportsDashboardTabKey,
   DashboardReportItem,
   ReportLocation,
   ReportsScope,
-} from "@/api/reports/reports-queries";
+} from "@/api/reports";
 import {
+  useInfiniteQueryGetReportLocations,
   useMutationResolveReport,
   useMutationUpdateReportStatus,
-} from "@/api/reports/reports-queries";
+} from "@/api/reports";
 import { useGetReportLocations } from "@/hooks/reports/useGetReportLocations";
-import { useGetReportsDashboard } from "@/hooks/reports/useGetReportsDashboard";
 import { useDebouncedValue } from "@/hooks/common";
-import { useQuerySearchLocation } from "@/hooks/search/useSearchLocation";
-import type { SearchResult } from "@/types/search";
+import {
+  useQuerySearchLocation,
+  useSelectSearchPlace,
+} from "@/hooks/search";
 import { QUERY_KEYS } from "@/api/queryKeys";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { getApiErrorMessage } from "@/lib/get-api-error-message";
 import { createObjectUrls, revokeObjectUrls } from "@/lib/object-url";
 import { readReportFocusParams } from "@/lib/report-focus-navigation";
-import { AgencyReportDetailDrawer } from "./AgencyReportDetailDrawer";
-import { AgencyReportsBottomSheet } from "./AgencyReportsBottomSheet";
-import { AgencyReportsSidebar } from "./AgencyReportsSidebar";
-import { LocationSearchResultsDropdown } from "./LocationSearchResultsDropdown";
+import { useDashboardViewMode } from "@/context/dashboard-view-mode";
+import {
+  AgencyDashboardFilters,
+  AgencyFeedReportDetail,
+  AgencyMobileNavbarControls,
+  AgencyReportDetailDrawer,
+  AgencyReportsBottomSheet,
+  AgencyReportsSidebar,
+  AgencySocialFeed,
+} from "@/pages/dashboard/components/agency";
+import { LocationSearchResultsDropdown } from "@/pages/dashboard/components/shared";
 import {
   PhotoLightbox,
   type PhotoLightboxState,
-} from "./PhotoLightbox";
+} from "@/pages/dashboard/components/shared";
 import {
   AGENCY_REPORT_STATUS_MAP,
   getDashboardStatusToneStyle,
-} from "../utils/reportStatus";
-
-const DEFAULT_REPORTS_DASHBOARD_TABS: ReportsDashboardTab[] = [
-  { key: "semua", label: "Semua", total: 0 },
-  { key: "baru", label: "Baru", total: 0 },
-  { key: "diproses", label: "Diproses", total: 0 },
-  { key: "tuntas", label: "Tuntas", total: 0 },
-];
-
-const DEFAULT_REPORTS_DASHBOARD_SUMMARY: ReportsDashboardSummary = {
-  totalTarget: 0,
-  laporanBaru: 0,
-  diproses: 0,
-  klarifikasi: 0,
-  tuntas: 0,
-  byStatusRaw: {
-    pending: 0,
-    verified: 0,
-    in_progress: 0,
-    clarification_requested: 0,
-    resolved: 0,
-    rejected: 0,
-  },
-};
+} from "@/pages/dashboard/utils";
+import {
+  ALL_AGENCY_DASHBOARD_TAB_KEYS,
+  DEFAULT_REPORTS_DASHBOARD_SUMMARY,
+  DEFAULT_REPORTS_DASHBOARD_TABS,
+  REPORT_SCOPE_OPTIONS,
+  SUMMARY_CARD_META,
+  isOwnedAgencyDashboardReport,
+  isOwnedAgencyLocationReport,
+  matchesAgencyDashboardSearch,
+  matchesAgencyDashboardTabs,
+  matchesDashboardItemTabs,
+  toAgencyDashboardReport,
+} from "@/pages/dashboard/config";
 
 const EMPTY_LOCATION_REPORTS: ReportLocation[] = [];
-const EMPTY_DASHBOARD_REPORTS: DashboardReportItem[] = [];
-
-const SUMMARY_CARD_META = [
-  {
-    key: "totalTarget",
-    label: "Total Target",
-    icon: FileText,
-    color: "text-blue-600",
-    bg: "bg-blue-100",
-    border: "border-blue-200",
-  },
-  {
-    key: "laporanBaru",
-    label: "Laporan Baru",
-    icon: AlertCircle,
-    color: "text-[#C01D33]",
-    bg: "bg-red-100",
-    border: "border-red-200",
-  },
-  {
-    key: "diproses",
-    label: "Diproses",
-    icon: Clock,
-    color: "text-orange-600",
-    bg: "bg-orange-100",
-    border: "border-orange-200",
-  },
-  {
-    key: "klarifikasi",
-    label: "Butuh Klarifikasi",
-    icon: AlertCircle,
-    color: "text-violet-600",
-    bg: "bg-violet-100",
-    border: "border-violet-200",
-  },
-  {
-    key: "tuntas",
-    label: "Tuntas",
-    icon: CheckCircle2,
-    color: "text-emerald-600",
-    bg: "bg-emerald-100",
-    border: "border-emerald-200",
-  },
-] as const;
-
-const REPORT_SCOPE_OPTIONS: { value: ReportsScope; label: string; shortLabel: string }[] = [
-  { value: "mine", label: "Milik Saya", shortLabel: "Saya" },
-  { value: "all", label: "Semua Tiket", shortLabel: "Semua" },
-];
-
-const matchesAgencyDashboardTab = (
-  status: ReportLocation["status"],
-  tab: ReportsDashboardTabKey,
-) => {
-  if (status === "rejected") return false;
-  if (tab === "baru") return status === "pending" || status === "verified";
-  if (tab === "diproses") return status === "in_progress";
-  if (tab === "klarifikasi") return status === "clarification_requested";
-  if (tab === "tuntas") return status === "resolved";
-  return true;
-};
-
-const matchesAgencyDashboardSearch = (
-  report: ReportLocation,
-  query: string,
-) => {
-  if (!query) return true;
-
-  const normalizedQuery = query.toLowerCase();
-  const agencyName = report.cabangDinas?.name || report.dinas?.name || "Pusat";
-  const categoryName = report.kategori?.name || "";
-
-  return (
-    report.id.toLowerCase().includes(normalizedQuery) ||
-    report.title.toLowerCase().includes(normalizedQuery) ||
-    agencyName.toLowerCase().includes(normalizedQuery) ||
-    categoryName.toLowerCase().includes(normalizedQuery)
-  );
-};
 
 export default function AgencyDashboard() {
-  const [activeTab, setActiveTab] = useState<ReportsDashboardTabKey>("semua");
+  const [activeTabs, setActiveTabs] = useState<ReportsDashboardTabKey[]>(
+    ALL_AGENCY_DASHBOARD_TAB_KEYS,
+  );
   const [scope, setScope] = useState<ReportsScope>("mine");
   const [selectedMarkerId, setSelectedMarkerId] = useState<string | null>(null);
+  const [feedDetailReportId, setFeedDetailReportId] = useState<string | null>(null);
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 768);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [draftStatus, setDraftStatus] = useState<string | null>(null);
@@ -182,17 +102,31 @@ export default function AgencyDashboard() {
     coords: [number, number];
   } | null>(null);
   const searchRef = useRef<HTMLDivElement>(null);
+  const mobileSearchRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapRef | null>(null);
   const handledReportFocusRef = useRef<string | null>(null);
   const [searchParams] = useSearchParams();
   const { reportId: focusedReportId, focusTrigger } =
     readReportFocusParams(searchParams);
   const queryClient = useQueryClient();
+  const { viewMode, setViewMode, setMobileControls } = useDashboardViewMode();
   const [lightbox, setLightbox] = useState<PhotoLightboxState>(null);
   const openLightbox = useCallback((images: string[], index: number) => setLightbox({ images, index }), []);
   const closeLightbox = useCallback(() => setLightbox(null), []);
   const debouncedReportSearchQuery = useDebouncedValue(reportSearchQuery, 400).trim();
   const debouncedLocationSearchQuery = useDebouncedValue(locationSearchQuery, 400);
+  const isFeedMode = viewMode === "feed";
+  const isReportsDashboardOpen = isSidebarOpen && !isFeedMode;
+  const reportLocationParams = useMemo(() => ({ scope }), [scope]);
+  const agencyFeedParams = useMemo(
+    () => ({
+      scope,
+      limit: 5,
+      search: debouncedReportSearchQuery || undefined,
+      sort: "newest" as const,
+    }),
+    [debouncedReportSearchQuery, scope],
+  );
 
   useEffect(() => {
     resolutionProofPreviewsRef.current = resolutionProofPreviews;
@@ -202,44 +136,148 @@ export default function AgencyDashboard() {
     return () => revokeObjectUrls(resolutionProofPreviewsRef.current);
   }, []);
 
-  const { data: reportLocationsData, isFetched: isReportLocationsFetched } =
-    useGetReportLocations({ scope });
   const {
-    data: reportsDashboardData,
-    isLoading: isReportsDashboardLoading,
-  } = useGetReportsDashboard({
-    scope,
-    tab: activeTab,
-    search: debouncedReportSearchQuery || undefined,
-    limit: 100,
-  });
+    data: reportLocationsData,
+    isFetched: isReportLocationsFetched,
+    isLoading: isReportLocationsLoading,
+  } =
+    useGetReportLocations(reportLocationParams, {
+      placeholderData: undefined,
+      refetchOnMount: "always",
+    });
+  const agencyFeedReportsQuery = useInfiniteQueryGetReportLocations(
+    agencyFeedParams,
+    { enabled: isFeedMode },
+  );
   const { data: locationSearchResults = [], isFetching: isSearchingLocations } =
-    useQuerySearchLocation(debouncedLocationSearchQuery);
+    useQuerySearchLocation(debouncedLocationSearchQuery, {
+      enabled: viewMode === "map",
+    });
 
   const locationReports = reportLocationsData?.data ?? EMPTY_LOCATION_REPORTS;
-  const dashboardReports = reportsDashboardData?.data ?? EMPTY_DASHBOARD_REPORTS;
-  const dashboardTabs =
-    reportsDashboardData?.stats.tabs || DEFAULT_REPORTS_DASHBOARD_TABS;
-  const dashboardSummary =
-    reportsDashboardData?.stats.summary || DEFAULT_REPORTS_DASHBOARD_SUMMARY;
-  const totalDashboardReports =
-    reportsDashboardData?.meta.total ?? dashboardReports.length;
+  const feedLocationReports = useMemo(() => {
+    const seenIds = new Set<string>();
+    const reports =
+      agencyFeedReportsQuery.data?.pages.flatMap((page) => page.data) ?? [];
+
+    return reports.filter((report) => {
+      if (seenIds.has(report.id)) {
+        return false;
+      }
+
+      seenIds.add(report.id);
+      return true;
+    });
+  }, [agencyFeedReportsQuery.data]);
+  const allKnownLocationReports = useMemo(() => {
+    const knownReports = new globalThis.Map<string, ReportLocation>();
+
+    locationReports.forEach((report) => knownReports.set(report.id, report));
+    feedLocationReports.forEach((report) => knownReports.set(report.id, report));
+
+    return Array.from(knownReports.values());
+  }, [feedLocationReports, locationReports]);
+  const dashboardReports = useMemo(
+    () =>
+      locationReports
+        .filter((report) =>
+          matchesAgencyDashboardSearch(report, debouncedReportSearchQuery),
+        )
+        .map(toAgencyDashboardReport)
+        .filter((report): report is DashboardReportItem => Boolean(report)),
+    [debouncedReportSearchQuery, locationReports],
+  );
+  const dashboardTabs = DEFAULT_REPORTS_DASHBOARD_TABS;
   const isDashboardListLoading =
-    isReportsDashboardLoading && dashboardReports.length === 0;
-  const summaryStats = SUMMARY_CARD_META.map((item) => ({
-    ...item,
-    value: dashboardSummary[item.key] ?? 0,
-  }));
+    isReportLocationsLoading && dashboardReports.length === 0;
+  const scopedDashboardReports = useMemo(
+    () =>
+      dashboardReports.filter(
+        (report) => scope === "all" || isOwnedAgencyDashboardReport(report),
+      ),
+    [dashboardReports, scope],
+  );
+  const scopedDashboardSummary = useMemo(
+    () => ({
+      totalTarget: scopedDashboardReports.length,
+      laporanBaru: scopedDashboardReports.filter(
+        (report) => report.dashboardGroup === "baru",
+      ).length,
+      diproses: scopedDashboardReports.filter(
+        (report) => report.dashboardGroup === "diproses",
+      ).length,
+      klarifikasi: scopedDashboardReports.filter(
+        (report) => report.dashboardGroup === "klarifikasi",
+      ).length,
+      tuntas: scopedDashboardReports.filter(
+        (report) => report.dashboardGroup === "tuntas",
+      ).length,
+      byStatusRaw: DEFAULT_REPORTS_DASHBOARD_SUMMARY.byStatusRaw,
+    }),
+    [scopedDashboardReports],
+  );
+  const scopedDashboardTabs = useMemo(
+    () =>
+      dashboardTabs.map((tab) => ({
+        ...tab,
+        total:
+          tab.key === "semua"
+            ? scopedDashboardReports.length
+            : scopedDashboardReports.filter(
+                (report) => report.dashboardGroup === tab.key,
+              ).length,
+      })),
+    [dashboardTabs, scopedDashboardReports],
+  );
+  const summaryStats = useMemo(
+    () =>
+      SUMMARY_CARD_META.map((item) => ({
+        ...item,
+        value: scopedDashboardSummary[item.key] ?? 0,
+      })),
+    [scopedDashboardSummary],
+  );
   const visibleMapReports = locationReports.filter((report) => {
     return (
-      matchesAgencyDashboardTab(report.status, activeTab) &&
+      (scope === "all" || isOwnedAgencyLocationReport(report)) &&
+      matchesAgencyDashboardTabs(report.status, activeTabs) &&
       matchesAgencyDashboardSearch(report, debouncedReportSearchQuery)
     );
   });
-  const selectedReport = locationReports.find(
+  const visibleDashboardReports = scopedDashboardReports.filter((report) =>
+    matchesDashboardItemTabs(report, activeTabs),
+  );
+  const totalVisibleDashboardReports = visibleDashboardReports.length;
+  const isAllFeedStatusSelected = ALL_AGENCY_DASHBOARD_TAB_KEYS.filter(
+    (tab) => tab !== "semua",
+  ).every((tab) => activeTabs.includes(tab));
+  const feedDashboardReports = useMemo(
+    () =>
+      feedLocationReports
+        .filter((report) =>
+          matchesAgencyDashboardSearch(report, debouncedReportSearchQuery),
+        )
+        .map(toAgencyDashboardReport)
+        .filter((report): report is DashboardReportItem => Boolean(report))
+        .filter(
+          (report) => scope === "all" || isOwnedAgencyDashboardReport(report),
+        )
+        .filter((report) => matchesDashboardItemTabs(report, activeTabs)),
+    [activeTabs, debouncedReportSearchQuery, feedLocationReports, scope],
+  );
+  const totalVisibleFeedReports =
+    isAllFeedStatusSelected && agencyFeedReportsQuery.data?.pages[0]?.meta
+      ? agencyFeedReportsQuery.data.pages[0].meta.total
+      : feedDashboardReports.length;
+  const isFeedListLoading =
+    agencyFeedReportsQuery.isLoading && feedDashboardReports.length === 0;
+  const selectedReport = allKnownLocationReports.find(
     (report) => report.id === selectedMarkerId,
   );
-  const canEditSelectedReport = selectedReport?.canEdit ?? scope === "mine";
+  const feedDetailReport = allKnownLocationReports.find(
+    (report) => report.id === feedDetailReportId,
+  );
+  const canEditSelectedReport = selectedReport?.canEdit === true;
   const hasDraftChanges = selectedReport
     ? (
         draftStatus !== selectedReport.status ||
@@ -253,7 +291,9 @@ export default function AgencyDashboard() {
     !draftStatus ||
     !canEditSelectedReport ||
     !hasDraftChanges ||
-    (draftStatus === "resolved" && resolutionProofFiles.length === 0 && !(selectedReport.resolutionImages?.length));
+    agencyNote.trim().length === 0 ||
+    resolutionProofFiles.length === 0 ||
+    (draftStatus === "resolved" && resolutionNote.trim().length === 0);
   const handleAgencyMutationSuccess = async (status: ReportLocation["status"]) => {
     await Promise.allSettled([
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.REPORTS_LOCATIONS] }),
@@ -269,7 +309,9 @@ export default function AgencyDashboard() {
     revokeObjectUrls(resolutionProofPreviews);
     setResolutionProofFiles([]);
     setResolutionProofPreviews([]);
-    setSelectedMarkerId(null);
+    if (!feedDetailReportId) {
+      setSelectedMarkerId(null);
+    }
   };
 
   const handleAgencyMutationError = (error: unknown) => {
@@ -305,11 +347,11 @@ export default function AgencyDashboard() {
         ? {
             top: 32,
             bottom: 40,
-            left: isSidebarOpen ? 420 : 32,
+            left: isReportsDashboardOpen ? 420 : 32,
             right: hasSelectedReport ? 460 : 32,
           }
         : { top: 112, bottom: 104, left: 20, right: 20 },
-    [hasSelectedReport, isDesktop, isSidebarOpen],
+    [hasSelectedReport, isDesktop, isReportsDashboardOpen],
   );
 
   useEffect(() => {
@@ -320,9 +362,13 @@ export default function AgencyDashboard() {
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      const isInsideDesktopSearch = searchRef.current?.contains(target);
+      const isInsideMobileSearch = mobileSearchRef.current?.contains(target);
+
       if (
-        searchRef.current &&
-        !searchRef.current.contains(event.target as Node)
+        !isInsideDesktopSearch &&
+        !isInsideMobileSearch
       ) {
         setShowLocationSearch(false);
       }
@@ -349,9 +395,23 @@ export default function AgencyDashboard() {
 
   useEffect(() => {
     if (selectedMarkerId && !selectedReport) {
-      setSelectedMarkerId(null);
+      const frame = window.requestAnimationFrame(() => {
+        setSelectedMarkerId(null);
+      });
+
+      return () => window.cancelAnimationFrame(frame);
     }
   }, [selectedMarkerId, selectedReport]);
+
+  useEffect(() => {
+    if (feedDetailReportId && !feedDetailReport) {
+      const frame = window.requestAnimationFrame(() => {
+        setFeedDetailReportId(null);
+      });
+
+      return () => window.cancelAnimationFrame(frame);
+    }
+  }, [feedDetailReportId, feedDetailReport]);
 
   const focusMapOnCoordinates = useCallback((coords: [number, number], zoom = 15) => {
     if (mapRef.current) {
@@ -405,9 +465,13 @@ export default function AgencyDashboard() {
   };
 
   const handleSelectReport = useCallback((reportId: string) => {
+    setFeedDetailReportId(null);
+    setViewMode("map");
     setSelectedMarkerId(reportId);
 
-    const locationReport = locationReports.find((item) => item.id === reportId);
+    const locationReport = allKnownLocationReports.find(
+      (item) => item.id === reportId,
+    );
     const dashboardReport = dashboardReports.find(
       (item) => item.id === reportId,
     );
@@ -434,9 +498,104 @@ export default function AgencyDashboard() {
   }, [
     dashboardReports,
     focusMapOnCoordinates,
-    locationReports,
+    allKnownLocationReports,
+    resolutionProofPreviews,
+    setViewMode,
+  ]);
+
+  const prepareReportDraft = useCallback((reportId: string) => {
+    setSelectedMarkerId(reportId);
+
+    const locationReport = allKnownLocationReports.find(
+      (item) => item.id === reportId,
+    );
+    const dashboardReport = dashboardReports.find(
+      (item) => item.id === reportId,
+    );
+
+    if (locationReport) {
+      setDraftStatus(locationReport.status);
+      setAgencyNote(locationReport.agencyNote ?? "");
+      setResolutionNote(locationReport.resolutionNote ?? "");
+      revokeObjectUrls(resolutionProofPreviews);
+      setResolutionProofFiles([]);
+      setResolutionProofPreviews([]);
+      return;
+    }
+
+    if (dashboardReport) {
+      setDraftStatus(dashboardReport.status);
+      setAgencyNote("");
+      setResolutionNote("");
+      revokeObjectUrls(resolutionProofPreviews);
+      setResolutionProofFiles([]);
+      setResolutionProofPreviews([]);
+    }
+  }, [
+    dashboardReports,
+    allKnownLocationReports,
     resolutionProofPreviews,
   ]);
+
+  const handleOpenReportDetail = useCallback((reportId: string) => {
+    setViewMode("feed");
+    setFeedDetailReportId(reportId);
+    prepareReportDraft(reportId);
+  }, [prepareReportDraft, setViewMode]);
+
+  const handleScopeChange = useCallback((nextScope: ReportsScope) => {
+    if (scope === nextScope) {
+      return;
+    }
+
+    setSelectedMarkerId(null);
+    setFeedDetailReportId(null);
+    queryClient.removeQueries({ queryKey: [QUERY_KEYS.REPORTS_LOCATIONS] });
+    queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.REPORTS_LOCATIONS] });
+    setScope(nextScope);
+  }, [queryClient, scope]);
+
+  useEffect(() => {
+    if (viewMode !== "feed" || feedDetailReportId || !selectedMarkerId) {
+      return;
+    }
+
+    const selectedReportStillVisible = allKnownLocationReports.some(
+      (report) => report.id === selectedMarkerId,
+    );
+
+    if (!selectedReportStillVisible) return;
+
+    const frame = requestAnimationFrame(() => {
+      setFeedDetailReportId(selectedMarkerId);
+      prepareReportDraft(selectedMarkerId);
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [
+    feedDetailReportId,
+    allKnownLocationReports,
+    prepareReportDraft,
+    selectedMarkerId,
+    viewMode,
+  ]);
+
+  useEffect(() => {
+    if (viewMode !== "map" || !feedDetailReportId) {
+      return;
+    }
+
+    const frame = requestAnimationFrame(() => {
+      handleSelectReport(feedDetailReportId);
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [feedDetailReportId, handleSelectReport, viewMode]);
+
+  const toggleReportsDashboard = useCallback(() => {
+    setViewMode("map");
+    setIsSidebarOpen((open) => !open);
+  }, [setViewMode]);
 
   useEffect(() => {
     if (!focusedReportId) return;
@@ -495,13 +654,105 @@ export default function AgencyDashboard() {
     setResolutionProofFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleSelectPlace = (place: SearchResult) => {
-    const coords: [number, number] = [place.lng, place.lat];
-    focusMapOnCoordinates(coords, 15);
-    setSearchedLocation({ name: place.name, coords });
-    setLocationSearchQuery("");
-    setShowLocationSearch(false);
-  };
+  const handleSelectPlace = useSelectSearchPlace({
+    focusMapOnCoordinates,
+    setSearchedLocation,
+    setSearchQuery: setLocationSearchQuery,
+    setShowSearch: setShowLocationSearch,
+    setViewMode,
+  });
+
+  const handleToggleDashboardTab = useCallback((tab: ReportsDashboardTabKey) => {
+    if (tab === "semua") {
+      setActiveTabs((currentTabs) => {
+        const statusTabs = ALL_AGENCY_DASHBOARD_TAB_KEYS.filter(
+          (item) => item !== "semua",
+        );
+        const isAllSelected = statusTabs.every((item) =>
+          currentTabs.includes(item),
+        );
+
+        return isAllSelected ? [] : ALL_AGENCY_DASHBOARD_TAB_KEYS;
+      });
+      return;
+    }
+
+    setActiveTabs((currentTabs) => {
+      const currentStatusTabs = currentTabs.filter((item) => item !== "semua");
+      const nextStatusTabs = currentStatusTabs.includes(tab)
+        ? currentStatusTabs.filter((item) => item !== tab)
+        : [...currentStatusTabs, tab];
+
+      if (nextStatusTabs.length === 0) {
+        return [tab];
+      }
+
+      const isAllStatusSelected = ALL_AGENCY_DASHBOARD_TAB_KEYS
+        .filter((item) => item !== "semua")
+        .every((item) => nextStatusTabs.includes(item));
+
+      return isAllStatusSelected
+        ? ALL_AGENCY_DASHBOARD_TAB_KEYS
+        : nextStatusTabs;
+    });
+  }, []);
+
+  const mobileNavbarControls = useMemo(
+    () => (
+      <div className="flex flex-col gap-2">
+        <AgencyMobileNavbarControls
+          containerRef={mobileSearchRef}
+          viewMode={viewMode}
+          locationSearchQuery={locationSearchQuery}
+          reportSearchQuery={reportSearchQuery}
+          debouncedLocationSearchQuery={debouncedLocationSearchQuery}
+          showLocationSearch={showLocationSearch}
+          isSearchingLocations={isSearchingLocations}
+          locationSearchResults={locationSearchResults}
+          scope={scope}
+          isDashboardOpen={isReportsDashboardOpen}
+          onLocationSearchChange={(query) => {
+            setLocationSearchQuery(query);
+            setShowLocationSearch(true);
+          }}
+          onReportSearchChange={setReportSearchQuery}
+          onLocationSearchFocus={setShowLocationSearch}
+          onSelectPlace={handleSelectPlace}
+          onScopeChange={handleScopeChange}
+          onToggleDashboard={toggleReportsDashboard}
+        />
+        <AgencyDashboardFilters
+          activeTabs={activeTabs}
+          tabs={scopedDashboardTabs}
+          onTabChange={handleToggleDashboardTab}
+          className="w-full"
+        />
+      </div>
+    ),
+    [
+      activeTabs,
+      scopedDashboardTabs,
+      debouncedLocationSearchQuery,
+      handleToggleDashboardTab,
+      handleSelectPlace,
+      handleScopeChange,
+      isReportsDashboardOpen,
+      isSearchingLocations,
+      locationSearchQuery,
+      locationSearchResults,
+      reportSearchQuery,
+      scope,
+      showLocationSearch,
+      toggleReportsDashboard,
+      viewMode,
+    ],
+  );
+
+  useEffect(() => {
+    setMobileControls(mobileNavbarControls);
+  }, [mobileNavbarControls, setMobileControls]);
+
+  useEffect(() => () => setMobileControls(null), [setMobileControls]);
 
   const getBadgeStyle = (status: string) => {
     switch (status) {
@@ -687,44 +938,96 @@ export default function AgencyDashboard() {
 
       {/* Desktop: Left sidebar panel */}
       <AgencyReportsSidebar
-        isOpen={isSidebarOpen && isDesktop}
-        activeTab={activeTab}
-        reports={dashboardReports}
+        isOpen={isReportsDashboardOpen && isDesktop}
+        activeTabs={activeTabs}
+        reports={visibleDashboardReports}
         searchQuery={reportSearchQuery}
         selectedMarkerId={selectedMarkerId}
         stats={summaryStats}
-        tabs={dashboardTabs}
-        totalCount={totalDashboardReports}
+        tabs={scopedDashboardTabs}
+        totalCount={totalVisibleDashboardReports}
         isLoading={isDashboardListLoading}
-        onTabChange={setActiveTab}
+        onTabChange={handleToggleDashboardTab}
         onSearchChange={setReportSearchQuery}
-        onClose={() => setIsSidebarOpen(false)}
+        onClose={() => {
+          setIsSidebarOpen(false);
+          setViewMode("map");
+        }}
         onSelectReport={handleSelectReport}
       />
 
       {/* Mobile: Bottom sheet ticket list */}
       <AgencyReportsBottomSheet
-        isOpen={isSidebarOpen && !isDesktop}
-        activeTab={activeTab}
-        reports={dashboardReports}
+        isOpen={isReportsDashboardOpen && !isDesktop}
+        activeTabs={activeTabs}
+        reports={visibleDashboardReports}
         searchQuery={reportSearchQuery}
         selectedMarkerId={selectedMarkerId}
         stats={summaryStats}
-        tabs={dashboardTabs}
-        totalCount={totalDashboardReports}
+        tabs={scopedDashboardTabs}
+        totalCount={totalVisibleDashboardReports}
         isLoading={isDashboardListLoading}
-        onTabChange={setActiveTab}
+        onTabChange={handleToggleDashboardTab}
         onSearchChange={setReportSearchQuery}
-        onClose={() => setIsSidebarOpen(false)}
+        onClose={() => {
+          setIsSidebarOpen(false);
+          setViewMode("map");
+        }}
         onSelectReport={(reportId) => {
           handleSelectReport(reportId);
           setIsSidebarOpen(false);
         }}
       />
 
+      {isFeedMode && feedDetailReport ? (
+        <AgencyFeedReportDetail
+          report={feedDetailReport}
+          draftStatus={draftStatus}
+          agencyNote={agencyNote}
+          resolutionNote={resolutionNote}
+          resolutionProofPreviews={resolutionProofPreviews}
+          canEdit={canEditSelectedReport}
+          isSaving={updateReportStatus.isPending || resolveReport.isPending}
+          isSaveDisabled={isSaveDisabled}
+          onBack={() => {
+            setFeedDetailReportId(null);
+            setSelectedMarkerId(null);
+          }}
+          onNavigateMap={() => handleSelectReport(feedDetailReport.id)}
+          onDraftStatusChange={setDraftStatus}
+          onAgencyNoteChange={setAgencyNote}
+          onResolutionNoteChange={setResolutionNote}
+          onResolutionProofUpload={handleResolutionProofUpload}
+          onRemoveResolutionProof={handleRemoveResolutionProof}
+          onSave={handleSaveStatus}
+          onPhotoClick={openLightbox}
+        />
+      ) : isFeedMode ? (
+        <AgencySocialFeed
+          reports={feedDashboardReports}
+          totalCount={totalVisibleFeedReports}
+          isLoading={isFeedListLoading}
+          hasNextPage={agencyFeedReportsQuery.hasNextPage}
+          isFetchingNextPage={agencyFeedReportsQuery.isFetchingNextPage}
+          onLoadMore={() => {
+            if (
+              agencyFeedReportsQuery.hasNextPage &&
+              !agencyFeedReportsQuery.isFetchingNextPage
+            ) {
+              void agencyFeedReportsQuery.fetchNextPage();
+            }
+          }}
+          onSelectReport={(reportId) => {
+            handleSelectReport(reportId);
+            setIsSidebarOpen(false);
+          }}
+          onOpenReportDetail={handleOpenReportDetail}
+        />
+      ) : null}
+
       {/* Detail Drawer */}
       <AgencyReportDetailDrawer
-        isOpen={!!selectedReport}
+        isOpen={viewMode === "map" && !!selectedReport}
         isDesktop={isDesktop}
         report={selectedReport || null}
         draftStatus={draftStatus}
@@ -747,22 +1050,24 @@ export default function AgencyDashboard() {
       {/* Bottom Toolbar Dock */}
       <div
         ref={searchRef}
-        className="absolute bottom-5 left-0 right-0 z-20 flex flex-col items-center gap-2 px-4 pointer-events-none"
+        className="absolute bottom-5 left-0 right-0 z-20 hidden flex-col items-center gap-2 px-4 pointer-events-none md:flex"
       >
-        <LocationSearchResultsDropdown
-          isOpen={showLocationSearch}
-          query={locationSearchQuery}
-          isLoading={
-            isSearchingLocations ||
-            locationSearchQuery !== debouncedLocationSearchQuery
-          }
-          results={locationSearchResults}
-          onSelectPlace={handleSelectPlace}
-          className="max-w-sm md:max-w-md"
-        />
+        {viewMode === "map" && (
+          <LocationSearchResultsDropdown
+            isOpen={showLocationSearch}
+            query={locationSearchQuery}
+            isLoading={
+              isSearchingLocations ||
+              locationSearchQuery !== debouncedLocationSearchQuery
+            }
+            results={locationSearchResults}
+            onSelectPlace={handleSelectPlace}
+            className="max-w-sm md:max-w-md"
+          />
+        )}
 
         <div className="bg-white rounded-full shadow-[0_8px_32px_-8px_rgba(0,0,0,0.18)] border border-gray-100 flex items-center px-2 py-1.5 gap-1 w-full max-w-xl md:max-w-2xl pointer-events-auto">
-          {/* Search — always open */}
+          {/* Search - always open */}
           <div className="flex items-center flex-1 gap-1 bg-gray-50 border border-gray-200 rounded-full px-3 py-1 min-w-0">
             <Search
               size={15}
@@ -771,16 +1076,29 @@ export default function AgencyDashboard() {
             />
             <input
               type="text"
-              value={locationSearchQuery}
+              value={viewMode === "map" ? locationSearchQuery : reportSearchQuery}
               onChange={(e) => {
+                if (viewMode === "feed") {
+                  setReportSearchQuery(e.target.value);
+                  return;
+                }
+
                 setLocationSearchQuery(e.target.value);
                 setShowLocationSearch(true);
               }}
-              onFocus={() => setShowLocationSearch(true)}
-              placeholder="Cari lokasi..."
+              onFocus={() => setShowLocationSearch(viewMode === "map")}
+              placeholder={viewMode === "map" ? "Cari lokasi..." : "Cari tiket..."}
               className="bg-transparent border-none outline-none text-xs font-bold text-gray-900 placeholder:text-gray-400 w-full py-1.5"
             />
           </div>
+
+          <div className="w-px h-5 bg-gray-200 shrink-0 mx-0.5" />
+
+          <AgencyDashboardFilters
+            activeTabs={activeTabs}
+            tabs={scopedDashboardTabs}
+            onTabChange={handleToggleDashboardTab}
+          />
 
           <div className="w-px h-5 bg-gray-200 shrink-0 mx-0.5" />
 
@@ -789,7 +1107,7 @@ export default function AgencyDashboard() {
               <button
                 key={scopeOption.value}
                 type="button"
-                onClick={() => setScope(scopeOption.value)}
+                onClick={() => handleScopeChange(scopeOption.value)}
                 className={`rounded-full px-3 py-1.5 text-[11px] font-black tracking-wide transition-all ${
                   scope === scopeOption.value
                     ? "bg-[#db2744] text-white shadow-sm"
@@ -806,9 +1124,10 @@ export default function AgencyDashboard() {
 
           {/* Ticket list toggle */}
           <button
-            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            type="button"
+            onClick={toggleReportsDashboard}
             className={`flex items-center gap-1.5 px-3 py-2.5 rounded-full transition-all font-bold shrink-0 ${
-              isSidebarOpen
+              isReportsDashboardOpen
                 ? "bg-[#db2744] text-white shadow-md shadow-red-500/20"
                 : "text-gray-600 hover:bg-gray-100"
             }`}

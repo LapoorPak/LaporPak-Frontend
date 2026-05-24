@@ -5,10 +5,10 @@ import { getPortalFromRole } from "@/lib/auth-portal";
 import { lazy, Suspense, useEffect } from "react";
 
 const CitizenDashboard = lazy(() =>
-  import("./components").then((module) => ({ default: module.CitizenDashboard }))
+  import("@/pages/dashboard/components/citizen/CitizenDashboard")
 );
 const AgencyDashboard = lazy(() =>
-  import("./components").then((module) => ({ default: module.AgencyDashboard }))
+  import("@/pages/dashboard/components/agency/AgencyDashboard")
 );
 
 export default function DashboardPage() {

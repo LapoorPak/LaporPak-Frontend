@@ -148,6 +148,36 @@
     -moz-osx-font-smoothing: grayscale;
   }
   h1, h2, h3, h4, h5, h6 { @apply font-heading; }
+  :where(
+    a[href],
+    button,
+    [role="button"],
+    summary,
+    label[for],
+    select,
+    input[type="button"],
+    input[type="checkbox"],
+    input[type="file"],
+    input[type="radio"],
+    input[type="reset"],
+    input[type="submit"]
+  ) {
+    cursor: pointer;
+  }
+  :where(
+    button,
+    [role="button"],
+    select,
+    input[type="button"],
+    input[type="checkbox"],
+    input[type="file"],
+    input[type="radio"],
+    input[type="reset"],
+    input[type="submit"]
+  ):disabled,
+  :where([aria-disabled="true"], [data-disabled]) {
+    cursor: not-allowed;
+  }
   .maplibregl-popup-content {
     @apply bg-transparent! shadow-none! p-0! rounded-none!;
   }

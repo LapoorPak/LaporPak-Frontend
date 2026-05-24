@@ -1,26 +1,32 @@
-import type { PointerEvent as ReactPointerEvent } from "react";
+import type {
+  ChangeEvent,
+} from "react";
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { AlertTriangle, Building2, Circle, Search, Star, ThumbsDown, ThumbsUp, X } from "lucide-react";
-import type { ReportLocation } from "@/api/reports/reports-queries";
+import {
+  AlertTriangle,
+  Building2,
+  Circle,
+  ImagePlus,
+  Search,
+  Send,
+  Star,
+  ThumbsDown,
+  ThumbsUp,
+  Trash2,
+  X,
+} from "lucide-react";
+import type { ReportLocation } from "@/api/reports";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { useMobileSheetResize } from "@/hooks/common";
+import { createObjectUrls, revokeObjectUrls } from "@/lib/object-url";
 import { resolvePhotoUrl } from "@/lib/resolve-photo-url";
-
-interface CitizenMyReportsPanelProps {
-  isOpen: boolean;
-  isDesktop: boolean;
-  myReports: ReportLocation[];
-  myReportsSearch: string;
-  statusMap: Record<string, { label: string; color: string }>;
-  onSearchChange: (value: string) => void;
-  onClose: () => void;
-  onFocusReport: (report: ReportLocation) => void;
-  onPhotoClick: (images: string[], index: number) => void;
-  onSubmitRating: (reportId: string, score: number, note: string) => Promise<void> | void;
-  ratingSubmittingId?: string | null;
-}
+import type {
+  CitizenMyReportsPanelProps,
+  ClarificationDraft,
+} from "@/types/dashboard";
 
 export function CitizenMyReportsPanel({
   isOpen,
@@ -32,56 +38,38 @@ export function CitizenMyReportsPanel({
   onClose,
   onFocusReport,
   onPhotoClick,
+  onSubmitClarification,
+  onClarificationDraftActiveChange,
+  clarificationSubmittingId,
   onSubmitRating,
   ratingSubmittingId,
 }: CitizenMyReportsPanelProps) {
   const isEmpty = myReports.length === 0;
-  const [mobileSheetHeight, setMobileSheetHeight] = useState(72);
+  const {
+    height: mobileSheetHeight,
+    resizeMovedRef: mobileResizeMovedRef,
+    setHeight: setMobileSheetHeight,
+    startResize: startMobileResize,
+  } = useMobileSheetResize({
+    enabled: !isDesktop,
+    maxHeight: 82,
+    resetWhen: isOpen && !isDesktop,
+  });
   const [ratingDrafts, setRatingDrafts] = useState<Record<string, { score: number; note: string }>>({});
-  const mobileResizeRef = useRef<{ startY: number; startHeight: number } | null>(null);
-  const mobileResizeMovedRef = useRef(false);
+  const [clarificationDrafts, setClarificationDrafts] = useState<Record<string, ClarificationDraft>>({});
+  const clarificationDraftsRef = useRef<Record<string, ClarificationDraft>>({});
 
   useEffect(() => {
-    if (isOpen && !isDesktop) {
-      setMobileSheetHeight(72);
-    }
-  }, [isDesktop, isOpen]);
+    clarificationDraftsRef.current = clarificationDrafts;
+  }, [clarificationDrafts]);
 
-  const startMobileResize = (event: ReactPointerEvent) => {
-    if (isDesktop) return;
-
-    event.preventDefault();
-    event.stopPropagation();
-    mobileResizeMovedRef.current = false;
-    mobileResizeRef.current = {
-      startY: event.clientY,
-      startHeight: mobileSheetHeight,
+  useEffect(() => {
+    return () => {
+      Object.values(clarificationDraftsRef.current).forEach((draft) => {
+        revokeObjectUrls(draft.previews);
+      });
     };
-
-    const handlePointerMove = (moveEvent: PointerEvent) => {
-      const resizeState = mobileResizeRef.current;
-      if (!resizeState) return;
-
-      const deltaY = resizeState.startY - moveEvent.clientY;
-      if (Math.abs(deltaY) > 2) {
-        mobileResizeMovedRef.current = true;
-      }
-
-      const nextHeight = resizeState.startHeight + (deltaY / window.innerHeight) * 100;
-      setMobileSheetHeight(Math.min(92, Math.max(44, nextHeight)));
-    };
-
-    const handlePointerUp = () => {
-      mobileResizeRef.current = null;
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerup", handlePointerUp);
-      window.removeEventListener("pointercancel", handlePointerUp);
-    };
-
-    window.addEventListener("pointermove", handlePointerMove);
-    window.addEventListener("pointerup", handlePointerUp);
-    window.addEventListener("pointercancel", handlePointerUp);
-  };
+  }, []);
 
   const setRatingScore = (report: ReportLocation, score: number) => {
     const current = ratingDrafts[report.id] ?? {
@@ -107,6 +95,89 @@ export function CitizenMyReportsPanel({
     if (!draft.score) return;
 
     await onSubmitRating(report.id, draft.score, draft.note);
+  };
+
+  const getClarificationDraft = (reportId: string) =>
+    clarificationDrafts[reportId] ?? { note: "", files: [], previews: [] };
+
+  const setClarificationNote = (report: ReportLocation, note: string) => {
+    setClarificationDrafts((drafts) => ({
+      ...drafts,
+      [report.id]: {
+        ...(drafts[report.id] ?? { note: "", files: [], previews: [] }),
+        note,
+      },
+    }));
+    onClarificationDraftActiveChange?.(report.id, true);
+  };
+
+  const addClarificationFiles = (
+    report: ReportLocation,
+    event: ChangeEvent<HTMLInputElement>,
+  ) => {
+    const nextFiles = Array.from(event.target.files ?? []).filter((file) =>
+      file.type.startsWith("image/"),
+    );
+    if (nextFiles.length === 0) return;
+
+    setClarificationDrafts((drafts) => {
+      const current = drafts[report.id] ?? { note: "", files: [], previews: [] };
+      const acceptedFiles = nextFiles.slice(0, Math.max(0, 5 - current.files.length));
+      if (acceptedFiles.length === 0) return drafts;
+
+      return {
+        ...drafts,
+        [report.id]: {
+          ...current,
+          files: [...current.files, ...acceptedFiles],
+          previews: [...current.previews, ...createObjectUrls(acceptedFiles)],
+        },
+      };
+    });
+    onClarificationDraftActiveChange?.(report.id, true);
+    event.target.value = "";
+  };
+
+  const removeClarificationFile = (report: ReportLocation, index: number) => {
+    setClarificationDrafts((drafts) => {
+      const current = drafts[report.id];
+      if (!current) return drafts;
+
+      const removed = current.previews[index];
+      if (removed) revokeObjectUrls([removed]);
+
+      return {
+        ...drafts,
+        [report.id]: {
+          ...current,
+          files: current.files.filter((_, fileIndex) => fileIndex !== index),
+          previews: current.previews.filter((_, fileIndex) => fileIndex !== index),
+        },
+      };
+    });
+  };
+
+  const submitClarification = async (report: ReportLocation) => {
+    const draft = getClarificationDraft(report.id);
+    const note = draft.note.trim();
+    if (!note) return;
+
+    await onSubmitClarification(report.id, note, draft.files);
+    revokeObjectUrls(draft.previews);
+    setClarificationDrafts((drafts) => {
+      const nextDrafts = { ...drafts };
+      delete nextDrafts[report.id];
+      return nextDrafts;
+    });
+    onClarificationDraftActiveChange?.(report.id, false);
+  };
+
+  const closePanel = () => {
+    if (!isDesktop) {
+      setMobileSheetHeight(72);
+    }
+
+    onClose();
   };
 
   return (
@@ -143,13 +214,13 @@ export function CitizenMyReportsPanel({
                 type="button"
                 onClick={() => {
                   if (mobileResizeMovedRef.current) return;
-                  setMobileSheetHeight((height) => (height > 82 ? 72 : 92));
+                  setMobileSheetHeight((height) => (height > 78 ? 72 : 82));
                 }}
                 onPointerDown={startMobileResize}
                 className={`flex w-full touch-none justify-center pt-3 pb-1 cursor-grab active:cursor-grabbing ${
                   isEmpty ? "bg-gray-100" : "bg-white"
                 }`}
-                aria-label={mobileSheetHeight > 82 ? "Perkecil panel Laporanku" : "Perbesar panel Laporanku"}
+                aria-label={mobileSheetHeight > 78 ? "Perkecil panel Laporanku" : "Perbesar panel Laporanku"}
               >
                 <span className="h-1.5 w-12 rounded-full bg-gray-200" />
               </button>
@@ -176,7 +247,7 @@ export function CitizenMyReportsPanel({
                 </p>
               </div>
               <button
-                onClick={onClose}
+                onClick={closePanel}
                 onPointerDown={(event) => event.stopPropagation()}
                 className={`transition-colors p-2 -mr-2 ${
                   isEmpty ? "text-gray-400 hover:text-gray-500" : "text-gray-400 hover:text-gray-900"
@@ -234,6 +305,9 @@ export function CitizenMyReportsPanel({
                     note: report.rating?.note ?? "",
                   };
                   const isRatingSubmitting = ratingSubmittingId === report.id;
+                  const clarificationDraft = getClarificationDraft(report.id);
+                  const isClarificationSubmitting = clarificationSubmittingId === report.id;
+                  const canReplyClarification = report.status === "clarification_requested";
 
                   return (
                     <div
@@ -301,6 +375,104 @@ export function CitizenMyReportsPanel({
                               </p>
                             </div>
                           )}
+                        </div>
+                      )}
+
+                      {canReplyClarification && (
+                        <div
+                          className="mb-3 rounded-sm border border-violet-100 bg-violet-50/80 p-3"
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          <div className="mb-2 flex items-center justify-between gap-2">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-violet-700">
+                              Balas Klarifikasi
+                            </p>
+                            <span className="shrink-0 text-[9px] font-black text-violet-500">
+                              {clarificationDraft.files.length}/5 foto
+                            </span>
+                          </div>
+                          <Textarea
+                            value={clarificationDraft.note}
+                            onFocus={() =>
+                              onClarificationDraftActiveChange?.(report.id, true)
+                            }
+                            onBlur={() => {
+                              if (
+                                !clarificationDraft.note.trim() &&
+                                clarificationDraft.files.length === 0
+                              ) {
+                                onClarificationDraftActiveChange?.(report.id, false);
+                              }
+                            }}
+                            onChange={(event) =>
+                              setClarificationNote(report, event.target.value)
+                            }
+                            placeholder="Tulis jawaban untuk dinas..."
+                            className="min-h-[92px] resize-none rounded-sm border-violet-100 bg-white text-xs leading-relaxed focus:border-violet-400 focus:ring-violet-400"
+                          />
+
+                          {clarificationDraft.previews.length > 0 && (
+                            <div className="mt-2 grid grid-cols-3 gap-2">
+                              {clarificationDraft.previews.map((url, imageIndex) => (
+                                <div
+                                  key={`${url}-${imageIndex}`}
+                                  className="relative h-14 overflow-hidden rounded-sm bg-white"
+                                >
+                                  <img
+                                    src={url}
+                                    alt={`Bukti klarifikasi ${imageIndex + 1}`}
+                                    className="h-full w-full object-cover"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      removeClarificationFile(report, imageIndex)
+                                    }
+                                    className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-sm bg-black/65 text-white"
+                                    aria-label="Hapus foto klarifikasi"
+                                  >
+                                    <Trash2 size={11} />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          <div className="mt-2 flex items-center justify-between gap-2">
+                            <label
+                              className={`inline-flex h-9 items-center gap-1.5 rounded-sm border border-dashed border-violet-200 bg-white px-3 text-[10px] font-black uppercase tracking-widest text-violet-700 transition-colors ${
+                                clarificationDraft.files.length >= 5
+                                  ? "cursor-not-allowed opacity-60"
+                                  : "cursor-pointer hover:border-violet-300"
+                              }`}
+                            >
+                              <ImagePlus size={13} />
+                              Foto
+                              <input
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                disabled={clarificationDraft.files.length >= 5}
+                                className="hidden"
+                                onChange={(event) =>
+                                  addClarificationFiles(report, event)
+                                }
+                              />
+                            </label>
+                            <Button
+                              type="button"
+                              size="sm"
+                              disabled={
+                                !clarificationDraft.note.trim() ||
+                                isClarificationSubmitting
+                              }
+                              onClick={() => void submitClarification(report)}
+                              className="h-9 rounded-sm bg-violet-700 px-3 text-[10px] font-black uppercase tracking-widest text-white hover:bg-violet-800"
+                            >
+                              <Send size={12} />
+                              {isClarificationSubmitting ? "Mengirim..." : "Kirim"}
+                            </Button>
+                          </div>
                         </div>
                       )}
 
