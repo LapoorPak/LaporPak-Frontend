@@ -188,7 +188,9 @@ export default function Register() {
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
-             <label className="text-xs font-bold text-gray-800 ml-1 block" htmlFor="register-firstName">Nama Depan</label>
+             <label className="text-xs font-bold text-gray-800 ml-1 block" htmlFor="register-firstName">
+               Nama Depan <span className="text-[#db2744]" aria-hidden="true">*</span>
+             </label>
              <input
                id="register-firstName"
                name="firstName"
@@ -200,7 +202,9 @@ export default function Register() {
              />
           </div>
           <div className="space-y-1.5">
-             <label className="text-xs font-bold text-gray-800 ml-1 block" htmlFor="register-lastName">Nama Belakang</label>
+             <label className="text-xs font-bold text-gray-800 ml-1 block" htmlFor="register-lastName">
+               Nama Belakang <span className="text-[#db2744]" aria-hidden="true">*</span>
+             </label>
              <input
                id="register-lastName"
                name="lastName"
@@ -215,7 +219,9 @@ export default function Register() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-gray-800 ml-1 block" htmlFor="register-email">Email</label>
+              <label className="text-xs font-bold text-gray-800 ml-1 block" htmlFor="register-email">
+                Email <span className="text-[#db2744]" aria-hidden="true">*</span>
+              </label>
               <input
                 id="register-email"
                 name="email"
@@ -228,7 +234,9 @@ export default function Register() {
               />
            </div>
            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-gray-800 ml-1 block" htmlFor="register-username">Username</label>
+              <label className="text-xs font-bold text-gray-800 ml-1 block" htmlFor="register-username">
+                Username <span className="text-[#db2744]" aria-hidden="true">*</span>
+              </label>
               <div className="relative">
                 <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-bold">@</span>
                 <input
@@ -245,7 +253,9 @@ export default function Register() {
         </div>
 
         <div className="space-y-1.5">
-           <label className="text-xs font-bold text-gray-800 ml-1 block" htmlFor="register-password">Password</label>
+           <label className="text-xs font-bold text-gray-800 ml-1 block" htmlFor="register-password">
+             Password <span className="text-[#db2744]" aria-hidden="true">*</span>
+           </label>
            <div className="relative">
              <input
                id="register-password"
@@ -268,7 +278,9 @@ export default function Register() {
         </div>
 
         <div className="space-y-1.5 relative">
-           <label className="text-xs font-bold text-gray-800 ml-1 block" htmlFor="register-confirmPassword">Konfirmasi Password</label>
+           <label className="text-xs font-bold text-gray-800 ml-1 block" htmlFor="register-confirmPassword">
+             Konfirmasi Password <span className="text-[#db2744]" aria-hidden="true">*</span>
+           </label>
            <div className="relative">
              <input
                id="register-confirmPassword"

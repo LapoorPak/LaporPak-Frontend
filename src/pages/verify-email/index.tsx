@@ -196,7 +196,9 @@ export default function VerifyEmail() {
                 className="space-y-4"
              >
                 <div className="space-y-1.5">
-                   <label className="text-xs font-bold text-gray-800 ml-1 block" htmlFor="verify-email-input">Alamat Email</label>
+                   <label className="text-xs font-bold text-gray-800 ml-1 block" htmlFor="verify-email-input">
+                     Alamat Email <span className="text-[#db2744]" aria-hidden="true">*</span>
+                   </label>
                    <input
                      id="verify-email-input"
                      type="email"

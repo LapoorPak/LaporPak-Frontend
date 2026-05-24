@@ -173,7 +173,7 @@ export default function AgencyLogin() {
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-1.5">
           <label className="text-xs font-bold text-gray-800 ml-1 block" htmlFor="agency-identifier">
-            Email / Username
+            Email / Username <span className="text-[#db2744]" aria-hidden="true">*</span>
           </label>
           <input
             id="agency-identifier"
@@ -188,7 +188,7 @@ export default function AgencyLogin() {
 
         <div className="space-y-1.5 relative">
           <label className="text-xs font-bold text-gray-800 ml-1 block" htmlFor="agency-password">
-            Password
+            Password <span className="text-[#db2744]" aria-hidden="true">*</span>
           </label>
           <div className="relative">
             <input

@@ -346,7 +346,9 @@ export default function AdminDinasPage() {
                 <form id="dinas-form" onSubmit={handleSubmit(onSubmit)} className="space-y-5">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Kode *</label>
+                      <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">
+                        Kode <span className="text-[#db2744]" aria-hidden="true">*</span>
+                      </label>
                       <Input
                         placeholder="cth: DPU"
                         {...register("code")}
@@ -365,7 +367,9 @@ export default function AdminDinasPage() {
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Nama Dinas *</label>
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">
+                      Nama Dinas <span className="text-[#db2744]" aria-hidden="true">*</span>
+                    </label>
                     <Input
                       placeholder="Dinas Pekerjaan Umum dan Penataan Ruang"
                       {...register("name")}
@@ -403,7 +407,9 @@ export default function AdminDinasPage() {
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Prioritas Routing</label>
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">
+                      Prioritas Routing <span className="text-[#db2744]" aria-hidden="true">*</span>
+                    </label>
                     <Input
                       type="number"
                       placeholder="100"

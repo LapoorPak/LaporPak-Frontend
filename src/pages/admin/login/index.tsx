@@ -180,7 +180,7 @@ export default function AdminLogin() {
             className="text-xs font-bold text-gray-800 ml-1 block"
             htmlFor="admin-identifier"
           >
-            Email Admin
+            Email Admin <span className="text-[#db2744]" aria-hidden="true">*</span>
           </label>
           <input
             id="admin-identifier"
@@ -198,7 +198,7 @@ export default function AdminLogin() {
             className="text-xs font-bold text-gray-800 ml-1 block"
             htmlFor="admin-password"
           >
-            Password
+            Password <span className="text-[#db2744]" aria-hidden="true">*</span>
           </label>
           <div className="relative">
             <input

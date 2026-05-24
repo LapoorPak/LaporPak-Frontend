@@ -15,4 +15,12 @@ function Label({ className, ...props }: React.ComponentProps<"label">) {
   )
 }
 
-export { Label }
+function RequiredMark() {
+  return (
+    <span aria-hidden="true" className="text-[#db2744]">
+      *
+    </span>
+  )
+}
+
+export { Label, RequiredMark }

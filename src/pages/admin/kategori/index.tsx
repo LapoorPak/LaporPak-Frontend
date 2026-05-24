@@ -359,7 +359,9 @@ export default function AdminKategoriPage() {
                 <form id="kategori-form" onSubmit={handleSubmit(onSubmit)} className="space-y-5">
                   {/* Dinas */}
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Induk Dinas *</label>
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">
+                      Induk Dinas <span className="text-[#db2744]" aria-hidden="true">*</span>
+                    </label>
                     <select {...register("dinasId")} className="w-full bg-white border border-gray-200 text-gray-900 rounded-sm h-9 px-3 text-sm focus:outline-none focus:border-primary appearance-none">
                       <option value="">— Pilih Dinas —</option>
                       {dinasData?.data?.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
@@ -369,12 +371,16 @@ export default function AdminKategoriPage() {
 
                   <div className="grid grid-cols-3 gap-4">
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Kode *</label>
+                      <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">
+                        Kode <span className="text-[#db2744]" aria-hidden="true">*</span>
+                      </label>
                       <Input placeholder="INF" {...register("code")} className="bg-white border-gray-200 text-gray-900 rounded-sm focus:border-primary h-9 font-mono uppercase" />
                       {errors.code && <p className="text-red-500 text-xs">{errors.code.message}</p>}
                     </div>
                     <div className="space-y-1.5 col-span-2">
-                      <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Nama Kategori *</label>
+                      <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">
+                        Nama Kategori <span className="text-[#db2744]" aria-hidden="true">*</span>
+                      </label>
                       <Input placeholder="Infrastruktur & Jalan" {...register("name")} className="bg-white border-gray-200 text-gray-900 rounded-sm focus:border-primary h-9" />
                       {errors.name && <p className="text-red-500 text-xs">{errors.name.message}</p>}
                     </div>
@@ -415,7 +421,9 @@ export default function AdminKategoriPage() {
                       <Input type="number" placeholder="24" {...register("slaHours", { setValueAs: (v) => v === "" || v == null ? null : Number(v) })} className="bg-white border-gray-200 text-gray-900 rounded-sm focus:border-primary h-9" />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Bobot Urgency (1–100)</label>
+                      <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">
+                        Bobot Urgency (1-100) <span className="text-[#db2744]" aria-hidden="true">*</span>
+                      </label>
                       <Input type="number" min="1" max="100" {...register("urgencyWeight", { valueAsNumber: true })} className="bg-white border-gray-200 text-gray-900 rounded-sm focus:border-primary h-9" />
                     </div>
                   </div>

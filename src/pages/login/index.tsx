@@ -166,7 +166,9 @@ export default function Login() {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-1.5">
-          <label className="text-xs font-bold text-gray-800 ml-1 block" htmlFor="login-email">Alamat Email</label>
+          <label className="text-xs font-bold text-gray-800 ml-1 block" htmlFor="login-email">
+            Alamat Email <span className="text-[#db2744]" aria-hidden="true">*</span>
+          </label>
           <div className="relative">
             <input
               id="login-email"
@@ -181,7 +183,9 @@ export default function Login() {
         </div>
 
         <div className="space-y-1.5 relative">
-          <label className="text-xs font-bold text-gray-800 ml-1 block" htmlFor="login-password">Password</label>
+          <label className="text-xs font-bold text-gray-800 ml-1 block" htmlFor="login-password">
+            Password <span className="text-[#db2744]" aria-hidden="true">*</span>
+          </label>
           <div className="relative">
             <input
               id="login-password"

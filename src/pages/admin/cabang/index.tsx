@@ -969,7 +969,7 @@ export default function AdminCabangPage() {
                 >
                   <div className="space-y-1.5">
                     <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">
-                      Induk Dinas *
+                      Induk Dinas <span className="text-[#db2744]" aria-hidden="true">*</span>
                     </label>
                     <select
                       {...register("dinasId")}
@@ -992,7 +992,7 @@ export default function AdminCabangPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5 col-span-2 sm:col-span-1">
                       <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">
-                        Nama Cabang / Unit *
+                        Nama Cabang / Unit <span className="text-[#db2744]" aria-hidden="true">*</span>
                       </label>
                       <Input
                         placeholder="cth: UPTD Wilayah I"
@@ -1007,7 +1007,7 @@ export default function AdminCabangPage() {
                     </div>
                     <div className="space-y-1.5 col-span-2 sm:col-span-1">
                       <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">
-                        Wilayah *
+                        Wilayah <span className="text-[#db2744]" aria-hidden="true">*</span>
                       </label>
                       <Input
                         placeholder="cth: Jakarta Barat"
