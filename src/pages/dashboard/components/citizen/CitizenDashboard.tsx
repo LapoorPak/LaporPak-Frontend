@@ -545,7 +545,7 @@ export default function CitizenDashboard() {
           />
         )}
 
-        <div className="flex h-10 items-center gap-1.5 rounded-full border border-gray-100 bg-gray-50 px-1.5 shadow-inner">
+        <div className="flex h-10 items-center rounded-full border border-gray-100 bg-gray-50 px-1.5 shadow-inner">
           <div className="flex min-w-0 flex-1 items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1">
             <Search
               size={14}
@@ -566,14 +566,24 @@ export default function CitizenDashboard() {
               className="min-w-0 flex-1 bg-transparent py-1.5 text-xs font-bold text-gray-900 outline-none placeholder:text-gray-400"
             />
           </div>
+        </div>
 
+        <div className="grid grid-cols-4 gap-1.5">
+          <CitizenDashboardFilters
+            value={reportStatusFilter}
+            onChange={handleToggleReportStatusFilter}
+            showAgencies={showAgencyMarkers}
+            onToggleAgencies={() => setShowAgencyMarkers((current) => !current)}
+            showAgencyToggle={viewMode === "map"}
+            className="min-w-0"
+          />
           <button
             type="button"
             onClick={togglePinMode}
-            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors ${
+            className={`flex h-9 min-w-0 items-center justify-center gap-1.5 rounded-full px-2 text-[10px] font-black transition-colors ${
               mode === "pin_drop"
                 ? "bg-[#db2744] text-white shadow-sm shadow-red-500/20"
-                : "text-gray-500 hover:bg-white hover:text-gray-900"
+                : "border border-gray-100 bg-white text-gray-500 hover:bg-gray-100 hover:text-gray-900"
             }`}
             aria-label={mode === "pin_drop" ? "Pilih lokasi" : "Tandai lokasi"}
           >
@@ -582,25 +592,29 @@ export default function CitizenDashboard() {
             ) : (
               <Target size={15} />
             )}
+            <span className="truncate">
+              {mode === "pin_drop" ? "Pilih" : "Tandai"}
+            </span>
           </button>
 
           <button
             type="button"
             onClick={() => setIsMyReportsOpen((open) => !open)}
-            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors ${
+            className={`flex h-9 min-w-0 items-center justify-center gap-1.5 rounded-full px-2 text-[10px] font-black transition-colors ${
               isMyReportsOpen
                 ? "bg-[#db2744] text-white shadow-sm shadow-red-500/20"
-                : "text-gray-500 hover:bg-white hover:text-gray-900"
+                : "border border-gray-100 bg-white text-gray-500 hover:bg-gray-100 hover:text-gray-900"
             }`}
             aria-label="Buka Laporanku"
           >
             <ListFilter size={15} strokeWidth={2.5} />
+            <span className="truncate">Laporan</span>
           </button>
 
           <button
             type="button"
             onClick={handleCreateReport}
-            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors ${
+            className={`flex h-9 min-w-0 items-center justify-center gap-1.5 rounded-full px-2 text-[10px] font-black transition-colors ${
               isFormOpen
                 ? "bg-gray-900 text-white shadow-sm"
                 : "bg-[#db2744] text-white shadow-sm shadow-red-500/20 hover:bg-rose-600"
@@ -612,17 +626,9 @@ export default function CitizenDashboard() {
             ) : (
               <Plus size={16} strokeWidth={2.5} />
             )}
+            <span className="truncate">{isFormOpen ? "Tutup" : "Buat"}</span>
           </button>
         </div>
-
-        <CitizenDashboardFilters
-          value={reportStatusFilter}
-          onChange={handleToggleReportStatusFilter}
-          showAgencies={showAgencyMarkers}
-          onToggleAgencies={() => setShowAgencyMarkers((current) => !current)}
-          showAgencyToggle={viewMode === "map"}
-          className="w-full"
-        />
       </div>
     ),
     [
