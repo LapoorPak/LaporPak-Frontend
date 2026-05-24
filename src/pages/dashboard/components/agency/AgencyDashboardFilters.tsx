@@ -49,16 +49,16 @@ export function AgencyDashboardFilters({
       <button
         type="button"
         onClick={() => setIsOpen((open) => !open)}
-        className={`flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full px-3 text-[10px] font-black transition-colors md:h-8 md:w-auto md:justify-start ${
+        className={`flex h-9 w-full min-w-0 shrink-0 items-center justify-center gap-1.5 rounded-full px-2 text-[10px] font-black transition-colors md:h-8 md:w-auto md:justify-start md:px-3 ${
           isFilterActive
             ? "bg-gray-900 text-white shadow-sm"
-            : "text-gray-600 hover:bg-gray-100"
+            : "border border-gray-100 bg-white text-gray-600 hover:bg-gray-100"
         }`}
       >
         <Filter size={14} strokeWidth={2.5} />
-        <span>Filter</span>
+        <span className="shrink-0">Filter</span>
         <span
-          className={`max-w-[120px] truncate ${
+          className={`min-w-0 max-w-[120px] truncate ${
             isFilterActive ? "text-white/70" : "text-gray-400"
           }`}
         >
@@ -67,7 +67,7 @@ export function AgencyDashboardFilters({
       </button>
 
       {isOpen && (
-        <div className="absolute left-1/2 top-[calc(100%+8px)] z-50 w-[min(230px,calc(100vw-2rem))] -translate-x-1/2 rounded-xl border border-gray-100 bg-white p-2 text-left shadow-[0_18px_44px_rgba(15,23,42,0.16)] md:bottom-[calc(100%+10px)] md:left-0 md:top-auto md:translate-x-0">
+        <div className="absolute left-0 top-[calc(100%+8px)] z-50 w-[min(230px,calc(100vw-2rem))] rounded-xl border border-gray-100 bg-white p-2 text-left shadow-[0_18px_44px_rgba(15,23,42,0.16)] md:bottom-[calc(100%+10px)] md:top-auto">
           <p className="px-2 pb-2 pt-1 text-[10px] font-black uppercase tracking-widest text-gray-400">
             Status tiket
           </p>

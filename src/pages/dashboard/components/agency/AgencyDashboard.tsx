@@ -721,12 +721,27 @@ export default function AgencyDashboard() {
           onScopeChange={handleScopeChange}
           onToggleDashboard={toggleReportsDashboard}
         />
-        <AgencyDashboardFilters
-          activeTabs={activeTabs}
-          tabs={scopedDashboardTabs}
-          onTabChange={handleToggleDashboardTab}
-          className="w-full"
-        />
+        <div className="grid grid-cols-2 gap-1.5">
+          <AgencyDashboardFilters
+            activeTabs={activeTabs}
+            tabs={scopedDashboardTabs}
+            onTabChange={handleToggleDashboardTab}
+            className="min-w-0"
+          />
+          <button
+            type="button"
+            onClick={toggleReportsDashboard}
+            className={`flex h-9 min-w-0 items-center justify-center gap-1.5 rounded-full px-3 text-[10px] font-black transition-colors ${
+              isReportsDashboardOpen
+                ? "bg-[#db2744] text-white shadow-sm shadow-red-500/20"
+                : "border border-gray-100 bg-white text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+            }`}
+            aria-label="Buka daftar tiket"
+          >
+            <ListFilter size={14} strokeWidth={2.5} />
+            <span className="truncate">Tiket</span>
+          </button>
+        </div>
       </div>
     ),
     [

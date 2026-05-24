@@ -1,4 +1,4 @@
-import { ListFilter, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import type { ReportsScope } from "@/api/reports";
 import { LocationSearchResultsDropdown } from "@/pages/dashboard/components/shared";
 import type { AgencyMobileNavbarControlsProps } from "@/types/dashboard";
@@ -21,13 +21,11 @@ export function AgencyMobileNavbarControls({
   isSearchingLocations,
   locationSearchResults,
   scope,
-  isDashboardOpen,
   onLocationSearchChange,
   onReportSearchChange,
   onLocationSearchFocus,
   onSelectPlace,
   onScopeChange,
-  onToggleDashboard,
 }: AgencyMobileNavbarControlsProps) {
   const isMapMode = viewMode === "map";
 
@@ -87,19 +85,6 @@ export function AgencyMobileNavbarControls({
             </button>
           ))}
         </div>
-
-        <button
-          type="button"
-          onClick={onToggleDashboard}
-          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-all ${
-            isDashboardOpen
-              ? "bg-[#db2744] text-white shadow-sm"
-              : "bg-white text-gray-600 hover:bg-gray-100"
-          }`}
-          aria-label="Buka daftar tiket"
-        >
-          <ListFilter size={15} strokeWidth={2.5} />
-        </button>
       </div>
     </div>
   );
