@@ -68,7 +68,11 @@ import {
   PhotoLightbox,
   type PhotoLightboxState,
 } from "@/pages/dashboard/components/shared";
-import { CITIZEN_REPORT_STATUS_MAP } from "@/pages/dashboard/utils";
+import {
+  CITIZEN_REPORT_STATUS_MAP,
+  hasValidCoordinatePair,
+  hasValidLngLat,
+} from "@/pages/dashboard/utils";
 
 const EMPTY_SEARCH_RESULTS: SearchResult[] = [];
 const CITIZEN_REPORT_FILTER_STATUSES: CitizenReportFilterStatus[] = [
@@ -180,9 +184,9 @@ export default function CitizenDashboard() {
     });
   const searchResults = searchResultsData ?? EMPTY_SEARCH_RESULTS;
 
-  const publicReports = publicReportsData?.data || [];
-  const myReports = myReportsData?.data || [];
-  const agencies = agenciesData?.data || [];
+  const publicReports = (publicReportsData?.data || []).filter(hasValidLngLat);
+  const myReports = (myReportsData?.data || []).filter(hasValidLngLat);
+  const agencies = (agenciesData?.data || []).filter(hasValidLngLat);
   const visibleReportIds = new Set<string>();
   const visibleReports = [...myReports, ...publicReports].filter((report) => {
     if (report.status === "rejected" || visibleReportIds.has(report.id)) {
@@ -265,6 +269,8 @@ export default function CitizenDashboard() {
 
   const focusMapOnCoordinates = useCallback(
     (coords: [number, number], zoom = 15) => {
+      if (!hasValidCoordinatePair(coords)) return;
+
       if (mapRef.current) {
         mapRef.current.flyTo({
           center: coords,

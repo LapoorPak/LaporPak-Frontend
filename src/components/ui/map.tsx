@@ -28,6 +28,10 @@ const defaultStyles = {
 
 type Theme = "light" | "dark";
 
+function isValidLngLat(longitude: number, latitude: number) {
+  return Number.isFinite(longitude) && Number.isFinite(latitude);
+}
+
 // Check document class for theme (works with next-themes, etc.)
 function getDocumentTheme(): Theme | null {
   if (typeof document === "undefined") return null;
@@ -386,6 +390,7 @@ function MapMarker({
   ...markerOptions
 }: MapMarkerProps) {
   const { map } = useMap();
+  const hasValidPosition = isValidLngLat(longitude, latitude);
 
   const callbacksRef = useRef({
     onClick,
@@ -409,7 +414,7 @@ function MapMarker({
       ...markerOptions,
       element: document.createElement("div"),
       draggable,
-    }).setLngLat([longitude, latitude]);
+    }).setLngLat(hasValidPosition ? [longitude, latitude] : [0, 0]);
 
     const handleClick = (e: MouseEvent) => callbacksRef.current.onClick?.(e);
     const handleMouseEnter = (e: MouseEvent) =>
@@ -448,7 +453,10 @@ function MapMarker({
   }, []);
 
   useEffect(() => {
-    if (!map) return;
+    if (!map || !hasValidPosition) {
+      marker.remove();
+      return;
+    }
 
     marker.addTo(map);
 
@@ -457,7 +465,11 @@ function MapMarker({
     };
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [map]);
+  }, [hasValidPosition, map, marker]);
+
+  if (!hasValidPosition) {
+    return null;
+  }
 
   if (
     marker.getLngLat().lng !== longitude ||
@@ -954,6 +966,7 @@ function MapPopup({
   ...popupOptions
 }: MapPopupProps) {
   const { map } = useMap();
+  const hasValidPosition = isValidLngLat(longitude, latitude);
   const popupOptionsRef = useRef(popupOptions);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -966,14 +979,19 @@ function MapPopup({
       closeButton: false,
     })
       .setMaxWidth("none")
-      .setLngLat([longitude, latitude]);
+      .setLngLat(hasValidPosition ? [longitude, latitude] : [0, 0]);
 
     return popupInstance;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    if (!map) return;
+    if (!map || !hasValidPosition) {
+      if (popup.isOpen()) {
+        popup.remove();
+      }
+      return;
+    }
 
     const onCloseProp = () => onCloseRef.current?.();
 
@@ -989,7 +1007,11 @@ function MapPopup({
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [map]);
+  }, [container, hasValidPosition, map, popup]);
+
+  if (!hasValidPosition) {
+    return null;
+  }
 
   if (popup.isOpen()) {
     const prev = popupOptionsRef.current;

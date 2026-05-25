@@ -402,13 +402,7 @@ export function CitizenSocialFeed({
   votingReportId,
 }: CitizenSocialFeedProps) {
   const loadMoreRef = useRef<HTMLDivElement>(null);
-  const sortedReports = [...reports].sort(
-    (a, b) =>
-      (b.voteScore ?? 0) - (a.voteScore ?? 0) ||
-      (b.upvotes ?? 0) - (a.upvotes ?? 0) ||
-      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-  );
-  const displayedTotalCount = totalCount ?? sortedReports.length;
+  const displayedTotalCount = totalCount ?? reports.length;
 
   useEffect(() => {
     if (!hasNextPage || isFetchingNextPage) return;
@@ -470,7 +464,7 @@ export function CitizenSocialFeed({
               </div>
             </div>
           ))
-        ) : sortedReports.length === 0 ? (
+        ) : reports.length === 0 ? (
           <div className="mt-10 flex min-h-[300px] flex-col items-center justify-center rounded-sm border border-dashed border-gray-200 bg-white px-6 text-center shadow-sm">
             <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-gray-100 text-gray-400">
               <AlertTriangle size={24} />
@@ -483,7 +477,7 @@ export function CitizenSocialFeed({
             </p>
           </div>
         ) : (
-          sortedReports.map((report) => (
+          reports.map((report) => (
             <FeedReportCard
               key={report.id}
               report={report}

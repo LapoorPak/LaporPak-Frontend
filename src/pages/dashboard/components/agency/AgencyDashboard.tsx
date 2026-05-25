@@ -59,6 +59,8 @@ import {
 import {
   AGENCY_REPORT_STATUS_MAP,
   getDashboardStatusToneStyle,
+  hasValidCoordinatePair,
+  hasValidLngLat,
 } from "@/pages/dashboard/utils";
 import {
   ALL_AGENCY_DASHBOARD_TAB_KEYS,
@@ -154,11 +156,12 @@ export default function AgencyDashboard() {
       enabled: viewMode === "map",
     });
 
-  const locationReports = reportLocationsData?.data ?? EMPTY_LOCATION_REPORTS;
+  const locationReports = (reportLocationsData?.data ?? EMPTY_LOCATION_REPORTS).filter(hasValidLngLat);
   const feedLocationReports = useMemo(() => {
     const seenIds = new Set<string>();
-    const reports =
-      agencyFeedReportsQuery.data?.pages.flatMap((page) => page.data) ?? [];
+    const reports = (
+      agencyFeedReportsQuery.data?.pages.flatMap((page) => page.data) ?? []
+    ).filter(hasValidLngLat);
 
     return reports.filter((report) => {
       if (seenIds.has(report.id)) {
@@ -418,6 +421,8 @@ export default function AgencyDashboard() {
   }, [feedDetailReportId, feedDetailReport]);
 
   const focusMapOnCoordinates = useCallback((coords: [number, number], zoom = 15) => {
+    if (!hasValidCoordinatePair(coords)) return;
+
     if (mapRef.current) {
       mapRef.current.flyTo({
         center: coords,
