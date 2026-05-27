@@ -9,9 +9,14 @@ export const QUERY_KEYS = {
 
   ADMIN_OVERVIEW: "admin_overview",
   ADMIN_DINAS: "admin_dinas",
+  ADMIN_DINAS_ACTIVITY: "admin_dinas_activity",
   ADMIN_CABANG: "admin_cabang",
   ADMIN_CABANG_ALL: "admin_cabang_all",
+  ADMIN_CABANG_ACTIVITY: "admin_cabang_activity",
   ADMIN_KATEGORI: "admin_kategori",
+  ADMIN_KATEGORI_ACTIVITY: "admin_kategori_activity",
   ADMIN_USERS: "admin_users",
+  ADMIN_USER_ACTIVITY: "admin_user_activity",
   ADMIN_LAPORAN: "admin_laporan",
+  ADMIN_REPORT_ACTIVITY: "admin_report_activity",
 } as const;

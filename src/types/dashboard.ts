@@ -75,7 +75,6 @@ export type CitizenMyReportsPanelProps = {
   onSubmitRating: (
     reportId: string,
     score: number,
-    note: string,
   ) => Promise<void> | void;
   ratingSubmittingId?: string | null;
 };
@@ -84,6 +83,7 @@ export type ReportPopupProps = {
   report: ReportLocation;
   onPhotoClick: (images: string[], index: number) => void;
   onVote?: (report: ReportLocation, vote: ReportVoteValue) => void;
+  onFocusAgency?: (report: ReportLocation) => void;
   isVoting?: boolean;
   fullWidth?: boolean;
   onSubmitClarification?: (
@@ -96,6 +96,11 @@ export type ReportPopupProps = {
     reportId: string,
     active: boolean,
   ) => void;
+  onSubmitRating?: (
+    reportId: string,
+    score: number,
+  ) => Promise<void> | void;
+  ratingSubmittingId?: string | null;
 };
 
 export type CitizenFeedReportCardProps = {
@@ -125,6 +130,7 @@ export type CitizenFeedReportDetailProps = {
   report: ReportLocation;
   onBack: () => void;
   onNavigateMap: () => void;
+  onFocusAgency?: (report: ReportLocation) => void;
   onPhotoClick: (images: string[], index: number) => void;
   onVote: (report: ReportLocation, vote: ReportVoteValue) => void;
   isVoting?: boolean;
@@ -138,6 +144,11 @@ export type CitizenFeedReportDetailProps = {
     reportId: string,
     active: boolean,
   ) => void;
+  onSubmitRating?: (
+    reportId: string,
+    score: number,
+  ) => Promise<void> | void;
+  ratingSubmittingId?: string | null;
 };
 
 export type CitizenReportFilterStatus = Exclude<ReportStatus, "rejected">;
@@ -154,6 +165,21 @@ export type CitizenDashboardFiltersProps = {
 export type AgencyPopupCarouselProps = {
   agency: AgencyLocation;
   onPhotoClick: (images: string[], index: number) => void;
+  performance?: AgencyPerformanceMetrics | null;
+  onOpenPerformanceDetail?: (agency: AgencyLocation) => void;
+};
+
+export type AgencyPerformanceMetrics = {
+  total: number;
+  resolved: number;
+  active: number;
+  overdue: number;
+  stale: number;
+  averageRating: number | null;
+  ratingCount: number;
+  completionRate: number;
+  averageResolutionHours: number | null;
+  longestOpenHours: number | null;
 };
 
 export type LocationSearchResultsDropdownProps = {
@@ -200,9 +226,12 @@ export type AgencyReportDetailDrawerProps = {
   resolutionNote: string;
   resolutionProofPreviews: string[];
   canEdit: boolean;
+  canClaim: boolean;
+  isClaiming: boolean;
   isSaving: boolean;
   isSaveDisabled: boolean;
   onClose: () => void;
+  onClaim: () => void;
   onDraftStatusChange: (status: string) => void;
   onAgencyNoteChange: (value: string) => void;
   onResolutionNoteChange: (value: string) => void;
