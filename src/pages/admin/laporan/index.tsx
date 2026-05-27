@@ -1,7 +1,8 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetAdminLaporan,
+  useGetReportActivity,
   useGetDinas,
   useGetCabang,
   useUpdateAdminLaporanStatus,
@@ -29,6 +30,10 @@ import {
   Navigation,
   ThumbsDown,
   ThumbsUp,
+  Activity,
+  TrendingUp,
+  CheckCircle2,
+  Star,
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -40,8 +45,25 @@ import {
   MarkerContent,
   MapControls,
 } from "@/components/ui/map";
+import { HelpTooltip } from "@/components/ui/help-tooltip";
+import { AdminPagination } from "@/components/ui/admin-pagination";
+import { AdminDateInput, AdminMultiSelect, AdminSelect } from "@/components/ui/admin-select";
+import { AdminSortHeader } from "@/components/ui/admin-sort-header";
+import {
+  Area,
+  Bar,
+  CartesianGrid,
+  ComposedChart,
+  ResponsiveContainer,
+  Tooltip as ChartTooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import { normalizeReportStatus, REPORT_STATUSES } from "@/constants/report";
 
 const LIMIT = 20;
+const UNKNOWN_STATUS_COLOR = "#6b7280";
+const NONE_FILTER_VALUE = "__none";
 
 const STATUS_OPTIONS = [
   { value: "pending", label: "Pending" },
@@ -51,6 +73,17 @@ const STATUS_OPTIONS = [
   { value: "resolved", label: "Selesai" },
   { value: "rejected", label: "Ditolak" },
 ] as const;
+const DEFAULT_STATUS_VALUES = STATUS_OPTIONS.map((option) => option.value);
+
+const STATUS_HELP: Record<string, string> = {
+  pending: "Laporan baru masuk dan belum diverifikasi.",
+  verified: "Laporan sudah valid dan siap ditugaskan atau ditangani.",
+  in_progress: "Laporan sedang ditangani dinas/cabang terkait.",
+  clarification_requested: "Petugas meminta informasi tambahan dari pelapor.",
+  resolved: "Laporan sudah selesai ditangani.",
+  rejected: "Laporan ditolak dan tidak dilanjutkan.",
+  manual_review: "Autorouting tidak yakin, jadi admin perlu memilih dinas/cabang secara manual.",
+};
 
 function getStatusStyle(status: string) {
   switch (status) {
@@ -188,7 +221,15 @@ function SkeletonRow() {
   );
 }
 
-function ScoreCell({ label, value }: { label: string; value: number }) {
+function ScoreCell({
+  label,
+  value,
+  tooltip,
+}: {
+  label: string;
+  value: number;
+  tooltip: string;
+}) {
   const pct = Math.round(value * 100);
   const color =
     pct >= 70
@@ -198,7 +239,10 @@ function ScoreCell({ label, value }: { label: string; value: number }) {
         : "text-red-500";
   return (
     <div className="bg-gray-50 rounded-sm p-2 text-center border border-gray-100">
-      <p className="text-[10px] text-gray-400 mb-1 truncate">{label}</p>
+      <div className="mb-1 flex items-center justify-center gap-1">
+        <p className="truncate text-[10px] text-gray-400">{label}</p>
+        <HelpTooltip content={tooltip} align="right" />
+      </div>
       <p className={`text-sm font-bold ${color}`}>{pct}%</p>
     </div>
   );
@@ -234,11 +278,79 @@ function VoteCell({ laporan }: { laporan: AdminLaporan }) {
   );
 }
 
+function formatShortDate(value?: string | null) {
+  if (!value) return "-";
+
+  return new Date(value).toLocaleDateString("id-ID", {
+    day: "2-digit",
+    month: "short",
+  });
+}
+
+function getDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getDefaultDateRange() {
+  const to = new Date();
+  const from = new Date();
+  from.setDate(to.getDate() - 13);
+
+  return {
+    from: getDateKey(from),
+    to: getDateKey(to),
+  };
+}
+
+function ReportActivityTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null;
+
+  const total = payload.find((item: any) => item.dataKey === "total")?.value ?? 0;
+  const resolved = payload.find((item: any) => item.dataKey === "resolved")?.value ?? 0;
+  const manualReview = payload.find((item: any) => item.dataKey === "manualReview")?.value ?? 0;
+
+  return (
+    <div className="rounded-sm border border-gray-200 bg-white px-3 py-2 shadow-lg">
+      <p className="mb-1 text-[11px] font-black text-gray-900">{label}</p>
+      <p className="text-[10px] font-bold text-indigo-600">{total} laporan masuk</p>
+      <p className="text-[10px] font-bold text-emerald-600">{resolved} selesai</p>
+      <p className="text-[10px] font-bold text-amber-600">{manualReview} review manual</p>
+    </div>
+  );
+}
+
+function areStringArraysEqual(a: string[], b: string[]) {
+  if (a.length !== b.length) return false;
+
+  const sortedA = [...a].sort();
+  const sortedB = [...b].sort();
+  return sortedA.every((value, index) => value === sortedB[index]);
+}
+
+function getMultiFilterParam(values: string[], allValues: string[]) {
+  if (allValues.length === 0 || values.length === allValues.length) return undefined;
+  if (values.length === 0) return NONE_FILTER_VALUE;
+  return values.join(",");
+}
+
 export default function AdminLaporanPage() {
+  const defaultDateRange = getDefaultDateRange();
   const [search, setSearch] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
-  const [filterDinas, setFilterDinas] = useState("");
+  const [draftSearch, setDraftSearch] = useState("");
+  const [filterStatuses, setFilterStatuses] = useState<string[]>(DEFAULT_STATUS_VALUES);
+  const [draftFilterStatuses, setDraftFilterStatuses] = useState<string[]>(DEFAULT_STATUS_VALUES);
+  const [filterDinasIds, setFilterDinasIds] = useState<string[]>([]);
+  const [draftFilterDinasIds, setDraftFilterDinasIds] = useState<string[]>([]);
+  const [dateFrom, setDateFrom] = useState(defaultDateRange.from);
+  const [dateTo, setDateTo] = useState(defaultDateRange.to);
+  const [draftDateFrom, setDraftDateFrom] = useState(defaultDateRange.from);
+  const [draftDateTo, setDraftDateTo] = useState(defaultDateRange.to);
   const [page, setPage] = useState(1);
+  const [sortBy, setSortBy] = useState<string | undefined>();
+  const [sortDir, setSortDir] = useState<"asc" | "desc" | undefined>();
   const [selectedLaporan, setSelectedLaporan] = useState<AdminLaporan | null>(
     null,
   );
@@ -258,21 +370,39 @@ export default function AdminLaporanPage() {
 
   const [assignDinasId, setAssignDinasId] = useState("");
   const [assignCabangId, setAssignCabangId] = useState("");
+  const [resolutionUnit, setResolutionUnit] = useState<"hours" | "days">("hours");
+  const hasInitializedDinasFilterRef = useRef(false);
 
   const queryClient = useQueryClient();
+  const { data: dinasData } = useGetDinas({ limit: 1000 });
+  const dinasFilterValues = useMemo(
+    () => dinasData?.data?.map((d) => d.id) ?? [],
+    [dinasData?.data],
+  );
 
-  const { data, isLoading } = useGetAdminLaporan(
+  const { data, isLoading, isFetching } = useGetAdminLaporan(
     {
       search: search || undefined,
-      status: filterStatus || undefined,
-      dinasId: filterDinas || undefined,
+      status: getMultiFilterParam(filterStatuses, DEFAULT_STATUS_VALUES),
+      dinasId: getMultiFilterParam(filterDinasIds, dinasFilterValues),
+      dateFrom,
+      dateTo,
       page,
       limit: LIMIT,
+      sortBy,
+      sortDir,
     },
     { placeholderData: (prev) => prev },
   );
+  const { data: reportActivityData, isLoading: isReportActivityLoading } =
+    useGetReportActivity({
+      search: search || undefined,
+      status: getMultiFilterParam(filterStatuses, DEFAULT_STATUS_VALUES),
+      dinasId: getMultiFilterParam(filterDinasIds, dinasFilterValues),
+      dateFrom,
+      dateTo,
+    });
 
-  const { data: dinasData } = useGetDinas({ limit: 1000 });
   const { data: cabangForAssign } = useGetCabang(
     { dinasId: assignDinasId || undefined, limit: 100 },
     { enabled: showAssignForm && !!assignDinasId },
@@ -280,10 +410,106 @@ export default function AdminLaporanPage() {
 
   const laporanList = data?.data ?? [];
   const meta = data?.meta;
+  const reportActivity = reportActivityData?.data;
   const totalPages = meta?.totalPages ?? 1;
+  useEffect(() => {
+    if (hasInitializedDinasFilterRef.current || dinasFilterValues.length === 0) {
+      return;
+    }
 
-  const invalidate = () =>
+    hasInitializedDinasFilterRef.current = true;
+    setFilterDinasIds(dinasFilterValues);
+    setDraftFilterDinasIds(dinasFilterValues);
+  }, [dinasFilterValues]);
+
+  const statusOptions = STATUS_OPTIONS.map((status) => ({
+    value: status.value,
+    label: status.label,
+  }));
+  const dinasOptions = [
+    ...(dinasData?.data?.map((d) => ({
+      value: d.id,
+      label: d.short ?? d.name,
+    })) ?? []),
+  ];
+  const assignDinasOptions = [
+    { value: "", label: "Pilih Dinas" },
+    ...(dinasData?.data?.map((d) => ({ value: d.id, label: d.name })) ?? []),
+  ];
+  const assignCabangOptions = [
+    { value: "", label: "Pilih Cabang" },
+    ...((cabangForAssign?.data ?? []).map((c) => ({
+      value: c.id,
+      label: `${c.name} - ${c.wilayah}`,
+    }))),
+  ];
+  const applyFilters = () => {
+    setSearch(draftSearch.trim());
+    setFilterStatuses(draftFilterStatuses);
+    setFilterDinasIds(draftFilterDinasIds);
+    setDateFrom(draftDateFrom);
+    setDateTo(draftDateTo);
+    setPage(1);
+  };
+  const hasUnappliedFilters =
+    draftSearch.trim() !== search ||
+    !areStringArraysEqual(draftFilterStatuses, filterStatuses) ||
+    !areStringArraysEqual(draftFilterDinasIds, filterDinasIds) ||
+    draftDateFrom !== dateFrom ||
+    draftDateTo !== dateTo;
+  const isApplyingFilters = isFetching && !isLoading;
+  const reportActivityDaysLabel = `${reportActivity?.days ?? 14} hari`;
+  const averageResolutionHours =
+    reportActivity?.summary.averageResolutionHours ?? 0;
+  const resolutionValue =
+    resolutionUnit === "hours"
+      ? averageResolutionHours
+      : Number((averageResolutionHours / 24).toFixed(1));
+  const resolutionUnitLabel = resolutionUnit === "hours" ? "jam" : "hari";
+  const statusBreakdown = useMemo(
+    () =>
+      (reportActivity?.byStatus ?? []).map((item) => {
+        const statusKey = normalizeReportStatus(item.status);
+        const statusMeta = statusKey ? REPORT_STATUSES[statusKey] : null;
+
+        return {
+          ...item,
+          color: statusMeta?.chartColor ?? UNKNOWN_STATUS_COLOR,
+        };
+      }),
+    [reportActivity?.byStatus],
+  );
+  const maxStatusTotal = Math.max(
+    1,
+    ...statusBreakdown.map((item) => item.total),
+  );
+  const maxTopDinasTotal = Math.max(
+    1,
+    ...(reportActivity?.topDinas ?? []).map((item) => item.total),
+  );
+
+  const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.ADMIN_LAPORAN] });
+    queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.ADMIN_REPORT_ACTIVITY] });
+  };
+
+  const handleSort = useCallback((nextSortBy: string) => {
+    setPage(1);
+
+    if (sortBy !== nextSortBy) {
+      setSortBy(nextSortBy);
+      setSortDir("asc");
+      return;
+    }
+
+    if (sortDir === "asc") {
+      setSortDir("desc");
+      return;
+    }
+
+    setSortBy(undefined);
+    setSortDir(undefined);
+  }, [sortBy, sortDir]);
 
   const updateStatusMutation = useUpdateAdminLaporanStatus({
     onSuccess: (res) => {
@@ -363,7 +589,7 @@ export default function AdminLaporanPage() {
   };
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 pb-16 h-full flex flex-col gap-6">
+    <div className="min-h-full space-y-5 p-4 pb-16 sm:p-6 lg:p-8">
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between shrink-0">
         <div>
           <h1 className="text-xl font-heading font-black text-gray-900">
@@ -382,77 +608,335 @@ export default function AdminLaporanPage() {
         )}
       </div>
 
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-5 gap-5 min-h-0">
-        <div className="lg:col-span-3 bg-white border border-gray-200 rounded-sm flex flex-col overflow-hidden min-h-[500px] shadow-sm">
+      <section className="shrink-0 rounded-sm border border-gray-200 bg-white p-4 shadow-sm">
+        <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full bg-rose-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-[#db2744]">
+              <Activity size={12} />
+              Aktivitas Laporan
+            </div>
+            <h2 className="mt-2 text-sm font-black text-gray-950">
+              Laporan masuk harian
+            </h2>
+            <p className="mt-0.5 text-xs font-medium text-gray-400">
+              Berdasarkan laporan dan status penanganan {reportActivityDaysLabel} terakhir.
+            </p>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <div className="rounded-sm border border-gray-100 bg-gray-50 px-3 py-2">
+              <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">
+                Masuk
+              </p>
+              <p className="mt-1 text-lg font-black text-gray-950">
+                {isReportActivityLoading ? "-" : (reportActivity?.summary.newReports ?? 0)}
+              </p>
+            </div>
+            <div className="rounded-sm border border-gray-100 bg-gray-50 px-3 py-2">
+              <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">
+                Aktif
+              </p>
+              <p className="mt-1 text-lg font-black text-gray-950">
+                {isReportActivityLoading ? "-" : (reportActivity?.summary.activeReports ?? 0)}
+              </p>
+            </div>
+            <div className="rounded-sm border border-gray-100 bg-gray-50 px-3 py-2">
+              <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">
+                Rating
+              </p>
+              <p className="mt-1 text-lg font-black text-gray-950">
+                {isReportActivityLoading ? "-" : (reportActivity?.summary.averageRating ?? 0)}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_230px]">
+          <div className="h-[190px] min-w-0">
+            {isReportActivityLoading ? (
+              <div className="h-full animate-pulse rounded-sm bg-gray-50" />
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart
+                  data={reportActivity?.series ?? []}
+                  margin={{ left: -20, right: 8, top: 8, bottom: 0 }}
+                >
+                  <defs>
+                    <linearGradient id="reportActivityGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#db2744" stopOpacity={0.22} />
+                      <stop offset="95%" stopColor="#db2744" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                  <ChartTooltip content={<ReportActivityTooltip />} cursor={{ stroke: "#fecdd3", strokeWidth: 1 }} />
+                  <Bar dataKey="resolved" name="Selesai" fill="#10b981" radius={[4, 4, 0, 0]} barSize={12} />
+                  <Bar dataKey="manualReview" name="Review Manual" fill="#f59e0b" radius={[4, 4, 0, 0]} barSize={12} />
+                  <Area
+                    type="monotone"
+                    dataKey="total"
+                    name="Laporan Masuk"
+                    stroke="#db2744"
+                    strokeWidth={2.5}
+                    fill="url(#reportActivityGradient)"
+                    dot={{ r: 2.5, fill: "#db2744", strokeWidth: 0 }}
+                    activeDot={{ r: 4, fill: "#be123c", stroke: "#fff", strokeWidth: 2 }}
+                  />
+                </ComposedChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <div className="rounded-sm border border-rose-100 bg-rose-50 px-3 py-2">
+              <div className="flex items-center gap-2 text-[#db2744]">
+                <TrendingUp size={13} />
+                <span className="text-[9px] font-black uppercase tracking-widest">
+                  Puncak
+                </span>
+              </div>
+              <p className="mt-1 text-sm font-black text-rose-950">
+                {reportActivity?.summary.peakReports ?? 0} laporan
+              </p>
+              <p className="text-[10px] font-bold text-rose-400">
+                {formatShortDate(reportActivity?.summary.peakDate)}
+              </p>
+            </div>
+            <div className="rounded-sm border border-emerald-100 bg-emerald-50 px-3 py-2">
+              <div className="flex items-center gap-2 text-emerald-600">
+                <CheckCircle2 size={13} />
+                <span className="text-[9px] font-black uppercase tracking-widest">
+                  Selesai
+                </span>
+              </div>
+              <p className="mt-1 text-sm font-black text-emerald-950">
+                {reportActivity?.summary.resolvedReports ?? 0} laporan
+              </p>
+              <p className="text-[10px] font-bold text-emerald-500">
+                total selesai
+              </p>
+            </div>
+            <div className="rounded-sm border border-gray-100 bg-gray-50 px-3 py-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-gray-500">
+                  <Star size={13} />
+                  <span className="text-[9px] font-black uppercase tracking-widest">
+                    Resolusi
+                  </span>
+                </div>
+                <div className="flex rounded-sm border border-gray-200 bg-white p-0.5">
+                  {[
+                    { value: "hours" as const, label: "Jam" },
+                    { value: "days" as const, label: "Hari" },
+                  ].map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setResolutionUnit(option.value)}
+                      className={`h-5 rounded-[3px] px-1.5 text-[9px] font-black transition-colors ${
+                        resolutionUnit === option.value
+                          ? "bg-gray-900 text-white"
+                          : "text-gray-400 hover:text-gray-800"
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <p className="mt-1 text-sm font-black text-gray-950">
+                {resolutionValue} {resolutionUnitLabel}
+              </p>
+              <p className="text-[10px] font-bold text-gray-400">
+                rata-rata selesai
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          <div className="min-w-0 rounded-sm border border-gray-100 bg-gray-50 p-3">
+            <div className="mb-3 flex items-center justify-between">
+              <div>
+                <p className="text-xs font-black text-gray-950">Sebaran status</p>
+                <p className="text-[10px] font-bold text-gray-400">Total laporan saat ini</p>
+              </div>
+              <FileText size={15} className="text-gray-400" />
+            </div>
+            <div className="space-y-2">
+              {statusBreakdown.length === 0 ? (
+                <div className="h-20 animate-pulse rounded-sm bg-white" />
+              ) : (
+                statusBreakdown.map((item) => (
+                  <div key={item.status} className="space-y-1">
+                    <div className="flex items-center justify-between gap-3 text-[11px] font-bold">
+                      <span className="truncate text-gray-600">{item.label}</span>
+                      <span className="tabular-nums text-gray-900">{item.total}</span>
+                    </div>
+                    <div className="h-1.5 overflow-hidden rounded-full bg-white">
+                      <div
+                        className="h-full rounded-full"
+                        style={{
+                          width: `${Math.max(4, (item.total / maxStatusTotal) * 100)}%`,
+                          backgroundColor: item.color,
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div className="min-w-0 rounded-sm border border-gray-100 bg-gray-50 p-3">
+            <div className="mb-3 flex items-center justify-between">
+              <div>
+                <p className="text-xs font-black text-gray-950">Top dinas</p>
+                <p className="text-[10px] font-bold text-gray-400">Berdasarkan volume laporan</p>
+              </div>
+              <Building2 size={15} className="text-gray-400" />
+            </div>
+            <div className="space-y-2">
+              {(reportActivity?.topDinas ?? []).length === 0 ? (
+                <div className="h-20 animate-pulse rounded-sm bg-white" />
+              ) : (
+                reportActivity?.topDinas.map((item) => (
+                  <div key={item.id} className="space-y-1">
+                    <div className="flex items-center justify-between gap-3 text-[11px] font-bold">
+                      <span className="truncate text-gray-600">{item.short ?? item.name}</span>
+                      <span className="tabular-nums text-gray-900">{item.total}</span>
+                    </div>
+                    <div className="h-1.5 overflow-hidden rounded-full bg-white">
+                      <div
+                        className="h-full rounded-full bg-gray-900"
+                        style={{
+                          width: `${Math.max(4, (item.total / maxTopDinasTotal) * 100)}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-5">
+        <div className="overflow-hidden rounded-sm border border-gray-200 bg-white shadow-sm lg:col-span-3">
           <div className="px-4 py-3 border-b border-gray-100 flex flex-wrap gap-2 items-center bg-gray-50/80 shrink-0">
             <div className="relative flex-1 min-w-[140px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none" />
               <input
                 placeholder="Cari laporan..."
-                value={search}
+                value={draftSearch}
                 onChange={(e) => {
-                  setSearch(e.target.value);
-                  setPage(1);
+                  setDraftSearch(e.target.value);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") applyFilters();
                 }}
                 className="w-full pl-8 pr-3 h-8 bg-gray-50 border border-gray-200 text-gray-900 text-xs rounded-sm placeholder:text-gray-400 focus:outline-none focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10 transition-colors"
               />
             </div>
-            <select
-              value={filterStatus}
-              onChange={(e) => {
-                setFilterStatus(e.target.value);
-                setPage(1);
-              }}
-              className="h-8 bg-gray-50 border border-gray-200 text-gray-700 text-xs rounded-sm px-2 focus:outline-none focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10 appearance-none"
-            >
-              <option value="">Semua Status</option>
-              {STATUS_OPTIONS.map((s) => (
-                <option key={s.value} value={s.value}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
-            <select
-              value={filterDinas}
-              onChange={(e) => {
-                setFilterDinas(e.target.value);
-                setPage(1);
-              }}
-              className="h-8 bg-gray-50 border border-gray-200 text-gray-700 text-xs rounded-sm px-2 focus:outline-none focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10 appearance-none"
-            >
-              <option value="">Semua Dinas</option>
-              {dinasData?.data?.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.short ?? d.name}
-                </option>
-              ))}
-            </select>
+            <AdminMultiSelect
+              values={draftFilterStatuses}
+              onChange={setDraftFilterStatuses}
+              options={statusOptions}
+              placeholder="Pilih Status"
+              allLabel="Semua Status"
+              countLabel="Status"
+              className="h-8 bg-gray-50"
+            />
+            <AdminMultiSelect
+              values={draftFilterDinasIds}
+              onChange={setDraftFilterDinasIds}
+              options={dinasOptions}
+              placeholder="Pilih Dinas"
+              allLabel="Semua Dinas"
+              countLabel="Dinas"
+              className="h-8 bg-gray-50"
+            />
+            <AdminDateInput
+              value={draftDateFrom}
+              onChange={setDraftDateFrom}
+              max={draftDateTo}
+              placeholder="Dari tanggal"
+              className="h-8 min-w-[142px] bg-gray-50"
+            />
+            <AdminDateInput
+              value={draftDateTo}
+              onChange={setDraftDateTo}
+              min={draftDateFrom}
+              placeholder="Sampai tanggal"
+              className="h-8 min-w-[142px] bg-gray-50"
+            />
             {meta && (
               <span className="text-xs text-gray-400 ml-auto">
                 {meta.total} total
               </span>
             )}
+            <button
+              type="button"
+              onClick={applyFilters}
+              disabled={!hasUnappliedFilters || isApplyingFilters}
+              className="h-8 rounded-sm bg-gray-900 px-3 text-xs font-bold text-white transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-gray-900"
+            >
+              {isApplyingFilters ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <Loader2 size={12} className="animate-spin" />
+                  Menerapkan...
+                </span>
+              ) : (
+                "Apply"
+              )}
+            </button>
           </div>
 
-          <div className="flex-1 overflow-auto">
-            <table className="w-full text-sm text-left">
-              <thead className="sticky top-0 z-10 bg-gray-50">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[820px] text-left text-sm">
+              <thead className="sticky top-0 z-10 border-b border-gray-100 bg-gray-50">
                 <tr className="border-b border-gray-100">
-                  <th className="px-4 py-2.5 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                    Laporan
-                  </th>
-                  <th className="px-4 py-2.5 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-4 py-2.5 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                    Vote
-                  </th>
-                  <th className="px-4 py-2.5 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                    Kategori
-                  </th>
-                  <th className="px-4 py-2.5 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                    Tanggal
-                  </th>
+                  <AdminSortHeader
+                    label="Laporan"
+                    sortKey="title"
+                    sortBy={sortBy}
+                    sortDir={sortDir}
+                    onSort={handleSort}
+                    className="px-4 py-2.5 text-[10px]"
+                  />
+                  <AdminSortHeader
+                    label="Status"
+                    sortKey="status"
+                    sortBy={sortBy}
+                    sortDir={sortDir}
+                    onSort={handleSort}
+                    className="px-4 py-2.5 text-[10px]"
+                  />
+                  <AdminSortHeader
+                    label="Vote"
+                    sortKey="vote"
+                    sortBy={sortBy}
+                    sortDir={sortDir}
+                    onSort={handleSort}
+                    className="px-4 py-2.5 text-[10px]"
+                  />
+                  <AdminSortHeader
+                    label="Kategori"
+                    sortKey="kategori"
+                    sortBy={sortBy}
+                    sortDir={sortDir}
+                    onSort={handleSort}
+                    className="px-4 py-2.5 text-[10px]"
+                  />
+                  <AdminSortHeader
+                    label="Tanggal"
+                    sortKey="createdAt"
+                    sortBy={sortBy}
+                    sortDir={sortDir}
+                    onSort={handleSort}
+                    className="px-4 py-2.5 text-[10px]"
+                  />
                 </tr>
               </thead>
               <tbody>
@@ -501,6 +985,7 @@ export default function AdminLaporanPage() {
                       <td className="px-4 py-3.5">
                         <span
                           className={`inline-flex items-center px-2 py-0.5 rounded border text-[10px] font-bold uppercase tracking-wider ${getStatusStyle(l.status)}`}
+                          title={STATUS_HELP[l.status] ?? getStatusLabel(l.status)}
                         >
                           {getStatusLabel(l.status)}
                         </span>
@@ -532,30 +1017,17 @@ export default function AdminLaporanPage() {
             </table>
           </div>
 
-          {totalPages > 1 && (
-            <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between bg-gray-50/60 shrink-0">
-              <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page <= 1}
-                className="p-1.5 rounded-sm text-gray-500 hover:text-gray-900 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              >
-                <ChevronLeft size={14} />
-              </button>
-              <span className="text-xs text-gray-500">
-                Halaman {page} / {totalPages}
-              </span>
-              <button
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={page >= totalPages}
-                className="p-1.5 rounded-sm text-gray-500 hover:text-gray-900 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              >
-                <ChevronRight size={14} />
-              </button>
-            </div>
-          )}
+          <AdminPagination
+            page={page}
+            totalPages={totalPages}
+            totalItems={meta?.total ?? 0}
+            pageSize={LIMIT}
+            itemLabel="laporan"
+            onPageChange={setPage}
+          />
         </div>
 
-        <div className="lg:col-span-2 bg-white border border-gray-200 rounded-sm flex flex-col overflow-hidden shadow-sm">
+        <div className="min-h-[420px] overflow-hidden rounded-sm border border-gray-200 bg-white shadow-sm lg:sticky lg:top-4 lg:col-span-2">
           {!selectedLaporan ? (
             <div className="flex-1 flex flex-col items-center justify-center gap-4 p-8">
               <div className="w-16 h-16 rounded-sm bg-gradient-to-br from-gray-100 to-gray-50 border border-gray-200 flex items-center justify-center">
@@ -577,6 +1049,7 @@ export default function AdminLaporanPage() {
                   <div className="flex-1 min-w-0">
                     <span
                       className={`inline-flex items-center px-2 py-0.5 rounded border text-[10px] font-bold uppercase tracking-wider mb-1.5 ${getStatusStyle(selectedLaporan.status)}`}
+                      title={STATUS_HELP[selectedLaporan.status] ?? getStatusLabel(selectedLaporan.status)}
                     >
                       {getStatusLabel(selectedLaporan.status)}
                     </span>
@@ -643,17 +1116,15 @@ export default function AdminLaporanPage() {
                         <p className="text-xs font-bold text-gray-700">
                           Update Status Laporan
                         </p>
-                        <select
+                        <AdminSelect
                           value={statusVal}
-                          onChange={(e) => setStatusVal(e.target.value)}
-                          className="w-full h-8 bg-white border border-gray-200 text-gray-700 text-xs rounded-sm px-2 focus:outline-none focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10"
-                        >
-                          {STATUS_OPTIONS.map((s) => (
-                            <option key={s.value} value={s.value}>
-                              {s.label}
-                            </option>
-                          ))}
-                        </select>
+                          onChange={setStatusVal}
+                          options={STATUS_OPTIONS.map((s) => ({
+                            value: s.value,
+                            label: s.label,
+                          }))}
+                          className="h-8 w-full"
+                        />
                         <textarea
                           placeholder="Catatan dinas (opsional)..."
                           value={agencyNote}
@@ -707,34 +1178,22 @@ export default function AdminLaporanPage() {
                         <p className="text-xs font-bold text-gray-700">
                           Assign ke Cabang
                         </p>
-                        <select
+                        <AdminSelect
                           value={assignDinasId}
-                          onChange={(e) => {
-                            setAssignDinasId(e.target.value);
+                          onChange={(value) => {
+                            setAssignDinasId(value);
                             setAssignCabangId("");
                           }}
-                          className="w-full h-8 bg-white border border-gray-200 text-gray-700 text-xs rounded-sm px-2 focus:outline-none focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10"
-                        >
-                          <option value="">Pilih Dinas</option>
-                          {dinasData?.data?.map((d) => (
-                            <option key={d.id} value={d.id}>
-                              {d.name}
-                            </option>
-                          ))}
-                        </select>
+                          options={assignDinasOptions}
+                          className="h-8 w-full"
+                        />
                         {assignDinasId && (
-                          <select
+                          <AdminSelect
                             value={assignCabangId}
-                            onChange={(e) => setAssignCabangId(e.target.value)}
-                            className="w-full h-8 bg-white border border-gray-200 text-gray-700 text-xs rounded-sm px-2 focus:outline-none focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10"
-                          >
-                            <option value="">Pilih Cabang</option>
-                            {(cabangForAssign?.data ?? []).map((c) => (
-                              <option key={c.id} value={c.id}>
-                                {c.name} — {c.wilayah}
-                              </option>
-                            ))}
-                          </select>
+                            onChange={setAssignCabangId}
+                            options={assignCabangOptions}
+                            className="h-8 w-full"
+                          />
                         )}
                         <div className="flex gap-2">
                           <button
@@ -999,6 +1458,7 @@ export default function AdminLaporanPage() {
                                     <ScoreCell
                                       label="Clarity"
                                       value={selectedLaporan.aiClarityScore}
+                                      tooltip="Seberapa jelas laporan warga untuk dipahami dan diverifikasi."
                                     />
                                   )}
                                   {selectedLaporan.aiSeriousnessScore !=
@@ -1006,12 +1466,14 @@ export default function AdminLaporanPage() {
                                     <ScoreCell
                                       label="Seriousness"
                                       value={selectedLaporan.aiSeriousnessScore}
+                                      tooltip="Perkiraan tingkat dampak atau keseriusan masalah."
                                     />
                                   )}
                                   {selectedLaporan.aiUrgencyScore != null && (
                                     <ScoreCell
                                       label="Urgency"
                                       value={selectedLaporan.aiUrgencyScore}
+                                      tooltip="Perkiraan seberapa cepat laporan perlu ditangani."
                                     />
                                   )}
                                 </div>

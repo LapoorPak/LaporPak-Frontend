@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
+  useGetUserActivity,
   useGetUsers,
   useGetCabang,
   useAssignPetugas,
@@ -12,12 +13,33 @@ import { QUERY_KEYS } from "@/api/queryKeys";
 import type { User, Cabang } from "@/types/admin";
 import {
   Search, Users, Ban, Building2, Lock, X, CheckCircle2,
-  ChevronRight, Check, Shield, UserCheck, ChevronLeft, ChevronRight as ChevronRightIcon,
-  Phone, Mail, Calendar, Hash,
+  ChevronRight, Check, Shield, UserCheck, ChevronLeft,
+  Phone, Mail, Calendar, Hash, Activity, TrendingUp, Clock, Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
+import {
+  Area,
+  Bar,
+  CartesianGrid,
+  ComposedChart,
+  ResponsiveContainer,
+  Tooltip as ChartTooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { Input } from "@/components/ui/input";
+import { AdminPagination } from "@/components/ui/admin-pagination";
+import { AdminDateInput, AdminMultiSelect } from "@/components/ui/admin-select";
+import { AdminSortHeader } from "@/components/ui/admin-sort-header";
+
+const NONE_FILTER_VALUE = "__none";
+const USER_ROLE_OPTIONS = [
+  { value: "admin", label: "Admin" },
+  { value: "dinas", label: "Dinas" },
+  { value: "warga", label: "Warga" },
+];
+const DEFAULT_USER_ROLE_VALUES = USER_ROLE_OPTIONS.map((option) => option.value);
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -35,6 +57,68 @@ function getRoleBadge(role: string | null) {
 
 function formatDate(d: Date | string) {
   return new Date(d).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
+}
+
+function getDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getDefaultDateRange() {
+  const to = new Date();
+  const from = new Date();
+  from.setDate(to.getDate() - 13);
+
+  return {
+    from: getDateKey(from),
+    to: getDateKey(to),
+  };
+}
+
+function areStringArraysEqual(a: string[], b: string[]) {
+  if (a.length !== b.length) return false;
+
+  const sortedA = [...a].sort();
+  const sortedB = [...b].sort();
+  return sortedA.every((value, index) => value === sortedB[index]);
+}
+
+function getMultiFilterParam(values: string[], allValues: string[]) {
+  if (allValues.length === 0 || values.length === allValues.length) return undefined;
+  if (values.length === 0) return NONE_FILTER_VALUE;
+  return values.join(",");
+}
+
+function formatDateTime(value?: string | null) {
+  if (!value) return "Belum pernah";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Belum pernah";
+
+  return date.toLocaleString("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function ActivityTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null;
+
+  const activeUsers = payload.find((item: any) => item.dataKey === "activeUsers")?.value ?? 0;
+  const newUsers = payload.find((item: any) => item.dataKey === "newUsers")?.value ?? 0;
+
+  return (
+    <div className="rounded-sm border border-gray-200 bg-white px-3 py-2 shadow-lg">
+      <p className="mb-1 text-[11px] font-black text-gray-900">{label}</p>
+      <p className="text-[10px] font-bold text-indigo-600">{activeUsers} user aktif</p>
+      <p className="text-[10px] font-bold text-emerald-600">{newUsers} user baru</p>
+    </div>
+  );
 }
 
 // ─── Skeleton ────────────────────────────────────────────────────────────────
@@ -56,6 +140,7 @@ function SkeletonRows() {
           <td className="px-4 py-3"><div className="h-5 w-16 bg-gray-100 rounded animate-pulse" /></td>
           <td className="px-4 py-3"><div className="h-5 w-14 bg-gray-100 rounded animate-pulse" /></td>
           <td className="px-4 py-3"><div className="h-4 w-20 bg-gray-100 rounded animate-pulse" /></td>
+          <td className="px-4 py-3"><div className="h-4 w-24 bg-gray-100 rounded animate-pulse" /></td>
         </tr>
       ))}
     </>
@@ -67,13 +152,22 @@ function SkeletonRows() {
 export default function AdminUsersPage() {
   const qc = useQueryClient();
   const invalidate = () => qc.invalidateQueries({ queryKey: [QUERY_KEYS.ADMIN_USERS] });
+  const defaultDateRange = getDefaultDateRange();
 
   // Filters & pagination
   const [search, setSearch] = useState("");
-  const [filterRole, setFilterRole] = useState("");
+  const [draftSearch, setDraftSearch] = useState("");
+  const [filterRoles, setFilterRoles] = useState<string[]>(DEFAULT_USER_ROLE_VALUES);
+  const [draftFilterRoles, setDraftFilterRoles] = useState<string[]>(DEFAULT_USER_ROLE_VALUES);
   const [filterBanned, setFilterBanned] = useState<"" | "true" | "false">("");
-  const [filterHasPetugas, setFilterHasPetugas] = useState<"" | "true">("");
+  const [draftFilterBanned, setDraftFilterBanned] = useState<"" | "true" | "false">("");
+  const [dateFrom, setDateFrom] = useState(defaultDateRange.from);
+  const [dateTo, setDateTo] = useState(defaultDateRange.to);
+  const [draftDateFrom, setDraftDateFrom] = useState(defaultDateRange.from);
+  const [draftDateTo, setDraftDateTo] = useState(defaultDateRange.to);
   const [page, setPage] = useState(1);
+  const [sortBy, setSortBy] = useState<string | undefined>();
+  const [sortDir, setSortDir] = useState<"asc" | "desc" | undefined>();
   const LIMIT = 15;
 
   // Selected user for detail panel
@@ -98,16 +192,39 @@ export default function AdminUsersPage() {
 
   const params = {
     search: search || undefined,
-    role: filterRole || undefined,
+    role: getMultiFilterParam(filterRoles, DEFAULT_USER_ROLE_VALUES),
     banned: filterBanned !== "" ? filterBanned === "true" : undefined,
-    hasPetugas: filterHasPetugas === "true" ? true : undefined,
+    dateFrom,
+    dateTo,
     page,
     limit: LIMIT,
+    sortBy,
+    sortDir,
   };
 
-  const { data, isLoading } = useGetUsers(params, { placeholderData: (prev) => prev });
+  const { data, isLoading, isFetching } = useGetUsers(params, { placeholderData: (prev) => prev });
+  const { data: activityData, isLoading: isActivityLoading } =
+    useGetUserActivity({ dateFrom, dateTo });
 
   const { data: cabangData } = useGetCabang({ limit: 1000 }, { enabled: wizardOpen });
+
+  const handleSort = useCallback((nextSortBy: string) => {
+    setPage(1);
+
+    if (sortBy !== nextSortBy) {
+      setSortBy(nextSortBy);
+      setSortDir("asc");
+      return;
+    }
+
+    if (sortDir === "asc") {
+      setSortDir("desc");
+      return;
+    }
+
+    setSortBy(undefined);
+    setSortDir(undefined);
+  }, [sortBy, sortDir]);
 
   // ── Mutations ──
 
@@ -165,46 +282,187 @@ export default function AdminUsersPage() {
   ) ?? [];
 
   const totalPages = data?.meta?.totalPages ?? 1;
+  const activity = activityData?.data;
+  const applyFilters = () => {
+    setSearch(draftSearch.trim());
+    setFilterRoles(draftFilterRoles);
+    setFilterBanned(draftFilterBanned);
+    setDateFrom(draftDateFrom);
+    setDateTo(draftDateTo);
+    setPage(1);
+  };
+  const hasUnappliedFilters =
+    draftSearch.trim() !== search ||
+    !areStringArraysEqual(draftFilterRoles, filterRoles) ||
+    draftFilterBanned !== filterBanned ||
+    draftDateFrom !== dateFrom ||
+    draftDateTo !== dateTo;
+  const isApplyingFilters = isFetching && !isLoading;
+  const activityDaysLabel = `${activity?.days ?? 14} hari`;
 
   return (
-    <div className="h-full flex flex-col p-6 gap-5">
+    <div className="min-h-full space-y-5 p-6">
       {/* Header */}
       <div className="shrink-0">
         <h1 className="text-xl font-heading font-bold text-gray-900">Users Management</h1>
         <p className="text-xs text-gray-500 mt-0.5">Kelola pengguna, role, dan penugasan petugas</p>
       </div>
 
+      <section className="shrink-0 rounded-sm border border-gray-200 bg-white p-4 shadow-sm">
+        <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-indigo-600">
+              <Activity size={12} />
+              Aktivitas User
+            </div>
+            <h2 className="mt-2 text-sm font-black text-gray-950">
+              User aktif harian
+            </h2>
+            <p className="mt-0.5 text-xs font-medium text-gray-400">
+              Berdasarkan sesi login {activityDaysLabel} terakhir.
+            </p>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <div className="rounded-sm border border-gray-100 bg-gray-50 px-3 py-2">
+              <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">
+                Hari Ini
+              </p>
+              <p className="mt-1 text-lg font-black text-gray-950">
+                {isActivityLoading ? "-" : (activity?.summary.activeToday ?? 0)}
+              </p>
+            </div>
+            <div className="rounded-sm border border-gray-100 bg-gray-50 px-3 py-2">
+              <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">
+                Rata-rata
+              </p>
+              <p className="mt-1 text-lg font-black text-gray-950">
+                {isActivityLoading ? "-" : (activity?.summary.averageDailyActive ?? 0)}
+              </p>
+            </div>
+            <div className="rounded-sm border border-gray-100 bg-gray-50 px-3 py-2">
+              <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">
+                User Baru
+              </p>
+              <p className="mt-1 text-lg font-black text-gray-950">
+                {isActivityLoading ? "-" : (activity?.summary.newUsers ?? 0)}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_210px]">
+          <div className="h-[190px] min-w-0">
+            {isActivityLoading ? (
+              <div className="h-full animate-pulse rounded-sm bg-gray-50" />
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={activity?.series ?? []} margin={{ left: -20, right: 8, top: 8, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="activeUserGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#6366f1" stopOpacity={0.22} />
+                      <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                  <ChartTooltip content={<ActivityTooltip />} cursor={{ stroke: "#c7d2fe", strokeWidth: 1 }} />
+                  <Bar dataKey="newUsers" name="User Baru" fill="#10b981" radius={[4, 4, 0, 0]} barSize={12} />
+                  <Area
+                    type="monotone"
+                    dataKey="activeUsers"
+                    name="User Aktif"
+                    stroke="#6366f1"
+                    strokeWidth={2.5}
+                    fill="url(#activeUserGradient)"
+                    dot={{ r: 2.5, fill: "#6366f1", strokeWidth: 0 }}
+                    activeDot={{ r: 4, fill: "#4f46e5", stroke: "#fff", strokeWidth: 2 }}
+                  />
+                </ComposedChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <div className="rounded-sm border border-indigo-100 bg-indigo-50 px-3 py-2">
+              <div className="flex items-center gap-2 text-indigo-600">
+                <TrendingUp size={13} />
+                <span className="text-[9px] font-black uppercase tracking-widest">
+                  Puncak
+                </span>
+              </div>
+              <p className="mt-1 text-sm font-black text-indigo-950">
+                {activity?.summary.peakActive ?? 0} user
+              </p>
+              <p className="text-[10px] font-bold text-indigo-400">
+                {activity?.summary.peakDate ? formatDate(activity.summary.peakDate) : "-"}
+              </p>
+            </div>
+            <div className="rounded-sm border border-emerald-100 bg-emerald-50 px-3 py-2">
+              <div className="flex items-center gap-2 text-emerald-600">
+                <Users size={13} />
+                <span className="text-[9px] font-black uppercase tracking-widest">
+                  Unik
+                </span>
+              </div>
+              <p className="mt-1 text-sm font-black text-emerald-950">
+                {activity?.summary.totalActiveUsers ?? 0} user
+              </p>
+              <p className="text-[10px] font-bold text-emerald-500">
+                aktif dalam {activityDaysLabel}
+              </p>
+            </div>
+            <div className="rounded-sm border border-gray-100 bg-gray-50 px-3 py-2">
+              <div className="flex items-center gap-2 text-gray-500">
+                <Clock size={13} />
+                <span className="text-[9px] font-black uppercase tracking-widest">
+                  Sesi
+                </span>
+              </div>
+              <p className="mt-1 text-sm font-black text-gray-950">
+                {activity?.summary.totalSessions ?? 0}
+              </p>
+              <p className="text-[10px] font-bold text-gray-400">
+                total login
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Main split */}
-      <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-5 gap-5">
+      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-5">
         {/* ── Left: Table ── */}
-        <div className="lg:col-span-3 flex flex-col bg-white rounded-sm border border-gray-200 overflow-hidden shadow-sm">
+        <div className="flex flex-col overflow-hidden rounded-sm border border-gray-200 bg-white shadow-sm lg:col-span-3">
           {/* Filters */}
           <div className="shrink-0 p-4 border-b border-gray-100 space-y-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
               <Input
                 placeholder="Cari nama atau email..."
-                value={search}
-                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                value={draftSearch}
+                onChange={(e) => setDraftSearch(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") applyFilters();
+                }}
                 className="pl-9 h-9 bg-white border-gray-200 text-gray-900 text-sm placeholder:text-gray-400 rounded-sm focus-visible:border-[#db2744] focus-visible:ring-2 focus-visible:ring-[#db2744]/10"
               />
             </div>
             <div className="flex gap-2 flex-wrap">
-              <select
-                value={filterRole}
-                onChange={(e) => { setFilterRole(e.target.value); setPage(1); }}
-                className="h-8 bg-white border border-gray-200 text-gray-700 text-xs rounded-sm px-2.5 outline-none focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10"
-              >
-                <option value="">Semua Role</option>
-                <option value="admin">Admin</option>
-                <option value="agency">Petugas Dinas</option>
-                <option value="warga">Warga</option>
-              </select>
+              <AdminMultiSelect
+                values={draftFilterRoles}
+                onChange={setDraftFilterRoles}
+                options={USER_ROLE_OPTIONS}
+                placeholder="Pilih Role"
+                allLabel="Semua Role"
+                countLabel="Role"
+                className="h-8"
+              />
 
               <button
-                onClick={() => { setFilterBanned(filterBanned === "true" ? "" : "true"); setPage(1); }}
+                onClick={() => setDraftFilterBanned(draftFilterBanned === "true" ? "" : "true")}
                 className={`h-8 px-3 text-xs rounded-sm border transition-colors font-medium ${
-                  filterBanned === "true"
+                  draftFilterBanned === "true"
                     ? "bg-red-50 text-red-500 border-red-200"
                     : "bg-white text-gray-500 border-gray-200 hover:text-gray-900"
                 }`}
@@ -212,28 +470,83 @@ export default function AdminUsersPage() {
                 <Ban size={11} className="inline mr-1" />Banned
               </button>
 
+              <AdminDateInput
+                value={draftDateFrom}
+                onChange={setDraftDateFrom}
+                max={draftDateTo}
+                placeholder="Dari tanggal"
+                className="h-8 min-w-[142px]"
+              />
+              <AdminDateInput
+                value={draftDateTo}
+                onChange={setDraftDateTo}
+                min={draftDateFrom}
+                placeholder="Sampai tanggal"
+                className="h-8 min-w-[142px]"
+              />
               <button
-                onClick={() => { setFilterHasPetugas(filterHasPetugas === "true" ? "" : "true"); setPage(1); }}
-                className={`h-8 px-3 text-xs rounded-sm border transition-colors font-medium ${
-                  filterHasPetugas === "true"
-                    ? "bg-gray-900 text-white border-gray-800"
-                    : "bg-white text-gray-500 border-gray-200 hover:text-gray-900"
-                }`}
+                type="button"
+                onClick={applyFilters}
+                disabled={!hasUnappliedFilters || isApplyingFilters}
+                className="h-8 rounded-sm bg-gray-900 px-3 text-xs font-bold text-white transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-gray-900"
               >
-                <Building2 size={11} className="inline mr-1" />Petugas
+                {isApplyingFilters ? (
+                  <span className="inline-flex items-center gap-1.5">
+                    <Loader2 size={12} className="animate-spin" />
+                    Menerapkan...
+                  </span>
+                ) : (
+                  "Apply"
+                )}
               </button>
             </div>
           </div>
 
           {/* Table */}
-          <div className="flex-1 overflow-auto">
-            <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[760px] text-sm">
               <thead className="sticky top-0 z-10 bg-gray-50 border-b border-gray-100">
                 <tr>
-                  <th className="px-4 py-2.5 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider">Pengguna</th>
-                  <th className="px-4 py-2.5 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider">Role</th>
-                  <th className="px-4 py-2.5 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="px-4 py-2.5 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Bergabung</th>
+                  <AdminSortHeader
+                    label="Pengguna"
+                    sortKey="name"
+                    sortBy={sortBy}
+                    sortDir={sortDir}
+                    onSort={handleSort}
+                    className="px-4 py-2.5 text-[10px]"
+                  />
+                  <AdminSortHeader
+                    label="Role"
+                    sortKey="role"
+                    sortBy={sortBy}
+                    sortDir={sortDir}
+                    onSort={handleSort}
+                    className="px-4 py-2.5 text-[10px]"
+                  />
+                  <AdminSortHeader
+                    label="Status"
+                    sortKey="banned"
+                    sortBy={sortBy}
+                    sortDir={sortDir}
+                    onSort={handleSort}
+                    className="px-4 py-2.5 text-[10px]"
+                  />
+                  <AdminSortHeader
+                    label="Bergabung"
+                    sortKey="createdAt"
+                    sortBy={sortBy}
+                    sortDir={sortDir}
+                    onSort={handleSort}
+                    className="hidden px-4 py-2.5 text-[10px] sm:table-cell"
+                  />
+                  <AdminSortHeader
+                    label="Terakhir Login"
+                    sortKey="lastLoginAt"
+                    sortBy={sortBy}
+                    sortDir={sortDir}
+                    onSort={handleSort}
+                    className="hidden px-4 py-2.5 text-[10px] md:table-cell"
+                  />
                 </tr>
               </thead>
               <tbody>
@@ -241,7 +554,7 @@ export default function AdminUsersPage() {
                   <SkeletonRows />
                 ) : !data?.data?.length ? (
                   <tr>
-                    <td colSpan={4} className="py-16">
+                    <td colSpan={5} className="py-16">
                       <div className="flex flex-col items-center gap-3">
                         <img src="/illustrations/empty_state.png" alt="" className="w-28 h-28 object-contain opacity-60 mix-blend-screen" />
                         <p className="text-xs text-gray-400">Pengguna tidak ditemukan</p>
@@ -295,6 +608,15 @@ export default function AdminUsersPage() {
                         <td className="px-4 py-3 hidden sm:table-cell">
                           <span className="text-[11px] text-gray-400">{formatDate(user.createdAt)}</span>
                         </td>
+                        <td className="px-4 py-3 hidden md:table-cell">
+                          <span
+                            className={`text-[11px] font-semibold ${
+                              user.lastLoginAt ? "text-gray-600" : "text-gray-300"
+                            }`}
+                          >
+                            {formatDateTime(user.lastLoginAt)}
+                          </span>
+                        </td>
                       </tr>
                     );
                   })
@@ -303,50 +625,18 @@ export default function AdminUsersPage() {
             </table>
           </div>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="shrink-0 px-4 py-3 border-t border-gray-100 flex items-center justify-between">
-              <span className="text-xs text-gray-400">
-                Total {data?.meta?.total ?? 0} pengguna
-              </span>
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                  className="w-7 h-7 rounded-sm flex items-center justify-center text-gray-400 hover:bg-gray-100 hover:text-gray-900 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                >
-                  <ChevronLeft size={14} />
-                </button>
-                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  const p = Math.max(1, Math.min(totalPages - 4, page - 2)) + i;
-                  return (
-                    <button
-                      key={p}
-                      onClick={() => setPage(p)}
-                      className={`w-7 h-7 rounded-sm text-xs font-semibold transition-colors ${
-                        p === page
-                          ? "bg-primary text-white"
-                          : "text-gray-500 hover:bg-gray-100 hover:text-gray-900"
-                      }`}
-                    >
-                      {p}
-                    </button>
-                  );
-                })}
-                <button
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={page === totalPages}
-                  className="w-7 h-7 rounded-sm flex items-center justify-center text-gray-400 hover:bg-gray-100 hover:text-gray-900 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                >
-                  <ChevronRightIcon size={14} />
-                </button>
-              </div>
-            </div>
-          )}
+          <AdminPagination
+            page={page}
+            totalPages={totalPages}
+            totalItems={data?.meta?.total ?? 0}
+            pageSize={LIMIT}
+            itemLabel="pengguna"
+            onPageChange={setPage}
+          />
         </div>
 
         {/* ── Right: Detail ── */}
-        <div className="lg:col-span-2 bg-white rounded-sm border border-gray-200 overflow-hidden flex flex-col shadow-sm">
+        <div className="overflow-hidden rounded-sm border border-gray-200 bg-white shadow-sm lg:sticky lg:top-4 lg:col-span-2">
           <AnimatePresence mode="wait">
             {selectedUser ? (
               <motion.div
@@ -403,6 +693,10 @@ export default function AdminUsersPage() {
                     <div className="flex items-center gap-2 text-[11px] text-gray-500">
                       <Calendar size={12} className="text-gray-400" />
                       <span>Bergabung {formatDate(selectedUser.createdAt)}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-[11px] text-gray-500">
+                      <Clock size={12} className="text-gray-400" />
+                      <span>Login terakhir {formatDateTime(selectedUser.lastLoginAt)}</span>
                     </div>
                   </div>
 

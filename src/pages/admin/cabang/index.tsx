@@ -1,5 +1,6 @@
 import {
   useState,
+  useMemo,
   useEffect,
   useCallback,
   useRef,
@@ -12,12 +13,17 @@ import * as z from "zod";
 import {
   useGetDinas,
   useGetCabang,
+  useGetCabangActivity,
   useCreateCabang,
   useUpdateCabang,
   useDeleteCabang,
+  useGetAdminLaporan,
 } from "@/hooks/admin";
 import { QUERY_KEYS } from "@/api/queryKeys";
-import type { Cabang } from "@/types/admin";
+import type { AdminLaporan, Cabang, Dinas } from "@/types/admin";
+import type { AgencyPerformanceMetrics } from "@/types/dashboard";
+import type { ReportLocation } from "@/types/reports";
+import { AdminDinasPerformanceModal } from "@/pages/admin/dinas/AdminDinasPerformanceModal";
 import {
   Plus,
   Search,
@@ -40,6 +46,8 @@ import {
   FileText,
   Image as ImageIcon,
   ZoomIn,
+  BarChart3,
+  Activity,
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -48,6 +56,9 @@ import { resolvePhotoUrl } from "@/lib/resolve-photo-url";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { AdminPagination } from "@/components/ui/admin-pagination";
+import { AdminMultiSelect, AdminSelect } from "@/components/ui/admin-select";
+import { AdminSortHeader } from "@/components/ui/admin-sort-header";
 import {
   Map,
   MapMarker,
@@ -56,6 +67,19 @@ import {
   useMap,
 } from "@/components/ui/map";
 import type { MapMouseEvent } from "maplibre-gl";
+import {
+  Bar,
+  BarChart,
+  Cell,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip as ChartTooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 
 const schema = z.object({
   dinasId: z.string().min(1, "Dinas harus dipilih"),
@@ -74,6 +98,22 @@ type FormValues = z.infer<typeof schema>;
 
 const LIMIT = 20;
 const MAX_PHOTOS = 5;
+const NONE_FILTER_VALUE = "__none";
+const ROUTING_CHART_COLORS = ["#4f46e5", "#e5e7eb"];
+
+function areStringArraysEqual(a: string[], b: string[]) {
+  if (a.length !== b.length) return false;
+
+  const sortedA = [...a].sort();
+  const sortedB = [...b].sort();
+  return sortedA.every((value, index) => value === sortedB[index]);
+}
+
+function getMultiFilterParam(values: string[], allValues: string[]) {
+  if (allValues.length === 0 || values.length === allValues.length) return undefined;
+  if (values.length === 0) return NONE_FILTER_VALUE;
+  return values.join(",");
+}
 
 function MapClickHandler({
   onMapClick,
@@ -120,6 +160,161 @@ function SkeletonRow() {
 
 function getPhotoUrl(url: string) {
   return resolvePhotoUrl(url);
+}
+
+function getReportResolvedTime(report: ReportLocation) {
+  const resolvedTimeline = report.timeline?.find(
+    (item) => item.status === "resolved",
+  );
+  const value = resolvedTimeline?.createdAt || report.updatedAt;
+  const time = new Date(value).getTime();
+
+  return Number.isNaN(time) ? null : time;
+}
+
+function getHoursBetween(start: string, endTime: number) {
+  const startTime = new Date(start).getTime();
+  if (Number.isNaN(startTime) || endTime < startTime) return null;
+
+  return (endTime - startTime) / (1000 * 60 * 60);
+}
+
+function getBranchPerformance(
+  reports: ReportLocation[],
+  snapshotTime: number,
+): AgencyPerformanceMetrics {
+  const relevantReports = reports.filter((report) => report.status !== "rejected");
+  const resolvedReports = relevantReports.filter(
+    (report) => report.status === "resolved",
+  );
+  const activeReports = relevantReports.filter(
+    (report) => report.status !== "resolved",
+  );
+  const ratedReports = resolvedReports.filter(
+    (report) => typeof report.rating?.score === "number",
+  );
+  const activeAges = activeReports
+    .map((report) => getHoursBetween(report.createdAt, snapshotTime))
+    .filter((hours): hours is number => hours !== null);
+  const resolutionHours = resolvedReports
+    .map((report) => {
+      const resolvedTime = getReportResolvedTime(report);
+      return resolvedTime ? getHoursBetween(report.createdAt, resolvedTime) : null;
+    })
+    .filter((hours): hours is number => hours !== null);
+  const totalRating = ratedReports.reduce(
+    (sum, report) => sum + (report.rating?.score ?? 0),
+    0,
+  );
+
+  return {
+    total: relevantReports.length,
+    resolved: resolvedReports.length,
+    active: activeReports.length,
+    overdue: activeAges.filter((hours) => hours > 24 * 7).length,
+    stale: activeAges.filter((hours) => hours > 24 * 14).length,
+    averageRating:
+      ratedReports.length > 0 ? totalRating / ratedReports.length : null,
+    ratingCount: ratedReports.length,
+    completionRate:
+      relevantReports.length > 0
+        ? Math.round((resolvedReports.length / relevantReports.length) * 100)
+        : 0,
+    averageResolutionHours:
+      resolutionHours.length > 0
+        ? resolutionHours.reduce((sum, hours) => sum + hours, 0) /
+          resolutionHours.length
+        : null,
+    longestOpenHours:
+      activeAges.length > 0 ? Math.max(...activeAges) : null,
+  };
+}
+
+function getFallbackDinas(cabang: Cabang): Dinas {
+  return {
+    id: cabang.dinasId,
+    code: cabang.dinas?.code ?? "CABANG",
+    type: cabang.dinas?.type ?? null,
+    name: cabang.dinas?.name ?? "Cabang Dinas",
+    short: cabang.dinas?.short ?? null,
+    wilayah: cabang.wilayah,
+    description: cabang.dinas?.description ?? null,
+    isActive: cabang.dinas?.isActive ?? true,
+    routingPriority: cabang.dinas?.routingPriority ?? 100,
+    createdAt: cabang.createdAt,
+    updatedAt: cabang.updatedAt,
+    _count: cabang.dinas?._count,
+  };
+}
+
+function toReportLocation(report: AdminLaporan, cabang: Cabang): ReportLocation {
+  const dinas = cabang.dinas ?? getFallbackDinas(cabang);
+
+  return {
+    id: report.id,
+    title: report.title,
+    description: report.description,
+    lat: report.latitude,
+    lng: report.longitude,
+    status: report.status,
+    routingStatus: report.routingStatus,
+    createdAt: report.createdAt,
+    updatedAt: report.resolvedAt ?? report.updatedAt,
+    kategori: report.kategori
+      ? {
+          id: report.kategori.id,
+          code: report.kategori.code,
+          name: report.kategori.name,
+          dinas: {
+            id: dinas.id,
+            code: dinas.code,
+            type: dinas.type ?? dinas.code,
+            name: dinas.name,
+          },
+        }
+      : null,
+    dinas: {
+      id: dinas.id,
+      code: dinas.code,
+      type: dinas.type ?? dinas.code,
+      name: dinas.name,
+    },
+    cabangDinas: report.cabangDinas ?? {
+      id: cabang.id,
+      name: cabang.name,
+      wilayah: cabang.wilayah,
+      address: cabang.address,
+      phone: cabang.phone,
+    },
+    ownership: "other",
+    agencyNote: report.agencyNote,
+    resolutionNote: report.resolutionNote,
+    resolutionImages: [],
+    assignedTo: report.assignedTo
+      ? { id: report.assignedTo.id, name: report.assignedTo.name }
+      : null,
+    createdBy: report.createdBy
+      ? { id: report.createdBy.id, name: report.createdBy.name }
+      : null,
+    upvotes: report.upvotes ?? 0,
+    downvotes: report.downvotes ?? 0,
+    voteScore: report.voteScore ?? 0,
+    myVote: null,
+    rating: report.rating ?? null,
+    images: report.images,
+    timeline: report.resolvedAt
+      ? [
+          {
+            id: `${report.id}-resolved`,
+            status: "resolved",
+            note: report.resolutionNote,
+            images: [],
+            actorRole: "admin",
+            createdAt: report.resolvedAt,
+          },
+        ]
+      : [],
+  };
 }
 
 function PhotoLightbox({
@@ -208,8 +403,12 @@ function PhotoLightbox({
 
 export default function AdminCabangPage() {
   const [search, setSearch] = useState("");
-  const [filterDinas, setFilterDinas] = useState("");
+  const [draftSearch, setDraftSearch] = useState("");
+  const [filterDinasIds, setFilterDinasIds] = useState<string[]>([]);
+  const [draftFilterDinasIds, setDraftFilterDinasIds] = useState<string[]>([]);
   const [page, setPage] = useState(1);
+  const [sortBy, setSortBy] = useState<string | undefined>();
+  const [sortDir, setSortDir] = useState<"asc" | "desc" | undefined>();
   const [selectedCabang, setSelectedCabang] = useState<Cabang | null>(null);
   const selectCabang = (c: Cabang) => {
     setSelectedCabang(c);
@@ -218,6 +417,8 @@ export default function AdminCabangPage() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Cabang | null>(null);
+  const [performanceTarget, setPerformanceTarget] = useState<Cabang | null>(null);
+  const [performanceSnapshotTime] = useState(() => Date.now());
   const [serviceTagInput, setServiceTagInput] = useState("");
   const [serviceTags, setServiceTags] = useState<string[]>([]);
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
@@ -229,23 +430,66 @@ export default function AdminCabangPage() {
     index: number;
   } | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
+  const hasInitializedDinasFilterRef = useRef(false);
 
   const queryClient = useQueryClient();
   const { data: dinasData } = useGetDinas({ limit: 1000 });
+  const dinasFilterValues = useMemo(
+    () => dinasData?.data?.map((d) => d.id) ?? [],
+    [dinasData?.data],
+  );
 
-  const { data, isLoading } = useGetCabang(
+  useEffect(() => {
+    if (hasInitializedDinasFilterRef.current || dinasFilterValues.length === 0) {
+      return;
+    }
+
+    hasInitializedDinasFilterRef.current = true;
+    setFilterDinasIds(dinasFilterValues);
+    setDraftFilterDinasIds(dinasFilterValues);
+  }, [dinasFilterValues]);
+
+  const { data, isLoading, isFetching } = useGetCabang(
     {
       search: search || undefined,
-      dinasId: filterDinas || undefined,
+      dinasId: getMultiFilterParam(filterDinasIds, dinasFilterValues),
       page,
       limit: LIMIT,
+      sortBy,
+      sortDir,
     },
     { placeholderData: (prev) => prev },
   );
+  const { data: cabangActivityData, isLoading: isCabangActivityLoading } =
+    useGetCabangActivity({
+      search: search || undefined,
+      dinasId: getMultiFilterParam(filterDinasIds, dinasFilterValues),
+    });
 
   const cabangList = data?.data ?? [];
+  const cabangActivity = cabangActivityData?.data;
   const meta = data?.meta;
   const totalPages = meta?.totalPages ?? 1;
+  const { data: performanceLaporanData } = useGetAdminLaporan(
+    performanceTarget
+      ? { cabangDinasId: performanceTarget.id, limit: 1000 }
+      : undefined,
+    { enabled: Boolean(performanceTarget) },
+  );
+  const selectedPerformanceReports = useMemo(() => {
+    if (!performanceTarget) return [];
+
+    return (performanceLaporanData?.data ?? []).map((report) =>
+      toReportLocation(report, performanceTarget),
+    );
+  }, [performanceLaporanData?.data, performanceTarget]);
+  const selectedPerformanceMetrics = useMemo(
+    () =>
+      performanceTarget
+        ? getBranchPerformance(selectedPerformanceReports, performanceSnapshotTime)
+        : null,
+    [performanceSnapshotTime, performanceTarget, selectedPerformanceReports],
+  );
 
   const {
     register,
@@ -262,8 +506,28 @@ export default function AdminCabangPage() {
   const latVal = watch("latitude");
   const lngVal = watch("longitude");
 
-  const invalidate = () =>
+  const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.ADMIN_CABANG] });
+    queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.ADMIN_CABANG_ACTIVITY] });
+  };
+
+  const handleSort = useCallback((nextSortBy: string) => {
+    setPage(1);
+
+    if (sortBy !== nextSortBy) {
+      setSortBy(nextSortBy);
+      setSortDir("asc");
+      return;
+    }
+
+    if (sortDir === "asc") {
+      setSortDir("desc");
+      return;
+    }
+
+    setSortBy(undefined);
+    setSortDir(undefined);
+  }, [sortBy, sortDir]);
 
   const createMutation = useCreateCabang({
     onSuccess: () => {
@@ -378,6 +642,38 @@ export default function AdminCabangPage() {
   };
 
   const isPending = createMutation.isPending || updateMutation.isPending;
+  const dinasOptions = [
+    ...(dinasData?.data?.map((d) => ({
+      value: d.id,
+      label: d.short ?? d.name,
+    })) ?? []),
+  ];
+  const formDinasOptions = [
+    { value: "", label: "Pilih Dinas" },
+    ...(dinasData?.data?.map((d) => ({ value: d.id, label: d.name })) ?? []),
+  ];
+  const applyFilters = () => {
+    setSearch(draftSearch.trim());
+    setFilterDinasIds(draftFilterDinasIds);
+    setPage(1);
+  };
+  const hasUnappliedFilters =
+    draftSearch.trim() !== search ||
+    !areStringArraysEqual(draftFilterDinasIds, filterDinasIds);
+  const isApplyingFilters = isFetching && !isLoading;
+  const formatResolution = (hours: number) =>
+    hours >= 24 ? `${Math.round(hours / 24)} hr` : `${hours} j`;
+  const routingChartData = [
+    {
+      name: "Routing aktif",
+      value: cabangActivity?.summary.routingEnabled ?? 0,
+    },
+    {
+      name: "Routing off",
+      value: cabangActivity?.summary.routingDisabled ?? 0,
+    },
+  ];
+  const hasRoutingChartData = routingChartData.some((item) => item.value > 0);
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 pb-16 h-full flex flex-col gap-6">
@@ -398,6 +694,259 @@ export default function AdminCabangPage() {
         </Button>
       </div>
 
+      <section className="shrink-0 rounded-sm border border-gray-200 bg-white p-3 shadow-sm">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-stretch">
+          <div className="shrink-0 xl:w-64">
+            <div className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-indigo-600">
+              <Activity size={12} />
+              Analytics Cabang
+            </div>
+            <h2 className="mt-2 text-sm font-black text-gray-950">
+              Operasional cabang
+            </h2>
+            <p className="mt-0.5 text-xs font-medium text-gray-400">
+              Mengikuti filter pencarian dan dinas aktif.
+            </p>
+            <div className="mt-3 grid grid-cols-4 gap-2 xl:grid-cols-2">
+              {[
+                {
+                  label: "Cabang",
+                  value: cabangActivity?.summary.totalBranches ?? 0,
+                },
+                {
+                  label: "Routing",
+                  value: cabangActivity?.summary.routingEnabled ?? 0,
+                },
+                {
+                  label: "Laporan",
+                  value: cabangActivity?.summary.totalReports ?? 0,
+                },
+                {
+                  label: "Resolusi",
+                  value: formatResolution(cabangActivity?.summary.averageResolutionHours ?? 0),
+                },
+              ].map((item) => (
+                <div
+                  key={item.label}
+                  className="rounded-sm border border-gray-100 bg-gray-50 px-3 py-2"
+                >
+                  <p className="truncate text-[9px] font-black uppercase tracking-widest text-gray-400">
+                    {item.label}
+                  </p>
+                  <p className="mt-1 truncate text-base font-black text-gray-950">
+                    {isCabangActivityLoading ? "-" : item.value}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid min-w-0 flex-1 gap-3 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)_minmax(200px,0.65fr)]">
+            <div className="min-w-0 rounded-sm border border-gray-100 bg-gray-50 p-3">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-xs font-black text-gray-950">
+                    Tren laporan
+                  </p>
+                  <p className="text-[10px] font-bold text-gray-400">
+                    30 hari terakhir
+                  </p>
+                </div>
+                <Activity size={15} className="shrink-0 text-gray-400" />
+              </div>
+              <div className="h-[150px] min-w-0">
+                {isCabangActivityLoading ? (
+                  <div className="h-full animate-pulse rounded-sm bg-white" />
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart
+                      data={cabangActivity?.series ?? []}
+                      margin={{ top: 8, right: 8, bottom: 0, left: -24 }}
+                    >
+                      <XAxis
+                        dataKey="label"
+                        interval="preserveStartEnd"
+                        tick={{ fontSize: 10, fill: "#9ca3af" }}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <YAxis
+                        allowDecimals={false}
+                        tick={{ fontSize: 10, fill: "#9ca3af" }}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <ChartTooltip
+                        cursor={{ stroke: "#e5e7eb" }}
+                        contentStyle={{
+                          borderRadius: 4,
+                          borderColor: "#e5e7eb",
+                          fontSize: 11,
+                          fontWeight: 700,
+                        }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="total"
+                        name="Total"
+                        stroke="#4f46e5"
+                        strokeWidth={2.5}
+                        dot={false}
+                        activeDot={{ r: 4 }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="resolved"
+                        name="Selesai"
+                        stroke="#10b981"
+                        strokeWidth={2}
+                        dot={false}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+            </div>
+
+            <div className="min-w-0 rounded-sm border border-gray-100 bg-gray-50 p-3">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-xs font-black text-gray-950">
+                    Top cabang
+                  </p>
+                  <p className="text-[10px] font-bold text-gray-400">
+                    Beban laporan
+                  </p>
+                </div>
+                <BarChart3 size={15} className="shrink-0 text-gray-400" />
+              </div>
+              <div className="h-[150px] min-w-0">
+                {isCabangActivityLoading ? (
+                  <div className="h-full animate-pulse rounded-sm bg-white" />
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={(cabangActivity?.topByReports ?? []).slice(0, 5)}
+                      layout="vertical"
+                      margin={{ top: 6, right: 8, bottom: 0, left: 4 }}
+                    >
+                      <XAxis
+                        type="number"
+                        allowDecimals={false}
+                        hide
+                      />
+                      <YAxis
+                        type="category"
+                        dataKey="name"
+                        width={126}
+                        tickFormatter={(value) =>
+                          String(value).length > 20
+                            ? `${String(value).slice(0, 20)}...`
+                            : String(value)
+                        }
+                        tick={{ fontSize: 10, fill: "#6b7280" }}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <ChartTooltip
+                        cursor={{ fill: "#eef2ff" }}
+                        contentStyle={{
+                          borderRadius: 4,
+                          borderColor: "#e5e7eb",
+                          fontSize: 11,
+                          fontWeight: 700,
+                        }}
+                      />
+                      <Bar
+                        dataKey="totalReports"
+                        name="Laporan"
+                        fill="#4f46e5"
+                        radius={[0, 4, 4, 0]}
+                        barSize={12}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+            </div>
+
+            <div className="min-w-0 rounded-sm border border-gray-100 bg-gray-50 p-3">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-xs font-black text-gray-950">
+                    Routing
+                  </p>
+                  <p className="text-[10px] font-bold text-gray-400">
+                    Aktif vs off
+                  </p>
+                </div>
+                <RouteIcon size={15} className="shrink-0 text-gray-400" />
+              </div>
+              <div className="grid h-[150px] min-w-0 grid-cols-[112px_minmax(0,1fr)] items-center gap-2">
+                {isCabangActivityLoading ? (
+                  <div className="col-span-2 h-full animate-pulse rounded-sm bg-white" />
+                ) : hasRoutingChartData ? (
+                  <>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={routingChartData}
+                          cx="50%"
+                          cy="50%"
+                          dataKey="value"
+                          innerRadius={34}
+                          outerRadius={52}
+                          paddingAngle={3}
+                          stroke="none"
+                        >
+                          {routingChartData.map((entry, index) => (
+                            <Cell
+                              key={entry.name}
+                              fill={ROUTING_CHART_COLORS[index % ROUTING_CHART_COLORS.length]}
+                            />
+                          ))}
+                        </Pie>
+                        <ChartTooltip
+                          contentStyle={{
+                            borderRadius: 4,
+                            borderColor: "#e5e7eb",
+                            fontSize: 11,
+                            fontWeight: 700,
+                          }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="space-y-2">
+                      {routingChartData.map((item, index) => (
+                        <div key={item.name} className="flex items-center justify-between gap-2 text-[11px] font-bold">
+                          <span className="inline-flex min-w-0 items-center gap-1.5 text-gray-600">
+                            <span
+                              className="h-2 w-2 shrink-0 rounded-full"
+                              style={{
+                                backgroundColor:
+                                  ROUTING_CHART_COLORS[index % ROUTING_CHART_COLORS.length],
+                              }}
+                            />
+                            <span className="truncate">{item.name}</span>
+                          </span>
+                          <span className="shrink-0 tabular-nums text-gray-900">
+                            {item.value}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <p className="col-span-2 text-center text-xs font-semibold text-gray-400">
+                    Tidak ada data
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-5 gap-5 min-h-0">
         <div className="lg:col-span-3 bg-white border border-gray-200 rounded-sm flex flex-col overflow-hidden min-h-[500px] shadow-sm">
           <div className="px-4 py-3 border-b border-gray-100 flex flex-wrap gap-3 items-center bg-gray-50/80 shrink-0">
@@ -405,52 +954,80 @@ export default function AdminCabangPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none" />
               <input
                 placeholder="Cari cabang..."
-                value={search}
+                value={draftSearch}
                 onChange={(e) => {
-                  setSearch(e.target.value);
-                  setPage(1);
+                  setDraftSearch(e.target.value);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") applyFilters();
                 }}
                 className="w-full pl-8 pr-3 h-8 bg-gray-50 border border-gray-200 text-gray-900 text-xs rounded-sm placeholder:text-gray-400 focus:outline-none focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10 transition-colors"
               />
             </div>
-            <select
-              value={filterDinas}
-              onChange={(e) => {
-                setFilterDinas(e.target.value);
-                setPage(1);
-              }}
-              className="h-8 bg-gray-50 border border-gray-200 text-gray-700 text-xs rounded-sm px-2 focus:outline-none focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10 appearance-none"
-            >
-              <option value="">Semua Dinas</option>
-              {dinasData?.data?.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.short ?? d.name}
-                </option>
-              ))}
-            </select>
+            <AdminMultiSelect
+              values={draftFilterDinasIds}
+              onChange={setDraftFilterDinasIds}
+              options={dinasOptions}
+              placeholder="Pilih Dinas"
+              allLabel="Semua Dinas"
+              countLabel="Dinas"
+              className="h-8 bg-gray-50"
+            />
             {meta && (
               <span className="text-xs text-gray-400 ml-auto">
                 {meta.total} total
               </span>
             )}
+            <Button
+              type="button"
+              onClick={applyFilters}
+              disabled={!hasUnappliedFilters || isApplyingFilters}
+              className="h-8 rounded-sm bg-gray-900 px-3 text-xs font-bold text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-45"
+            >
+              {isApplyingFilters ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <Loader2 size={12} className="animate-spin" />
+                  Menerapkan...
+                </span>
+              ) : (
+                "Apply"
+              )}
+            </Button>
           </div>
 
           <div className="flex-1 overflow-auto">
             <table className="w-full text-sm text-left">
               <thead className="sticky top-0 z-10 bg-gray-50">
                 <tr className="border-b border-gray-100">
-                  <th className="px-4 py-2.5 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                    Cabang
-                  </th>
-                  <th className="px-4 py-2.5 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                    Induk Dinas
-                  </th>
-                  <th className="px-4 py-2.5 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                    Routing
-                  </th>
-                  <th className="px-4 py-2.5 text-right text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                    Aksi
-                  </th>
+                  <AdminSortHeader
+                    label="Cabang"
+                    sortKey="name"
+                    sortBy={sortBy}
+                    sortDir={sortDir}
+                    onSort={handleSort}
+                    className="px-4 py-2.5 text-[10px]"
+                  />
+                  <AdminSortHeader
+                    label="Induk Dinas"
+                    sortKey="dinas"
+                    sortBy={sortBy}
+                    sortDir={sortDir}
+                    onSort={handleSort}
+                    className="px-4 py-2.5 text-[10px]"
+                  />
+                  <AdminSortHeader
+                    label="Routing"
+                    sortKey="isRoutingEnabled"
+                    sortBy={sortBy}
+                    sortDir={sortDir}
+                    onSort={handleSort}
+                    className="px-4 py-2.5 text-[10px]"
+                  />
+                  <AdminSortHeader
+                    label="Aksi"
+                    align="right"
+                    className="px-4 py-2.5 text-[10px]"
+                  />
                 </tr>
               </thead>
               <tbody>
@@ -520,13 +1097,25 @@ export default function AdminCabangPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex justify-end gap-1">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setPerformanceTarget(c);
+                            }}
+                            className="inline-flex h-7 items-center gap-1.5 rounded-sm bg-indigo-50 px-2.5 text-[11px] font-bold text-indigo-600 transition-colors hover:bg-indigo-600 hover:text-white"
+                            title="Detail performa cabang"
+                          >
+                            <BarChart3 size={13} strokeWidth={2.5} />
+                            <span>Performa</span>
+                          </button>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               openDrawer(c);
                             }}
-                            className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-sm transition-colors"
+                            className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-sm transition-colors opacity-0 group-hover:opacity-100"
+                            title="Edit"
                           >
                             <Edit2 size={13} />
                           </button>
@@ -535,7 +1124,8 @@ export default function AdminCabangPage() {
                               e.stopPropagation();
                               setDeleteTarget(c);
                             }}
-                            className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-sm transition-colors"
+                            className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-sm transition-colors opacity-0 group-hover:opacity-100"
+                            title="Hapus"
                           >
                             <Trash2 size={13} />
                           </button>
@@ -548,29 +1138,14 @@ export default function AdminCabangPage() {
             </table>
           </div>
 
-          {totalPages > 1 && (
-            <div className="px-4 py-2.5 border-t border-gray-100 flex items-center justify-between shrink-0">
-              <span className="text-xs text-gray-500">
-                Hal. {page}/{totalPages}
-              </span>
-              <div className="flex gap-1">
-                <button
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                  className="p-1 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-30 transition-colors"
-                >
-                  <ChevronLeft size={14} />
-                </button>
-                <button
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={page === totalPages}
-                  className="p-1 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-30 transition-colors"
-                >
-                  <ChevronRight size={14} />
-                </button>
-              </div>
-            </div>
-          )}
+          <AdminPagination
+            page={page}
+            totalPages={totalPages}
+            totalItems={meta?.total ?? 0}
+            pageSize={LIMIT}
+            itemLabel="cabang"
+            onPageChange={setPage}
+          />
         </div>
 
         <div className="lg:col-span-2 bg-white border border-gray-200 rounded-sm flex flex-col overflow-hidden min-h-[400px] shadow-sm">
@@ -927,6 +1502,22 @@ export default function AdminCabangPage() {
         </div>
       </div>
 
+      {performanceTarget && (
+        <AdminDinasPerformanceModal
+          dinas={getFallbackDinas(performanceTarget)}
+          reports={selectedPerformanceReports}
+          performance={selectedPerformanceMetrics}
+          scopeLabel="cabang"
+          title={performanceTarget.name}
+          subtitle={[
+            performanceTarget.dinas?.name,
+            performanceTarget.wilayah,
+            performanceTarget.address,
+          ].filter(Boolean).join(" | ")}
+          onClose={() => setPerformanceTarget(null)}
+        />
+      )}
+
       <AnimatePresence>
         {isDrawerOpen && (
           <>
@@ -971,17 +1562,12 @@ export default function AdminCabangPage() {
                     <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">
                       Induk Dinas <span className="text-[#db2744]" aria-hidden="true">*</span>
                     </label>
-                    <select
-                      {...register("dinasId")}
-                      className="w-full bg-white border border-gray-200 text-gray-900 rounded-sm h-9 px-3 text-sm focus:outline-none focus:border-[#db2744] focus:ring-2 focus:ring-[#db2744]/10 appearance-none transition-colors"
-                    >
-                      <option value="">— Pilih Dinas —</option>
-                      {dinasData?.data?.map((d) => (
-                        <option key={d.id} value={d.id}>
-                          {d.name}
-                        </option>
-                      ))}
-                    </select>
+                    <AdminSelect
+                      value={watch("dinasId") ?? ""}
+                      onChange={(value) => setValue("dinasId", value)}
+                      options={formDinasOptions}
+                      className="h-9 w-full"
+                    />
                     {errors.dinasId && (
                       <p className="text-red-500 text-xs">
                         {errors.dinasId.message as string}
