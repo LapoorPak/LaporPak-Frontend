@@ -11,6 +11,7 @@ import { getDashboardPathForRole, getLoginPathForRole, getPortalFromRole } from 
 import { clearOAuthAttemptPortal } from "@/lib/oauth-attempt";
 import { getApiErrorMessage } from "@/lib/get-api-error-message";
 import { buildReportFocusSearch } from "@/lib/report-focus-navigation";
+import { resolvePhotoUrl } from "@/lib/resolve-photo-url";
 import { DashboardViewModeProvider, useDashboardViewMode, type DashboardViewMode } from "@/context/dashboard-view-mode";
 import { LogOut, User, Bell, X, CheckCircle2, Clock, AlertTriangle, ArrowUpRight, Info, type LucideIcon } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
@@ -424,6 +425,18 @@ function DashboardShell() {
                            {notifications.map((notif, idx) => {
                              const Icon = iconMap[notif.type];
                              const colors = colorMap[notif.type];
+                             const notificationImageUrl =
+                               typeof notif.metadata?.imageUrl === "string" && notif.metadata.imageUrl.trim()
+                                 ? resolvePhotoUrl(notif.metadata.imageUrl)
+                                 : null;
+                             const resolutionNote =
+                               typeof notif.metadata?.resolutionNote === "string"
+                                 ? notif.metadata.resolutionNote.trim()
+                                 : "";
+                             const displayMessage = resolutionNote || notif.message;
+                             const isOwnResolvedReport =
+                               notif.metadata?.kind === "resolved_report" &&
+                               notif.metadata.reporterUserId === session?.user?.id;
                              const isUpdatingCurrent =
                                markNotificationRead.isPending && markNotificationRead.variables === notif.id;
                              const isActionable = !!notif.laporanId || !notif.read;
@@ -441,11 +454,28 @@ function DashboardShell() {
                                      : "hover:bg-gray-50/80"
                                  } ${isActionable ? "cursor-pointer" : "cursor-default"} ${isUpdatingCurrent ? "opacity-70" : ""}`}
                                >
-                                 <div className={`w-10 h-10 rounded-full ${colors.bg} ${colors.text} flex items-center justify-center shrink-0 ${
-                                   !notif.read ? "ring-2 ring-white shadow-sm" : ""
-                                 }`}>
-                                   <Icon size={18} strokeWidth={2.5} />
-                                 </div>
+                                 {notificationImageUrl ? (
+                                   <div
+                                     className={`relative h-12 w-12 shrink-0 overflow-hidden rounded-md bg-gray-100 ${
+                                       !notif.read ? "ring-2 ring-white shadow-sm" : ""
+                                     }`}
+                                   >
+                                     <img
+                                       src={notificationImageUrl}
+                                       alt=""
+                                       className="h-full w-full object-cover"
+                                     />
+                                     <span className={`absolute bottom-1 right-1 flex h-5 w-5 items-center justify-center rounded-full ${colors.bg} ${colors.text} shadow-sm`}>
+                                       <Icon size={11} strokeWidth={2.7} />
+                                     </span>
+                                   </div>
+                                 ) : (
+                                   <div className={`w-10 h-10 rounded-full ${colors.bg} ${colors.text} flex items-center justify-center shrink-0 ${
+                                     !notif.read ? "ring-2 ring-white shadow-sm" : ""
+                                   }`}>
+                                     <Icon size={18} strokeWidth={2.5} />
+                                   </div>
+                                 )}
 
                                  <div className="flex-1 min-w-0">
                                    <div className="flex items-start justify-between gap-2 mb-0.5">
@@ -456,14 +486,21 @@ function DashboardShell() {
                                          {notif.title}
                                        </p>
                                      </div>
-                                     <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0 ${colors.tagBg}`}>
-                                       {notif.tag}
-                                     </span>
+                                     <div className="flex shrink-0 items-center gap-1">
+                                       {isOwnResolvedReport && (
+                                         <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-emerald-700">
+                                           Laporan Anda
+                                         </span>
+                                       )}
+                                       <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${colors.tagBg}`}>
+                                         {notif.tag}
+                                       </span>
+                                     </div>
                                    </div>
                                    <p className={`text-[12px] leading-relaxed line-clamp-2 ${
                                      !notif.read ? "text-gray-700" : "text-gray-500"
                                    }`}>
-                                     {notif.message}
+                                     {displayMessage}
                                    </p>
                                    <span className={`text-[10px] font-medium mt-1 block ${
                                      !notif.read ? "text-rose-700" : "text-gray-400"

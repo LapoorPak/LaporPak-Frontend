@@ -10,7 +10,6 @@ import {
   ImagePlus,
   Search,
   Send,
-  Star,
   ThumbsDown,
   ThumbsUp,
   Trash2,
@@ -28,6 +27,7 @@ import type {
   ClarificationDraft,
 } from "@/types/dashboard";
 import { formatMachineText } from "@/pages/dashboard/utils";
+import { CitizenRatingControl } from "@/pages/dashboard/components/citizen/CitizenRatingControl";
 
 export function CitizenMyReportsPanel({
   isOpen,
@@ -56,7 +56,7 @@ export function CitizenMyReportsPanel({
     maxHeight: 82,
     resetWhen: isOpen && !isDesktop,
   });
-  const [ratingDrafts, setRatingDrafts] = useState<Record<string, { score: number; note: string }>>({});
+  const [ratingDrafts, setRatingDrafts] = useState<Record<string, { score: number }>>({});
   const [clarificationDrafts, setClarificationDrafts] = useState<Record<string, ClarificationDraft>>({});
   const clarificationDraftsRef = useRef<Record<string, ClarificationDraft>>({});
 
@@ -75,27 +75,17 @@ export function CitizenMyReportsPanel({
   const setRatingScore = (report: ReportLocation, score: number) => {
     const current = ratingDrafts[report.id] ?? {
       score: report.rating?.score ?? 0,
-      note: report.rating?.note ?? "",
     };
     setRatingDrafts((drafts) => ({ ...drafts, [report.id]: { ...current, score } }));
-  };
-
-  const setRatingNote = (report: ReportLocation, note: string) => {
-    const current = ratingDrafts[report.id] ?? {
-      score: report.rating?.score ?? 0,
-      note: report.rating?.note ?? "",
-    };
-    setRatingDrafts((drafts) => ({ ...drafts, [report.id]: { ...current, note } }));
   };
 
   const submitRating = async (report: ReportLocation) => {
     const draft = ratingDrafts[report.id] ?? {
       score: report.rating?.score ?? 0,
-      note: report.rating?.note ?? "",
     };
     if (!draft.score) return;
 
-    await onSubmitRating(report.id, draft.score, draft.note);
+    await onSubmitRating(report.id, draft.score);
   };
 
   const getClarificationDraft = (reportId: string) =>
@@ -301,9 +291,13 @@ export function CitizenMyReportsPanel({
                   const status = statusMap[report.status] || { label: report.status, color: "bg-gray-100 text-gray-700" };
                   const agencyNote = report.agencyNote?.trim();
                   const resolutionNote = report.resolutionNote?.trim();
+                  const visibleAgencyNote =
+                    agencyNote &&
+                    !(resolutionNote && (report.status === "resolved" || agencyNote === resolutionNote))
+                      ? agencyNote
+                      : null;
                   const ratingDraft = ratingDrafts[report.id] ?? {
                     score: report.rating?.score ?? 0,
-                    note: report.rating?.note ?? "",
                   };
                   const isRatingSubmitting = ratingSubmittingId === report.id;
                   const clarificationDraft = getClarificationDraft(report.id);
@@ -353,15 +347,15 @@ export function CitizenMyReportsPanel({
                         </div>
                       )}
 
-                      {(agencyNote || resolutionNote) && (
+                      {(visibleAgencyNote || resolutionNote) && (
                         <div className="mb-3 space-y-2">
-                          {agencyNote && (
+                          {visibleAgencyNote && (
                             <div className="rounded-sm border border-sky-100 bg-sky-50 px-3 py-2.5">
                               <p className="text-[10px] font-black uppercase tracking-widest text-sky-700 mb-1">
                                 Update Dinas
                               </p>
                               <p className="text-[11px] leading-relaxed text-sky-950">
-                                {formatMachineText(agencyNote)}
+                                {formatMachineText(visibleAgencyNote)}
                               </p>
                             </div>
                           )}
@@ -530,51 +524,17 @@ export function CitizenMyReportsPanel({
                       )}
 
                       {report.status === "resolved" && (
-                        <div
-                          className="mb-3 rounded-sm border border-emerald-100 bg-emerald-50/80 p-3"
-                          onClick={(event) => event.stopPropagation()}
-                        >
-                          <div className="mb-2 flex items-center justify-between gap-3">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700">
-                              {report.rating ? "Rating Anda" : "Beri Rating Dinas"}
-                            </p>
-                            {report.rating && (
-                              <span className="text-[10px] font-bold text-emerald-700">
-                                {report.rating.score}/5
-                              </span>
-                            )}
-                          </div>
-                          <div className="mb-2 flex items-center gap-1">
-                            {[1, 2, 3, 4, 5].map((score) => (
-                              <button
-                                key={score}
-                                type="button"
-                                onClick={() => setRatingScore(report, score)}
-                                className="rounded-sm p-1 text-amber-400 transition-transform hover:scale-110"
-                                aria-label={`Beri rating ${score}`}
-                              >
-                                <Star
-                                  size={20}
-                                  className={score <= ratingDraft.score ? "fill-amber-400" : "fill-transparent text-gray-300"}
-                                />
-                              </button>
-                            ))}
-                          </div>
-                          <Textarea
-                            value={ratingDraft.note}
-                            onChange={(event) => setRatingNote(report, event.target.value)}
-                            placeholder="Catatan opsional untuk dinas..."
-                            className="min-h-[72px] resize-none rounded-sm border-gray-200 bg-white text-xs leading-relaxed focus:border-[#db2744] focus:ring-[#db2744]/10"
+                        <div className="mb-3">
+                          <CitizenRatingControl
+                            title={report.rating ? "Rating Anda" : "Beri Rating Dinas"}
+                            currentScore={report.rating?.score}
+                            score={ratingDraft.score}
+                            isSubmitting={isRatingSubmitting}
+                            onScoreChange={(score) =>
+                              setRatingScore(report, score)
+                            }
+                            onSubmit={() => void submitRating(report)}
                           />
-                          <Button
-                            type="button"
-                            size="sm"
-                            disabled={!ratingDraft.score || isRatingSubmitting}
-                            onClick={() => void submitRating(report)}
-                            className="mt-2 h-9 w-full rounded-sm bg-emerald-700 text-[10px] font-black uppercase tracking-widest text-white hover:bg-emerald-800"
-                          >
-                            {isRatingSubmitting ? "Menyimpan..." : report.rating ? "Update Rating" : "Kirim Rating"}
-                          </Button>
                         </div>
                       )}
 

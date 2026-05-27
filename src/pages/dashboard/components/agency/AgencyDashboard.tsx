@@ -8,7 +8,7 @@ import {
   type MapRef,
 } from "@/components/ui/map";
 import {
-  CheckCircle2,
+  Check,
   Clock,
   AlertCircle,
   Search,
@@ -26,6 +26,7 @@ import type {
 } from "@/api/reports";
 import {
   useInfiniteQueryGetReportLocations,
+  useMutationClaimReport,
   useMutationResolveReport,
   useMutationUpdateReportStatus,
 } from "@/api/reports";
@@ -68,6 +69,8 @@ import {
   DEFAULT_REPORTS_DASHBOARD_TABS,
   REPORT_SCOPE_OPTIONS,
   SUMMARY_CARD_META,
+  canClaimManualReviewReport,
+  getAgencyRoutingStatusMeta,
   isOwnedAgencyDashboardReport,
   isOwnedAgencyLocationReport,
   matchesAgencyDashboardSearch,
@@ -77,13 +80,21 @@ import {
 } from "@/pages/dashboard/config";
 
 const EMPTY_LOCATION_REPORTS: ReportLocation[] = [];
+const DEFAULT_ACTIVE_AGENCY_DASHBOARD_TABS: ReportsDashboardTabKey[] = [
+  "baru",
+  "diproses",
+  "klarifikasi",
+];
 
 export default function AgencyDashboard() {
   const [activeTabs, setActiveTabs] = useState<ReportsDashboardTabKey[]>(
-    ALL_AGENCY_DASHBOARD_TAB_KEYS,
+    DEFAULT_ACTIVE_AGENCY_DASHBOARD_TABS,
   );
   const [scope, setScope] = useState<ReportsScope>("mine");
   const [selectedMarkerId, setSelectedMarkerId] = useState<string | null>(null);
+  const [highlightedReportId, setHighlightedReportId] = useState<string | null>(
+    null,
+  );
   const [feedDetailReportId, setFeedDetailReportId] = useState<string | null>(null);
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 768);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -281,6 +292,9 @@ export default function AgencyDashboard() {
     (report) => report.id === feedDetailReportId,
   );
   const canEditSelectedReport = selectedReport?.canEdit === true;
+  const canClaimSelectedReport = selectedReport
+    ? canClaimManualReviewReport(selectedReport)
+    : false;
   const isDraftResolved = draftStatus === "resolved";
   const requiredNote = isDraftResolved ? resolutionNote : agencyNote;
   const hasDraftChanges = selectedReport
@@ -339,6 +353,27 @@ export default function AgencyDashboard() {
       await handleAgencyMutationSuccess("resolved");
     },
     onError: handleAgencyMutationError,
+  });
+
+  const claimReport = useMutationClaimReport({
+    onSuccess: async () => {
+      await Promise.allSettled([
+        queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.REPORTS_LOCATIONS] }),
+        queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.REPORTS_DASHBOARD] }),
+      ]);
+
+      toast.success("Tiket berhasil diambil", {
+        description: "Laporan review manual sekarang masuk ke antrean Anda.",
+      });
+    },
+    onError: (error: unknown) => {
+      toast.error("Gagal mengambil tiket", {
+        description: getApiErrorMessage(
+          error,
+          "Coba ambil ulang beberapa saat lagi.",
+        ),
+      });
+    },
   });
 
   const [viewport, setViewport] = useState({
@@ -473,6 +508,14 @@ export default function AgencyDashboard() {
     });
   };
 
+  const handleClaimReport = useCallback(() => {
+    if (!selectedReport || !canClaimManualReviewReport(selectedReport)) {
+      return;
+    }
+
+    claimReport.mutate(selectedReport.id);
+  }, [claimReport, selectedReport]);
+
   const handleSelectReport = useCallback((reportId: string) => {
     setFeedDetailReportId(null);
     setViewMode("map");
@@ -606,6 +649,15 @@ export default function AgencyDashboard() {
     setIsSidebarOpen((open) => !open);
   }, [setViewMode]);
 
+  const highlightReportMarker = (reportId: string) => {
+    setHighlightedReportId(reportId);
+    window.setTimeout(() => {
+      setHighlightedReportId((current) =>
+        current === reportId ? null : current,
+      );
+    }, 5000);
+  };
+
   useEffect(() => {
     if (!focusedReportId) return;
 
@@ -627,6 +679,7 @@ export default function AgencyDashboard() {
 
     const timer = window.setTimeout(() => {
       setIsSidebarOpen(false);
+      highlightReportMarker(report.id);
       handleSelectReport(report.id);
     }, 0);
 
@@ -856,6 +909,10 @@ export default function AgencyDashboard() {
               dashboardReport?.statusLabel ||
               AGENCY_REPORT_STATUS_MAP[report.status]?.label ||
               report.status;
+            const routingStatusMeta = getAgencyRoutingStatusMeta(
+              report.routingStatus,
+            );
+            const isHighlightedReport = highlightedReportId === report.id;
 
             return (
               <MapMarker
@@ -871,6 +928,13 @@ export default function AgencyDashboard() {
                       >
                         {markerStatusLabel}
                       </span>
+                      {routingStatusMeta && (
+                        <span
+                          className={`ml-1 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-widest border ${routingStatusMeta.color}`}
+                        >
+                          {routingStatusMeta.label}
+                        </span>
+                      )}
                       <h4 className="font-extrabold text-[#111827] text-[11px] mt-1 leading-tight truncate">
                         {report.title}
                       </h4>
@@ -887,18 +951,29 @@ export default function AgencyDashboard() {
                   >
                     {(report.status === "pending" ||
                       report.status === "clarification_requested" ||
+                      isHighlightedReport ||
                       selectedMarkerId === report.id) && (
                       <div
                         className={`absolute inset-0 rounded-full animate-ping opacity-75 ${
-                          selectedMarkerId === report.id
+                          isHighlightedReport || selectedMarkerId === report.id
                             ? "bg-indigo-500"
                             : "bg-[#C01D33]"
                         }`}
                       ></div>
                     )}
                     <div
-                      className={`relative w-8 h-8 rounded-full flex items-center justify-center shadow-xl border-2 transition-all z-10 
-                    ${selectedMarkerId === report.id ? "bg-gray-900 border-white text-white scale-110" : getMarkerColor(report.status) + " border-white"}`}
+                      className={`relative w-8 h-8 rounded-full flex items-center justify-center shadow-xl border-2 transition-all z-10 ${
+                        selectedMarkerId === report.id
+                          ? report.status === "resolved"
+                            ? "bg-emerald-500 border-white text-white scale-110 ring-4 ring-emerald-200"
+                            : "bg-gray-900 border-white text-white scale-110"
+                          : isHighlightedReport
+                            ? "bg-indigo-600 border-white text-white scale-110 ring-4 ring-indigo-200"
+                          : `${
+                              routingStatusMeta?.markerClass ||
+                              getMarkerColor(report.status)
+                            } border-white`
+                      }`}
                     >
                       {report.status === "pending" || report.status === "clarification_requested" ? (
                         <AlertCircle
@@ -912,9 +987,9 @@ export default function AgencyDashboard() {
                           strokeWidth={selectedMarkerId === report.id ? 3 : 2.5}
                         />
                       ) : (
-                        <CheckCircle2
+                        <Check
                           size={16}
-                          strokeWidth={selectedMarkerId === report.id ? 3 : 2.5}
+                          strokeWidth={selectedMarkerId === report.id ? 3.5 : 3}
                         />
                       )}
                     </div>
@@ -1022,6 +1097,8 @@ export default function AgencyDashboard() {
           resolutionNote={resolutionNote}
           resolutionProofPreviews={resolutionProofPreviews}
           canEdit={canEditSelectedReport}
+          canClaim={canClaimSelectedReport}
+          isClaiming={claimReport.isPending}
           isSaving={updateReportStatus.isPending || resolveReport.isPending}
           isSaveDisabled={isSaveDisabled}
           onBack={() => {
@@ -1029,6 +1106,7 @@ export default function AgencyDashboard() {
             setSelectedMarkerId(null);
           }}
           onNavigateMap={() => handleSelectReport(feedDetailReport.id)}
+          onClaim={handleClaimReport}
           onDraftStatusChange={handleDraftStatusChange}
           onAgencyNoteChange={setAgencyNote}
           onResolutionNoteChange={setResolutionNote}
@@ -1070,9 +1148,12 @@ export default function AgencyDashboard() {
         resolutionNote={resolutionNote}
         resolutionProofPreviews={resolutionProofPreviews}
         canEdit={canEditSelectedReport}
+        canClaim={canClaimSelectedReport}
+        isClaiming={claimReport.isPending}
         isSaving={updateReportStatus.isPending || resolveReport.isPending}
         isSaveDisabled={isSaveDisabled}
         onClose={() => setSelectedMarkerId(null)}
+        onClaim={handleClaimReport}
         onDraftStatusChange={handleDraftStatusChange}
         onAgencyNoteChange={setAgencyNote}
         onResolutionNoteChange={setResolutionNote}

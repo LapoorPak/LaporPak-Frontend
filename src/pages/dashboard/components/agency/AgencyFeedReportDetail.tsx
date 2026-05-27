@@ -2,6 +2,7 @@ import {
   ArrowLeft,
   Building2,
   Clock,
+  Hand,
   ImagePlus,
   MapPin,
   Navigation,
@@ -22,6 +23,7 @@ import {
 import {
   AGENCY_STATUS_OPTIONS,
   formatAgencyDetailDate,
+  getAgencyRoutingStatusMeta,
 } from "@/pages/dashboard/config";
 
 export function AgencyFeedReportDetail({
@@ -31,10 +33,13 @@ export function AgencyFeedReportDetail({
   resolutionNote,
   resolutionProofPreviews,
   canEdit,
+  canClaim,
+  isClaiming,
   isSaving,
   isSaveDisabled,
   onBack,
   onNavigateMap,
+  onClaim,
   onDraftStatusChange,
   onAgencyNoteChange,
   onResolutionNoteChange,
@@ -60,6 +65,7 @@ export function AgencyFeedReportDetail({
   ];
   const isResolvedDraft = draftStatus === "resolved";
   const timelineItems = [...(report.timeline ?? [])].reverse();
+  const routingStatusMeta = getAgencyRoutingStatusMeta(report.routingStatus);
 
   return (
     <div className="absolute inset-0 z-10 overflow-y-auto bg-[#f3f4f6] px-3 pb-32 pt-56 sm:px-5 sm:pt-24 md:px-8 md:pt-28">
@@ -121,6 +127,13 @@ export function AgencyFeedReportDetail({
                     <span className="rounded-sm border border-gray-200 bg-gray-50 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-gray-500">
                       #TCK-{report.id.substring(0, 8)}
                     </span>
+                    {routingStatusMeta && (
+                      <span
+                        className={`rounded-sm border px-2.5 py-1 text-[9px] font-black uppercase tracking-widest ${routingStatusMeta.color}`}
+                      >
+                        {routingStatusMeta.label}
+                      </span>
+                    )}
                   </div>
                   <h1 className="text-2xl font-black leading-tight tracking-tight text-gray-950">
                     {report.title}
@@ -279,6 +292,24 @@ export function AgencyFeedReportDetail({
               </div>
             )}
 
+            {canClaim && (
+              <div className="mb-3 rounded-sm border border-sky-200 bg-sky-50 px-3 py-3">
+                <p className="text-xs font-semibold leading-relaxed text-sky-800">
+                  Tiket ini masuk review manual. Ambil laporan agar bisa
+                  mengirim update penanganan.
+                </p>
+                <Button
+                  type="button"
+                  onClick={onClaim}
+                  disabled={isClaiming}
+                  className="mt-3 h-10 w-full rounded-sm bg-sky-700 text-[11px] font-black uppercase tracking-widest text-white hover:bg-sky-800"
+                >
+                  <Hand size={15} />
+                  {isClaiming ? "Mengambil..." : "Ambil Laporan"}
+                </Button>
+              </div>
+            )}
+
             <div className="space-y-3">
               <div className="rounded-sm border border-gray-100 bg-gray-50 p-3">
                 <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400">
@@ -420,11 +451,21 @@ export function AgencyFeedReportDetail({
 
               <Button
                 type="button"
-                onClick={onSave}
-                disabled={!canEdit || isSaving || isSaveDisabled}
+                onClick={canClaim ? onClaim : onSave}
+                disabled={
+                  canClaim
+                    ? isClaiming
+                    : !canEdit || isSaving || isSaveDisabled
+                }
                 className="h-12 w-full rounded-sm bg-gray-950 text-sm font-black tracking-widest text-white hover:bg-gray-800"
               >
-                {isSaving ? "MENGIRIM..." : "KIRIM UPDATE"}
+                {canClaim
+                  ? isClaiming
+                    ? "MENGAMBIL..."
+                    : "AMBIL LAPORAN"
+                  : isSaving
+                    ? "MENGIRIM..."
+                    : "KIRIM UPDATE"}
               </Button>
             </div>
           </aside>

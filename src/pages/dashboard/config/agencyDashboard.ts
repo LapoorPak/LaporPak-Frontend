@@ -117,6 +117,32 @@ export const AGENCY_STATUS_OPTIONS = [
   },
 ] as const;
 
+export const AGENCY_ROUTING_STATUS_MAP: Record<
+  string,
+  { label: string; color: string; markerClass?: string }
+> = {
+  auto_assigned: {
+    label: "AI Assigned",
+    color: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  },
+  manual_review: {
+    label: "Review Manual",
+    color: "bg-sky-50 text-sky-700 border-sky-200",
+    markerClass: "bg-sky-600 shadow-sky-500/50 text-white",
+  },
+};
+
+export const getAgencyRoutingStatusMeta = (routingStatus?: string | null) =>
+  routingStatus ? AGENCY_ROUTING_STATUS_MAP[routingStatus] : undefined;
+
+export const isManualReviewReport = (
+  report: Pick<ReportLocation, "routingStatus">,
+) => report.routingStatus === "manual_review";
+
+export const canClaimManualReviewReport = (
+  report: Pick<ReportLocation, "routingStatus" | "canEdit" | "assignedTo">,
+) => isManualReviewReport(report) && report.canEdit !== true;
+
 export const AGENCY_DASHBOARD_DATE_FORMATTER = new Intl.DateTimeFormat("id-ID", {
   day: "2-digit",
   month: "2-digit",
@@ -174,10 +200,14 @@ export const matchesDashboardItemTabs = (
 ) => tabs.includes(report.dashboardGroup);
 
 export const isOwnedAgencyLocationReport = (report: ReportLocation) =>
-  report.ownership === "mine" || report.canEdit === true;
+  report.ownership === "mine" ||
+  report.canEdit === true ||
+  canClaimManualReviewReport(report);
 
 export const isOwnedAgencyDashboardReport = (report: DashboardReportItem) =>
-  report.ownership === "mine" || report.canEdit === true;
+  report.ownership === "mine" ||
+  report.canEdit === true ||
+  canClaimManualReviewReport(report);
 
 export const matchesAgencyDashboardSearch = (
   report: ReportLocation,
@@ -254,6 +284,7 @@ export const toAgencyDashboardReport = (
     referenceCode: `#${report.id.slice(0, 8)}`,
     title: report.title,
     status: report.status,
+    routingStatus: report.routingStatus,
     statusLabel: presentation.statusLabel,
     statusTone: presentation.statusTone,
     dashboardGroup: presentation.dashboardGroup,
@@ -266,6 +297,7 @@ export const toAgencyDashboardReport = (
     ownership: report.ownership,
     dinas: report.dinas,
     cabangDinas: report.cabangDinas,
+    assignedTo: report.assignedTo,
     kategori: report.kategori
       ? {
           id: report.kategori.id,

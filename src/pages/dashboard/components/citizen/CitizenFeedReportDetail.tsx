@@ -6,12 +6,15 @@ export function CitizenFeedReportDetail({
   report,
   onBack,
   onNavigateMap,
+  onFocusAgency,
   onPhotoClick,
   onVote,
   isVoting,
   onSubmitClarification,
   clarificationSubmittingId,
   onClarificationDraftActiveChange,
+  onSubmitRating,
+  ratingSubmittingId,
 }: CitizenFeedReportDetailProps) {
   return (
     <div className="absolute inset-0 z-10 overflow-y-auto bg-[#f3f4f6] px-3 pb-28 pt-52 sm:px-5 sm:pb-36 sm:pt-24 md:px-8 md:pt-28">
@@ -41,10 +44,13 @@ export function CitizenFeedReportDetail({
             report={report}
             onPhotoClick={onPhotoClick}
             onVote={onVote}
+            onFocusAgency={onFocusAgency}
             isVoting={isVoting}
             onSubmitClarification={onSubmitClarification}
             clarificationSubmittingId={clarificationSubmittingId}
             onClarificationDraftActiveChange={onClarificationDraftActiveChange}
+            onSubmitRating={onSubmitRating}
+            ratingSubmittingId={ratingSubmittingId}
             fullWidth
           />
         </div>

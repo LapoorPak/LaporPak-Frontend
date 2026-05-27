@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { MapPin, Search, TicketCheck, X } from "lucide-react";
 import { useMobileSheetResize } from "@/hooks/common";
 import { AnimatedCount } from "@/pages/dashboard/components/shared";
+import { getAgencyRoutingStatusMeta } from "@/pages/dashboard/config";
 import { getDashboardStatusToneStyle } from "@/pages/dashboard/utils";
 import type { AgencyReportsListPanelProps } from "@/types/dashboard";
 
@@ -168,37 +169,52 @@ export function AgencyReportsBottomSheet({
                 <div className="px-4 py-10 text-center text-sm font-semibold text-gray-400">Belum ada laporan untuk filter ini.</div>
               ) : (
                 reports.map((report) => (
-                  <button
-                    key={report.id}
-                    onClick={() => onSelectReport(report.id)}
-                    className={`w-full text-left bg-white px-4 py-3.5 rounded-sm border transition-all duration-200 ${
-                      selectedMarkerId === report.id
-                        ? "border-[#C01D33]/30 ring-1 ring-[#C01D33]/20 shadow-md shadow-red-500/5"
-                        : "border-gray-100 hover:border-gray-200 shadow-sm"
-                    }`}
-                  >
-                    <div className="flex justify-between items-center mb-2.5 gap-3">
-                      <span className={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-sm ${getDashboardStatusToneStyle(report.statusTone)}`}>
-                        {report.statusLabel}
-                      </span>
-                      <span className="text-[10px] font-semibold text-gray-400 shrink-0">{report.dateLabel}</span>
-                    </div>
-                    <h4 className="font-extrabold text-[#111827] text-[15px] leading-snug mb-3 line-clamp-2">{report.title}</h4>
-                    <div className="flex items-start gap-2.5 rounded-sm bg-gray-50 px-3 py-2.5">
-                      <MapPin size={13} className="mt-0.5 shrink-0 text-[#db2744]" />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-xs font-bold text-gray-600">{report.agencyName}</p>
-                        <div className="mt-1 flex items-center justify-between gap-2">
-                          <span className="text-[10px] font-black text-gray-300">{report.referenceCode}</span>
-                          {report.canEdit === false && (
-                            <span className="rounded-sm border border-gray-200 bg-white px-2 py-0.5 text-[8px] font-black uppercase tracking-widest text-gray-500 shrink-0">
-                              Lihat Saja
+                  (() => {
+                    const routingStatusMeta = getAgencyRoutingStatusMeta(
+                      report.routingStatus,
+                    );
+
+                    return (
+                      <button
+                        key={report.id}
+                        onClick={() => onSelectReport(report.id)}
+                        className={`w-full text-left bg-white px-4 py-3.5 rounded-sm border transition-all duration-200 ${
+                          selectedMarkerId === report.id
+                            ? "border-[#C01D33]/30 ring-1 ring-[#C01D33]/20 shadow-md shadow-red-500/5"
+                            : "border-gray-100 hover:border-gray-200 shadow-sm"
+                        }`}
+                      >
+                        <div className="flex justify-between items-center mb-2.5 gap-3">
+                          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                            <span className={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-sm ${getDashboardStatusToneStyle(report.statusTone)}`}>
+                              {report.statusLabel}
                             </span>
-                          )}
+                            {routingStatusMeta && (
+                              <span className={`rounded-sm border px-2 py-0.5 text-[8px] font-black uppercase tracking-widest ${routingStatusMeta.color}`}>
+                                {routingStatusMeta.label}
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[10px] font-semibold text-gray-400 shrink-0">{report.dateLabel}</span>
                         </div>
-                      </div>
-                    </div>
-                  </button>
+                        <h4 className="font-extrabold text-[#111827] text-[15px] leading-snug mb-3 line-clamp-2">{report.title}</h4>
+                        <div className="flex items-start gap-2.5 rounded-sm bg-gray-50 px-3 py-2.5">
+                          <MapPin size={13} className="mt-0.5 shrink-0 text-[#db2744]" />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-xs font-bold text-gray-600">{report.agencyName}</p>
+                            <div className="mt-1 flex items-center justify-between gap-2">
+                              <span className="text-[10px] font-black text-gray-300">{report.referenceCode}</span>
+                              {report.canEdit === false && (
+                                <span className="rounded-sm border border-gray-200 bg-white px-2 py-0.5 text-[8px] font-black uppercase tracking-widest text-gray-500 shrink-0">
+                                  Lihat Saja
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })()
                 ))
               )}
             </div>

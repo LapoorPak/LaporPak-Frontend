@@ -15,22 +15,38 @@ import {
   ThumbsUp,
   Trash2,
   User,
+  UserCheck,
   ZoomIn,
+  Phone,
 } from "lucide-react";
 import {
   CITIZEN_REPORT_STATUS_MAP,
   formatMachineText,
 } from "@/pages/dashboard/utils";
+import { CitizenRatingControl } from "@/pages/dashboard/components/citizen/CitizenRatingControl";
+import { HelpTooltip } from "@/components/ui/help-tooltip";
+
+const REPORT_STATUS_HELP: Record<string, string> = {
+  pending: "Laporan baru masuk dan masih menunggu proses verifikasi awal.",
+  verified: "Laporan sudah diverifikasi dan siap ditangani dinas terkait.",
+  in_progress: "Laporan sedang diproses oleh petugas/dinas.",
+  clarification_requested: "Dinas butuh informasi tambahan dari pelapor sebelum lanjut menangani.",
+  resolved: "Laporan sudah selesai ditangani. Voting ditutup dan warga bisa memberi rating.",
+  rejected: "Laporan ditolak karena tidak memenuhi syarat atau tidak bisa ditindaklanjuti.",
+};
 
 export function ReportPopup({
   report,
   onPhotoClick,
   onVote,
+  onFocusAgency,
   isVoting = false,
   fullWidth = false,
   onSubmitClarification,
   clarificationSubmittingId,
   onClarificationDraftActiveChange,
+  onSubmitRating,
+  ratingSubmittingId,
 }: ReportPopupProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showAllTimeline, setShowAllTimeline] = useState(false);
@@ -40,6 +56,10 @@ export function ReportPopup({
   const [clarificationPreviews, setClarificationPreviews] = useState<string[]>(
     [],
   );
+  const [ratingDraftState, setRatingDraftState] = useState({
+    reportId: report.id,
+    score: report.rating?.score ?? 0,
+  });
   const clarificationPreviewsRef = useRef<string[]>([]);
   const status = CITIZEN_REPORT_STATUS_MAP[report.status] || {
     label: report.status,
@@ -49,6 +69,11 @@ export function ReportPopup({
   const detailText = report.description?.trim() || "";
   const agencyNote = report.agencyNote?.trim();
   const resolutionNote = report.resolutionNote?.trim();
+  const visibleAgencyNote =
+    agencyNote &&
+    !(resolutionNote && (report.status === "resolved" || agencyNote === resolutionNote))
+      ? agencyNote
+      : null;
   const photos = report.images?.length
     ? report.images
     : report.aiReview?.gambarDiterimaAi?.length
@@ -65,12 +90,32 @@ export function ReportPopup({
   const upvotes = report.upvotes ?? 0;
   const downvotes = report.downvotes ?? 0;
   const myVote = report.myVote ?? 0;
-  const isOwnReport = report.ownership === "mine" || report.canEdit;
+  const isResolvedReport = report.status === "resolved";
+  const isOwnReport = report.ownership === "mine";
   const canReplyClarification =
     report.status === "clarification_requested" &&
     isOwnReport &&
     !!onSubmitClarification;
   const isClarificationSubmitting = clarificationSubmittingId === report.id;
+  const canRateReport = report.status === "resolved" && !!onSubmitRating;
+  const isRatingSubmitting = ratingSubmittingId === report.id;
+  const isVoteDisabled = !onVote || isVoting || isResolvedReport;
+  const canFocusAgency = !!report.dinas && !!onFocusAgency;
+  const agencyDisplayName = report.cabangDinas?.name || report.dinas?.name;
+  const agencyAddress = report.cabangDinas?.address;
+  const agencyPhone = report.cabangDinas?.phone;
+  const ratingDraftScore =
+    ratingDraftState.reportId === report.id
+      ? ratingDraftState.score
+      : (report.rating?.score ?? 0);
+
+  const renderOwnReportBadge = () =>
+    isOwnReport ? (
+      <span className="inline-flex max-w-full items-center gap-1 rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-700">
+        <UserCheck size={12} />
+        Laporan Anda
+      </span>
+    ) : null;
 
   useEffect(() => {
     clarificationPreviewsRef.current = clarificationPreviews;
@@ -125,22 +170,36 @@ export function ReportPopup({
     });
   };
 
+  const submitRating = async () => {
+    if (!ratingDraftScore || !onSubmitRating) return;
+
+    await onSubmitRating(report.id, ratingDraftScore);
+  };
+
   const renderVoteControls = (compact = false) => (
     <div
       className={`flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50/80 ${compact ? "px-3 py-2" : "px-3 py-2.5"}`}
     >
       <div className="min-w-0">
-        <p className="text-[8.5px] font-black uppercase tracking-[0.14em] text-gray-400">
-          Vote Warga
-        </p>
+        <div className="flex items-center gap-1.5">
+          <p className="text-[8.5px] font-black uppercase tracking-[0.14em] text-gray-400">
+            Vote Warga
+          </p>
+          <HelpTooltip
+            content="Vote membantu menaikkan prioritas laporan aktif. Setelah laporan selesai, voting otomatis ditutup."
+            align="right"
+          />
+        </div>
         <p className="text-[11px] font-bold text-gray-700">
-          {voteScore > 0 ? `+${voteScore}` : voteScore} skor
+          {isResolvedReport
+            ? "Voting ditutup"
+            : `${voteScore > 0 ? `+${voteScore}` : voteScore} skor`}
         </p>
       </div>
       <div className="flex items-center gap-1.5">
         <button
           type="button"
-          disabled={!onVote || isVoting}
+          disabled={isVoteDisabled}
           onClick={(event) => {
             event.stopPropagation();
             onVote?.(report, myVote === 1 ? 0 : 1);
@@ -148,8 +207,8 @@ export function ReportPopup({
           className={`flex h-8 items-center gap-1 rounded-full border px-2.5 text-[10px] font-black transition-colors ${
             myVote === 1
               ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-              : "border-gray-200 bg-white text-gray-500 hover:border-emerald-200 hover:text-emerald-700"
-          } ${isVoting ? "opacity-60" : ""}`}
+              : `border-gray-200 bg-white text-gray-500 ${isResolvedReport ? "" : "hover:border-emerald-200 hover:text-emerald-700"}`
+          } ${isVoteDisabled ? "cursor-not-allowed opacity-60" : ""}`}
           aria-label="Vote up laporan"
         >
           <ThumbsUp size={12} />
@@ -157,7 +216,7 @@ export function ReportPopup({
         </button>
         <button
           type="button"
-          disabled={!onVote || isVoting}
+          disabled={isVoteDisabled}
           onClick={(event) => {
             event.stopPropagation();
             onVote?.(report, myVote === -1 ? 0 : -1);
@@ -165,8 +224,8 @@ export function ReportPopup({
           className={`flex h-8 items-center gap-1 rounded-full border px-2.5 text-[10px] font-black transition-colors ${
             myVote === -1
               ? "border-red-200 bg-red-50 text-red-700"
-              : "border-gray-200 bg-white text-gray-500 hover:border-red-200 hover:text-red-700"
-          } ${isVoting ? "opacity-60" : ""}`}
+              : `border-gray-200 bg-white text-gray-500 ${isResolvedReport ? "" : "hover:border-red-200 hover:text-red-700"}`
+          } ${isVoteDisabled ? "cursor-not-allowed opacity-60" : ""}`}
           aria-label="Vote down laporan"
         >
           <ThumbsDown size={12} />
@@ -175,6 +234,56 @@ export function ReportPopup({
       </div>
     </div>
   );
+
+  const renderAgencyInfo = (dense = false) => {
+    const Container = canFocusAgency ? "button" : "div";
+
+    return (
+      <Container
+        type={canFocusAgency ? "button" : undefined}
+        onClick={
+          canFocusAgency
+            ? (event) => {
+                event.stopPropagation();
+                onFocusAgency?.(report);
+              }
+            : undefined
+        }
+        className={`flex w-full min-w-0 items-start gap-2.5 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5 text-left transition-colors ${
+          canFocusAgency ? "hover:border-indigo-100 hover:bg-indigo-50/70" : ""
+        }`}
+      >
+        <Building2
+          size={dense ? 11 : 13}
+          className={`mt-0.5 shrink-0 ${report.dinas ? "text-indigo-600" : "text-gray-400"}`}
+        />
+        <div className="min-w-0 flex-1">
+          <p className="mb-0.5 text-[8.5px] font-black uppercase tracking-[0.15em] text-gray-400">
+            Dinas
+          </p>
+          <p className={`${dense ? "text-[11px]" : "text-[12px]"} truncate font-bold text-gray-800`}>
+            {agencyDisplayName ? (
+              agencyDisplayName
+            ) : (
+              <span className="text-gray-400 italic">Menunggu instansi</span>
+            )}
+          </p>
+          {agencyAddress && (
+            <p className="mt-1 line-clamp-2 text-[10px] font-semibold leading-snug text-gray-400">
+              {agencyAddress}
+            </p>
+          )}
+          {agencyPhone && (
+            <p className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold text-gray-400">
+              <Phone size={10} />
+              {agencyPhone}
+            </p>
+          )}
+        </div>
+      </Container>
+    );
+  };
+
   const renderClarificationReply = () => {
     if (!canReplyClarification) return null;
 
@@ -264,6 +373,22 @@ export function ReportPopup({
       </div>
     );
   };
+  const renderRatingControl = () => {
+    if (!canRateReport) return null;
+
+    return (
+      <CitizenRatingControl
+        title={report.rating ? "Rating Anda" : "Beri Rating Dinas"}
+        currentScore={report.rating?.score}
+        score={ratingDraftScore}
+        isSubmitting={isRatingSubmitting}
+        onScoreChange={(score) =>
+          setRatingDraftState({ reportId: report.id, score })
+        }
+        onSubmit={() => void submitRating()}
+      />
+    );
+  };
 
   if (!fullWidth && hasTimelineColumn) {
     return (
@@ -292,6 +417,7 @@ export function ReportPopup({
                 />
                 <span
                   className={`absolute bottom-3 left-4 z-2 max-w-[calc(100%-32px)] truncate rounded-full border px-2.5 py-0.5 text-[9px] font-black uppercase tracking-widest shadow-sm ${status.color}`}
+                  title={REPORT_STATUS_HELP[report.status] ?? status.label}
                 >
                   {status.label}
                 </span>
@@ -329,6 +455,7 @@ export function ReportPopup({
                 <Navigation size={22} className="text-gray-300" />
                 <span
                   className={`max-w-[calc(100%-32px)] truncate rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-widest ${status.color}`}
+                  title={REPORT_STATUS_HELP[report.status] ?? status.label}
                 >
                   {status.label}
                 </span>
@@ -345,6 +472,7 @@ export function ReportPopup({
                 <span className="inline-flex max-w-full items-center rounded-full border border-rose-100 bg-rose-50 px-2.5 py-1 text-[11px] font-bold text-[#db2744]">
                   {categoryLabel}
                 </span>
+                {renderOwnReportBadge()}
               </div>
             </div>
 
@@ -363,27 +491,7 @@ export function ReportPopup({
                 </div>
               </div>
 
-              <div className="flex min-w-0 items-start gap-3 rounded-lg border border-gray-100 bg-gray-50/80 px-3 py-2.5">
-                <span
-                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-gray-100 ${report.dinas ? "text-[#db2744]" : "text-gray-400"}`}
-                >
-                  <Building2 size={13} />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="mb-0.5 text-[9px] font-black uppercase tracking-[0.14em] text-gray-400">
-                    Dinas
-                  </p>
-                  <p className="truncate text-[12px] font-bold text-gray-800">
-                    {report.dinas ? (
-                      report.dinas.name
-                    ) : (
-                      <span className="text-gray-400 italic">
-                        Menunggu instansi
-                      </span>
-                    )}
-                  </p>
-                </div>
-              </div>
+              {renderAgencyInfo()}
 
               {renderVoteControls()}
             </div>
@@ -409,15 +517,15 @@ export function ReportPopup({
               </div>
             )}
 
-            {(agencyNote || resolutionNote) && (
+            {(visibleAgencyNote || resolutionNote) && (
               <div className="space-y-1.5">
-                {agencyNote && (
+                {visibleAgencyNote && (
                   <div className="rounded-lg border border-sky-100 bg-sky-50 px-3 py-2">
                     <p className="text-[8.5px] font-black uppercase tracking-widest text-sky-600 mb-0.5">
                       Update Dinas
                     </p>
                     <p className="text-[10.5px] leading-relaxed text-sky-900">
-                      {formatMachineText(agencyNote)}
+                      {formatMachineText(visibleAgencyNote)}
                     </p>
                   </div>
                 )}
@@ -435,6 +543,7 @@ export function ReportPopup({
             )}
 
             {renderClarificationReply()}
+            {renderRatingControl()}
 
             <div className="flex items-center justify-between pt-2.5 border-t border-gray-100">
               <div className="flex items-center gap-1.5 min-w-0">
@@ -575,6 +684,7 @@ export function ReportPopup({
             />
             <span
               className={`absolute bottom-3 left-3 z-2 max-w-[calc(100%-24px)] truncate rounded-full border px-2.5 py-0.5 text-[9px] font-black uppercase tracking-widest shadow-sm ${status.color}`}
+              title={REPORT_STATUS_HELP[report.status] ?? status.label}
             >
               {status.label}
             </span>
@@ -625,6 +735,7 @@ export function ReportPopup({
             </span>
             <span
               className={`max-w-[calc(100%-32px)] truncate rounded-full border px-2.5 py-0.5 text-[9px] font-black uppercase tracking-widest ${status.color}`}
+              title={REPORT_STATUS_HELP[report.status] ?? status.label}
             >
               {status.label}
             </span>
@@ -641,9 +752,12 @@ export function ReportPopup({
           <h4 className="font-extrabold text-[15px] leading-snug text-gray-900 line-clamp-2 mb-1">
             {report.title}
           </h4>
-          <span className="inline-block max-w-full truncate rounded-full bg-gray-100 text-gray-500 text-[10px] font-bold px-2.5 py-0.5">
-            {categoryLabel}
-          </span>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="inline-block max-w-full truncate rounded-full bg-gray-100 text-gray-500 text-[10px] font-bold px-2.5 py-0.5">
+              {categoryLabel}
+            </span>
+            {renderOwnReportBadge()}
+          </div>
         </div>
 
         {/* Koordinat + Dinas */}
@@ -660,26 +774,7 @@ export function ReportPopup({
             </div>
           </div>
 
-          <div className="flex items-start gap-2.5 rounded-lg bg-gray-50 border border-gray-100 px-3 py-2.5 min-w-0">
-            <Building2
-              size={11}
-              className={`mt-0.5 shrink-0 ${report.dinas ? "text-[#db2744]" : "text-gray-400"}`}
-            />
-            <div className="min-w-0">
-              <p className="text-[8.5px] font-black uppercase tracking-[0.15em] text-gray-400 mb-0.5">
-                Dinas
-              </p>
-              <p className="text-[11px] font-semibold text-gray-700 truncate">
-                {report.dinas ? (
-                  report.dinas.name
-                ) : (
-                  <span className="text-gray-400 italic">
-                    Menunggu instansi
-                  </span>
-                )}
-              </p>
-            </div>
-          </div>
+          {renderAgencyInfo(true)}
 
           {renderVoteControls(true)}
         </div>
@@ -707,15 +802,15 @@ export function ReportPopup({
         )}
 
         {/* Agency / resolution notes */}
-        {(agencyNote || resolutionNote) && (
+        {(visibleAgencyNote || resolutionNote) && (
           <div className="space-y-1.5">
-            {agencyNote && (
+            {visibleAgencyNote && (
               <div className="rounded-lg border border-sky-100 bg-sky-50 px-3 py-2">
                 <p className="text-[8.5px] font-black uppercase tracking-widest text-sky-600 mb-0.5">
                   Update Dinas
                 </p>
                 <p className="text-[10.5px] leading-relaxed text-sky-900">
-                  {formatMachineText(agencyNote)}
+                  {formatMachineText(visibleAgencyNote)}
                 </p>
               </div>
             )}
@@ -733,6 +828,7 @@ export function ReportPopup({
         )}
 
         {renderClarificationReply()}
+        {renderRatingControl()}
 
         {/* Riwayat */}
         {hasTimelineColumn && (

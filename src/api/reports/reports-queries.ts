@@ -214,6 +214,23 @@ export function useMutationResolveReport(
   });
 }
 
+export function useMutationClaimReport(
+  options?: Omit<
+    UseMutationOptions<UpdateReportMutationResponse, Error, string>,
+    "mutationFn"
+  >
+) {
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiClient.post<UpdateReportMutationResponse>(
+        Api.reportClaim(id),
+      );
+      return response.data;
+    },
+    ...options,
+  });
+}
+
 export function useMutationSubmitReportClarification(
   options?: Omit<
     UseMutationOptions<

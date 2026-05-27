@@ -1,5 +1,14 @@
 export type NotificationType = "success" | "warning" | "danger" | "info";
 
+export interface NotificationMetadata {
+  kind?: string;
+  reportTitle?: string | null;
+  dinasName?: string | null;
+  resolutionNote?: string | null;
+  imageUrl?: string | null;
+  reporterUserId?: string | null;
+}
+
 export interface NotificationItem {
   id: string;
   type: NotificationType;
@@ -9,6 +18,7 @@ export interface NotificationItem {
   read: boolean;
   tag: string;
   laporanId: string | null;
+  metadata?: NotificationMetadata | null;
 }
 
 export interface NotificationMeta {

@@ -3,6 +3,7 @@ import {
   AlertCircle,
   Clock,
   ImagePlus,
+  Hand,
   MapPin,
   Settings,
   Star,
@@ -22,7 +23,10 @@ import {
 import { resolvePhotoUrl } from "@/lib/resolve-photo-url";
 import { maskCitizenName } from "@/lib/utils";
 import type { AgencyReportDetailDrawerProps } from "@/types/dashboard";
-import { AGENCY_STATUS_OPTIONS } from "@/pages/dashboard/config";
+import {
+  AGENCY_STATUS_OPTIONS,
+  getAgencyRoutingStatusMeta,
+} from "@/pages/dashboard/config";
 
 export function AgencyReportDetailDrawer({
   isOpen,
@@ -33,9 +37,12 @@ export function AgencyReportDetailDrawer({
   resolutionNote,
   resolutionProofPreviews,
   canEdit,
+  canClaim,
+  isClaiming,
   isSaving,
   isSaveDisabled,
   onClose,
+  onClaim,
   onDraftStatusChange,
   onAgencyNoteChange,
   onResolutionNoteChange,
@@ -63,6 +70,7 @@ export function AgencyReportDetailDrawer({
       }
     : null;
   const isResolvedDraft = draftStatus === "resolved";
+  const routingStatusMeta = getAgencyRoutingStatusMeta(report?.routingStatus);
   const resolutionPhotos = [
     ...(report?.resolutionImages ?? []),
     ...resolutionProofPreviews,
@@ -213,6 +221,13 @@ export function AgencyReportDetailDrawer({
                         {report.rating.score}/5
                       </span>
                     )}
+                    {routingStatusMeta && (
+                      <span
+                        className={`text-[9px] font-black px-2.5 py-1 rounded-sm border uppercase tracking-widest ${routingStatusMeta.color}`}
+                      >
+                        {routingStatusMeta.label}
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs font-semibold text-gray-500 leading-relaxed mb-3">
                     {report.kategori?.name || "Laporan Warga"}
@@ -267,6 +282,24 @@ export function AgencyReportDetailDrawer({
                     <div className="rounded-sm border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold leading-relaxed text-amber-800">
                       Tiket ini tetap bisa dilihat, tapi hanya laporan milik
                       instansi Anda yang dapat diubah.
+                    </div>
+                  )}
+
+                  {canClaim && (
+                    <div className="rounded-sm border border-sky-200 bg-sky-50 px-4 py-3">
+                      <p className="text-xs font-semibold leading-relaxed text-sky-800">
+                        Tiket ini masuk review manual dan belum bisa di-update
+                        sampai Anda mengambil penanganannya.
+                      </p>
+                      <Button
+                        type="button"
+                        onClick={onClaim}
+                        disabled={isClaiming}
+                        className="mt-3 h-10 w-full rounded-sm bg-sky-700 text-xs font-black uppercase tracking-widest text-white hover:bg-sky-800"
+                      >
+                        <Hand size={15} />
+                        {isClaiming ? "Mengambil..." : "Ambil Laporan"}
+                      </Button>
                     </div>
                   )}
 
@@ -512,15 +545,23 @@ export function AgencyReportDetailDrawer({
 
             <div className="p-4 bg-white border-t border-gray-100 shrink-0">
               <Button
-                onClick={onSave}
-                disabled={!canEdit || isSaving || isSaveDisabled}
+                onClick={canClaim ? onClaim : onSave}
+                disabled={
+                  canClaim
+                    ? isClaiming
+                    : !canEdit || isSaving || isSaveDisabled
+                }
                 className="w-full bg-[#111827] hover:bg-gray-800 rounded-sm h-12 text-white font-black tracking-widest text-sm active:scale-[0.98] transition-all flex items-center justify-center gap-2"
               >
-                {canEdit
-                  ? isSaving
-                    ? "MENGIRIM..."
-                    : "KIRIM UPDATE"
-                  : "LIHAT SAJA"}
+                {canClaim
+                  ? isClaiming
+                    ? "MENGAMBIL..."
+                    : "AMBIL LAPORAN"
+                  : canEdit
+                    ? isSaving
+                      ? "MENGIRIM..."
+                      : "KIRIM UPDATE"
+                    : "LIHAT SAJA"}
               </Button>
             </div>
           </motion.div>

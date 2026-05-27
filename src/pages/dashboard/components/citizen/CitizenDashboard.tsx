@@ -21,6 +21,7 @@ import {
   useInfiniteQueryGetReportLocations,
   type ReportLocation,
 } from "@/api/reports";
+import type { AgencyLocation } from "@/types/agencies";
 import { useGetAgencyLocations } from "@/hooks/agencies/useGetAgencyLocations";
 import { useQueryGetMyReports } from "@/api/reports";
 import { useGetReportLocations } from "@/hooks/reports/useGetReportLocations";
@@ -54,7 +55,11 @@ import {
 import { AnimatePresence, motion } from "framer-motion";
 import { useSearchParams } from "react-router";
 import type { CitizenReportFilterStatus } from "@/types/dashboard";
-import { AgencyPopupCarousel } from "@/pages/dashboard/components/agency";
+import type { AgencyPerformanceMetrics } from "@/types/dashboard";
+import {
+  AgencyPerformanceDetailModal,
+  AgencyPopupCarousel,
+} from "@/pages/dashboard/components/agency";
 import {
   CitizenDashboardFilters,
   CitizenFeedReportDetail,
@@ -82,9 +87,122 @@ const CITIZEN_REPORT_FILTER_STATUSES: CitizenReportFilterStatus[] = [
   "clarification_requested",
   "resolved",
 ];
+const DEFAULT_CITIZEN_REPORT_FILTER_STATUSES: CitizenReportFilterStatus[] = [
+  "pending",
+  "verified",
+  "in_progress",
+  "clarification_requested",
+];
+const MOBILE_SHEET_SNAP_POINTS = [48, 68, 86];
+const MOBILE_SHEET_MIN_HEIGHT = 34;
+const MOBILE_SHEET_MAX_HEIGHT = 88;
+const MOBILE_SHEET_CLOSE_HEIGHT = 40;
+const MOBILE_SHEET_CLOSE_VELOCITY = 0.65;
+type CitizenVisibleReportLocation = ReportLocation & {
+  status: CitizenReportFilterStatus;
+};
+
+const isCitizenReportFilterStatus = (
+  status: ReportLocation["status"],
+): status is CitizenReportFilterStatus => status !== "rejected";
+
+const getReportSortTime = (report: ReportLocation) => {
+  const time = new Date(report.updatedAt || report.createdAt).getTime();
+  return Number.isNaN(time) ? 0 : time;
+};
+
+const compareCitizenFeedReports = (
+  a: ReportLocation,
+  b: ReportLocation,
+) => {
+  const aResolved = a.status === "resolved";
+  const bResolved = b.status === "resolved";
+
+  if (aResolved !== bResolved) {
+    return aResolved ? 1 : -1;
+  }
+
+  if (aResolved && bResolved) {
+    return getReportSortTime(b) - getReportSortTime(a);
+  }
+
+  const voteDiff = (b.voteScore ?? 0) - (a.voteScore ?? 0);
+  if (voteDiff !== 0) return voteDiff;
+
+  return getReportSortTime(b) - getReportSortTime(a);
+};
+
+const getReportResolvedTime = (report: ReportLocation) => {
+  const resolvedTimeline = [...(report.timeline ?? [])]
+    .reverse()
+    .find((item) => item.status === "resolved");
+  const value = resolvedTimeline?.createdAt || report.updatedAt;
+  const time = new Date(value).getTime();
+
+  return Number.isNaN(time) ? null : time;
+};
+
+const getHoursBetween = (start: string, endTime: number) => {
+  const startTime = new Date(start).getTime();
+  if (Number.isNaN(startTime) || endTime < startTime) return null;
+
+  return (endTime - startTime) / (1000 * 60 * 60);
+};
+
+const getAgencyPerformance = (
+  reports: ReportLocation[],
+): AgencyPerformanceMetrics => {
+  const relevantReports = reports.filter((report) => report.status !== "rejected");
+  const resolvedReports = relevantReports.filter(
+    (report) => report.status === "resolved",
+  );
+  const activeReports = relevantReports.filter(
+    (report) => report.status !== "resolved",
+  );
+  const ratedReports = resolvedReports.filter(
+    (report) => typeof report.rating?.score === "number",
+  );
+  const now = Date.now();
+  const activeAges = activeReports
+    .map((report) => getHoursBetween(report.createdAt, now))
+    .filter((hours): hours is number => hours !== null);
+  const resolutionHours = resolvedReports
+    .map((report) => {
+      const resolvedTime = getReportResolvedTime(report);
+      return resolvedTime ? getHoursBetween(report.createdAt, resolvedTime) : null;
+    })
+    .filter((hours): hours is number => hours !== null);
+  const totalRating = ratedReports.reduce(
+    (sum, report) => sum + (report.rating?.score ?? 0),
+    0,
+  );
+
+  return {
+    total: relevantReports.length,
+    resolved: resolvedReports.length,
+    active: activeReports.length,
+    overdue: activeAges.filter((hours) => hours > 24 * 7).length,
+    stale: activeAges.filter((hours) => hours > 24 * 14).length,
+    averageRating:
+      ratedReports.length > 0 ? totalRating / ratedReports.length : null,
+    ratingCount: ratedReports.length,
+    completionRate:
+      relevantReports.length > 0
+        ? Math.round((resolvedReports.length / relevantReports.length) * 100)
+        : 0,
+    averageResolutionHours:
+      resolutionHours.length > 0
+        ? resolutionHours.reduce((sum, hours) => sum + hours, 0) /
+          resolutionHours.length
+        : null,
+    longestOpenHours:
+      activeAges.length > 0 ? Math.max(...activeAges) : null,
+  };
+};
 
 export default function CitizenDashboard() {
   const { data: session } = authClient.useSession();
+  const currentUserId = session?.user?.id ?? null;
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isMyReportsOpen, setIsMyReportsOpen] = useState(false);
   const [mode, setMode] = useState<CitizenInteractionMode>("idle");
@@ -101,7 +219,9 @@ export default function CitizenDashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [myReportsSearch, setMyReportsSearch] = useState("");
   const [reportStatusFilter, setReportStatusFilter] =
-    useState<CitizenReportFilterStatus[]>(CITIZEN_REPORT_FILTER_STATUSES);
+    useState<CitizenReportFilterStatus[]>(
+      DEFAULT_CITIZEN_REPORT_FILTER_STATUSES,
+    );
   const [showAgencyMarkers, setShowAgencyMarkers] = useState(true);
   const [showSearch, setShowSearch] = useState(false);
   const [searchedLocation, setSearchedLocation] = useState<{
@@ -119,12 +239,26 @@ export default function CitizenDashboard() {
     useState<string | null>(null);
   const [selectedMobileReport, setSelectedMobileReport] =
     useState<ReportLocation | null>(null);
+  const [selectedMobileAgency, setSelectedMobileAgency] =
+    useState<AgencyLocation | null>(null);
+  const [selectedPerformanceAgency, setSelectedPerformanceAgency] =
+    useState<AgencyLocation | null>(null);
+  const [highlightedAgencyId, setHighlightedAgencyId] = useState<string | null>(
+    null,
+  );
+  const [highlightedReportId, setHighlightedReportId] = useState<string | null>(
+    null,
+  );
   const [feedDetailReport, setFeedDetailReport] =
     useState<ReportLocation | null>(null);
   const [reportSheetHeight, setReportSheetHeight] = useState(68);
+  const [isReportSheetDragging, setIsReportSheetDragging] = useState(false);
   const reportSheetResizeRef = useRef<{
     startY: number;
     startHeight: number;
+    lastY: number;
+    lastTime: number;
+    velocityY: number;
   } | null>(null);
   const reportSheetResizeMovedRef = useRef(false);
   const searchRef = useRef<HTMLDivElement>(null);
@@ -158,7 +292,7 @@ export default function CitizenDashboard() {
 
   // API Queries
   const { data: publicReportsData, isFetched: isPublicReportsFetched } =
-    useGetReportLocations();
+    useGetReportLocations({ take: 1000 });
   const { data: myReportsData, isFetched: isMyReportsFetched } =
     useQueryGetMyReports(
     { search: debouncedMyReportsSearch },
@@ -184,41 +318,101 @@ export default function CitizenDashboard() {
     });
   const searchResults = searchResultsData ?? EMPTY_SEARCH_RESULTS;
 
-  const publicReports = (publicReportsData?.data || []).filter(hasValidLngLat);
-  const myReports = (myReportsData?.data || []).filter(hasValidLngLat);
+  const markCurrentUserReport = useCallback(
+    (report: ReportLocation): ReportLocation => {
+      const isCurrentUserReport =
+        report.ownership === "mine" ||
+        (!!currentUserId && report.createdBy?.id === currentUserId);
+
+      if (!isCurrentUserReport) {
+        return {
+          ...report,
+          ownership: report.ownership ?? "other",
+        };
+      }
+
+      return {
+        ...report,
+        ownership: "mine",
+        canEdit: report.canEdit ?? true,
+      };
+    },
+    [currentUserId],
+  );
+
+  const publicReports = (publicReportsData?.data || [])
+    .filter(hasValidLngLat)
+    .map(markCurrentUserReport);
+  const myReports = (myReportsData?.data || [])
+    .filter(hasValidLngLat)
+    .map((report) => ({
+      ...markCurrentUserReport(report),
+      ownership: "mine" as const,
+      canEdit: report.canEdit ?? true,
+    }));
   const agencies = (agenciesData?.data || []).filter(hasValidLngLat);
-  const visibleReportIds = new Set<string>();
-  const visibleReports = [...myReports, ...publicReports].filter((report) => {
-    if (report.status === "rejected" || visibleReportIds.has(report.id)) {
-      return false;
-    }
-    if (!reportStatusFilter.includes(report.status)) {
-      return false;
-    }
-    visibleReportIds.add(report.id);
-    return true;
-  });
+  const mapReportIds = new Set<string>();
+  const mapReports = [...myReports, ...publicReports].filter(
+    (report): report is CitizenVisibleReportLocation => {
+      if (
+        !isCitizenReportFilterStatus(report.status) ||
+        mapReportIds.has(report.id)
+      ) {
+        return false;
+      }
+
+      mapReportIds.add(report.id);
+      return true;
+    },
+  );
+  const visibleReports = mapReports.filter((report) =>
+    reportStatusFilter.includes(report.status),
+  );
   const feedReportIds = new Set<string>();
   const visibleFeedReports = (
     feedReportsQuery.data?.pages.flatMap((page) => page.data) ?? []
-  ).filter((report) => {
-    if (report.status === "rejected" || feedReportIds.has(report.id)) {
-      return false;
-    }
-    if (!reportStatusFilter.includes(report.status)) {
-      return false;
-    }
-    feedReportIds.add(report.id);
-    return true;
-  });
+  )
+    .map(markCurrentUserReport)
+    .filter((report) => {
+      if (
+        !isCitizenReportFilterStatus(report.status) ||
+        feedReportIds.has(report.id)
+      ) {
+        return false;
+      }
+      if (!reportStatusFilter.includes(report.status)) {
+        return false;
+      }
+      feedReportIds.add(report.id);
+      return true;
+    })
+    .sort(compareCitizenFeedReports);
   const totalVisibleFeedReports =
     reportStatusFilter.length === CITIZEN_REPORT_FILTER_STATUSES.length &&
     feedReportsQuery.data?.pages[0]?.meta
       ? feedReportsQuery.data.pages[0].meta.total
       : visibleFeedReports.length;
   const selectedMapReport = selectedMapReportId
-    ? visibleReports.find((report) => report.id === selectedMapReportId)
+    ? mapReports.find((report) => report.id === selectedMapReportId)
     : null;
+  const groupedAgencyReports = new globalThis.Map<string, ReportLocation[]>();
+  publicReports.forEach((report) => {
+    const dinasId = report.dinas?.id;
+    if (!dinasId) return;
+
+    const reports = groupedAgencyReports.get(dinasId) ?? [];
+    reports.push(report);
+    groupedAgencyReports.set(dinasId, reports);
+  });
+  const agencyPerformanceByDinasId = new globalThis.Map(
+    Array.from(groupedAgencyReports.entries()).map(([dinasId, reports]) => [
+      dinasId,
+      getAgencyPerformance(reports),
+    ]),
+  );
+  const selectedPerformanceReports = selectedPerformanceAgency
+    ? groupedAgencyReports.get(selectedPerformanceAgency.dinasId) ?? []
+    : [];
   const [searchParams] = useSearchParams();
   const { reportId: focusedReportId, focusTrigger } =
     readReportFocusParams(searchParams);
@@ -259,6 +453,23 @@ export default function CitizenDashboard() {
     setSelectedMobileReport,
     onClarificationDraftActiveChange: handleClarificationDraftActiveChange,
   });
+  const handleSubmitRating = useCallback(
+    async (reportId: string, score: number) => {
+      const response = await handleRateReport(reportId, score);
+
+      setFeedDetailReport((currentReport) =>
+        currentReport?.id === response.data.id
+          ? { ...currentReport, ...response.data }
+          : currentReport,
+      );
+      setSelectedMobileReport((currentReport) =>
+        currentReport?.id === response.data.id
+          ? { ...currentReport, ...response.data }
+          : currentReport,
+      );
+    },
+    [handleRateReport],
+  );
   const mapFocusPadding = useMemo(
     () =>
       isDesktop
@@ -283,14 +494,61 @@ export default function CitizenDashboard() {
 
       setViewport((prev) => ({ ...prev, center: coords, zoom }));
     },
-    [mapFocusPadding],
+    [mapFocusPadding, setViewport],
   );
+
+  const focusAgencyForReport = (report: ReportLocation) => {
+    const targetAgency =
+      agencies.find((agency) => agency.id === report.cabangDinas?.id) ??
+      agencies.find((agency) => agency.dinasId === report.dinas?.id);
+
+    if (!targetAgency) {
+      toast.info("Lokasi dinas belum tersedia", {
+        description: "Dinas laporan ini belum punya titik lokasi di peta.",
+      });
+      return;
+    }
+
+    setShowAgencyMarkers(true);
+    setFeedDetailReport(null);
+    setSelectedMapReportId(null);
+    setSelectedMobileReport(null);
+    setSelectedMobileAgency(null);
+    setViewMode("map");
+    setMode("idle");
+    setIsFormOpen(false);
+    setIsMyReportsOpen(false);
+    setShowSearch(false);
+    setHighlightedAgencyId(targetAgency.id);
+    window.setTimeout(() => {
+      setHighlightedAgencyId((current) =>
+        current === targetAgency.id ? null : current,
+      );
+    }, 5000);
+    focusMapOnCoordinates([targetAgency.lng, targetAgency.lat], 16);
+  };
+
+  const highlightReportMarker = (reportId: string) => {
+    setHighlightedReportId(reportId);
+    window.setTimeout(() => {
+      setHighlightedReportId((current) =>
+        current === reportId ? null : current,
+      );
+    }, 5000);
+  };
 
   const openReportCard = useCallback(
     (report: ReportLocation) => {
-      if (report.status === "rejected") return;
+      if (!isCitizenReportFilterStatus(report.status)) return;
+      const reportStatus = report.status;
 
+      setReportStatusFilter((currentStatuses) =>
+        currentStatuses.includes(reportStatus)
+          ? currentStatuses
+          : [...currentStatuses, reportStatus],
+      );
       setFeedDetailReport(null);
+      setSelectedMobileAgency(null);
       setViewMode("map");
       setMode("idle");
       setIsFormOpen(false);
@@ -299,12 +557,14 @@ export default function CitizenDashboard() {
 
       if (isDesktop) {
         setSelectedMobileReport(null);
+        setSelectedMobileAgency(null);
         setSelectedMapReportId(report.id);
         return;
       }
 
       setSelectedMapReportId(null);
       setIsMyReportsOpen(false);
+      setSelectedMobileAgency(null);
       setReportSheetHeight(68);
       setSelectedMobileReport(report);
     },
@@ -320,19 +580,35 @@ export default function CitizenDashboard() {
     setIsMyReportsOpen(false);
     setSelectedMapReportId(null);
     setSelectedMobileReport(null);
+    setSelectedMobileAgency(null);
     setFeedDetailReport(report);
   }, [setViewMode]);
+
+  const getNearestReportSheetSnap = (height: number) =>
+    MOBILE_SHEET_SNAP_POINTS.reduce((nearest, point) =>
+      Math.abs(point - height) < Math.abs(nearest - height) ? point : nearest,
+    );
+
+  const closeMobileSheet = useCallback(() => {
+    setSelectedMobileReport(null);
+    setSelectedMobileAgency(null);
+  }, []);
 
   const startReportSheetResize = (event: ReactPointerEvent) => {
     event.preventDefault();
     event.stopPropagation();
     reportSheetResizeMovedRef.current = false;
+    setIsReportSheetDragging(true);
     reportSheetResizeRef.current = {
       startY: event.clientY,
       startHeight: reportSheetHeight,
+      lastY: event.clientY,
+      lastTime: performance.now(),
+      velocityY: 0,
     };
 
     const handlePointerMove = (moveEvent: PointerEvent) => {
+      moveEvent.preventDefault();
       const resizeState = reportSheetResizeRef.current;
       if (!resizeState) return;
 
@@ -341,16 +617,45 @@ export default function CitizenDashboard() {
         reportSheetResizeMovedRef.current = true;
       }
 
+      const now = performance.now();
+      const elapsed = Math.max(1, now - resizeState.lastTime);
+      resizeState.velocityY = (moveEvent.clientY - resizeState.lastY) / elapsed;
+      resizeState.lastY = moveEvent.clientY;
+      resizeState.lastTime = now;
+
       const nextHeight =
         resizeState.startHeight + (deltaY / window.innerHeight) * 100;
-      setReportSheetHeight(Math.min(82, Math.max(44, nextHeight)));
+      setReportSheetHeight(
+        Math.min(
+          MOBILE_SHEET_MAX_HEIGHT,
+          Math.max(MOBILE_SHEET_MIN_HEIGHT, nextHeight),
+        ),
+      );
     };
 
     const handlePointerUp = () => {
+      const resizeState = reportSheetResizeRef.current;
       reportSheetResizeRef.current = null;
+      setIsReportSheetDragging(false);
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", handlePointerUp);
       window.removeEventListener("pointercancel", handlePointerUp);
+
+      if (!resizeState) return;
+
+      setReportSheetHeight((currentHeight) => {
+        const shouldClose =
+          currentHeight <= MOBILE_SHEET_CLOSE_HEIGHT ||
+          (resizeState.velocityY > MOBILE_SHEET_CLOSE_VELOCITY &&
+            currentHeight < MOBILE_SHEET_SNAP_POINTS[1]);
+
+        if (shouldClose) {
+          window.requestAnimationFrame(closeMobileSheet);
+          return MOBILE_SHEET_SNAP_POINTS[1];
+        }
+
+        return getNearestReportSheetSnap(currentHeight);
+      });
     };
 
     window.addEventListener("pointermove", handlePointerMove);
@@ -397,6 +702,7 @@ export default function CitizenDashboard() {
         setMode("idle");
         setSelectedMapReportId(null);
         setSelectedMobileReport(null);
+        setSelectedMobileAgency(null);
       }
     });
 
@@ -425,7 +731,7 @@ export default function CitizenDashboard() {
     if (handledReportFocusRef.current === focusKey) return;
 
     handledReportFocusRef.current = focusKey;
-    const report = visibleReports.find((item) => item.id === focusedReportId);
+    const report = mapReports.find((item) => item.id === focusedReportId);
     if (!report) {
       if (isPublicReportsFetched && (!session?.user || isMyReportsFetched)) {
         toast.error("Laporan tidak ditemukan", {
@@ -439,6 +745,7 @@ export default function CitizenDashboard() {
 
     const timer = window.setTimeout(() => {
       setIsMyReportsOpen(false);
+      highlightReportMarker(report.id);
       openReportCard(report);
     }, 0);
 
@@ -450,7 +757,7 @@ export default function CitizenDashboard() {
     isPublicReportsFetched,
     openReportCard,
     session?.user,
-    visibleReports,
+    mapReports,
   ]);
 
   const handleSelectPlace = useSelectSearchPlace({
@@ -686,17 +993,27 @@ export default function CitizenDashboard() {
           {visibleReports.map((report) => {
             const isClarificationReport =
               report.status === "clarification_requested";
+            const isResolvedReport = report.status === "resolved";
             const isActiveClarificationReport =
               report.id === activeClarificationReportId;
+            const isHighlightedReport = highlightedReportId === report.id;
             const markerOuterClass = isActiveClarificationReport
               ? "bg-violet-500/25 ring-4 ring-violet-300/55"
+              : isHighlightedReport
+                ? "bg-indigo-500/25 ring-4 ring-indigo-300/60"
               : isClarificationReport
                 ? "bg-violet-500/20"
+                : isResolvedReport
+                  ? "bg-emerald-500/20"
                 : "bg-[#db2744]/20";
             const markerInnerClass = isActiveClarificationReport
               ? "scale-125 border-white bg-violet-600 shadow-violet-500/70 hover:bg-violet-700"
+              : isHighlightedReport
+                ? "scale-125 border-white bg-indigo-600 shadow-indigo-500/70 hover:bg-indigo-700"
               : isClarificationReport
                 ? "border-white bg-violet-500 shadow-violet-500/50 hover:bg-violet-600"
+                : isResolvedReport
+                  ? "border-white bg-emerald-500 shadow-emerald-500/50 hover:bg-emerald-600"
                 : "border-white bg-[#db2744] shadow-red-500/50 hover:bg-rose-500";
 
             return (
@@ -708,6 +1025,7 @@ export default function CitizenDashboard() {
                   !isDesktop
                     ? () => {
                         setReportSheetHeight(68);
+                        setSelectedMobileAgency(null);
                         setSelectedMobileReport(report);
                       }
                     : undefined
@@ -715,7 +1033,6 @@ export default function CitizenDashboard() {
               >
                 {isDesktop && (
                   <MarkerPopup
-                    closeButton
                     className="overflow-hidden rounded-sm border border-gray-100 bg-white p-0 shadow-[0_18px_44px_rgba(15,23,42,0.18)]"
                   >
                     <ReportPopup
@@ -723,6 +1040,7 @@ export default function CitizenDashboard() {
                       report={report}
                       onPhotoClick={openLightbox}
                       onVote={handleVoteReport}
+                      onFocusAgency={focusAgencyForReport}
                       onSubmitClarification={handleSubmitClarification}
                       onClarificationDraftActiveChange={
                         handleClarificationDraftActiveChange
@@ -731,6 +1049,10 @@ export default function CitizenDashboard() {
                         submitClarification.isPending
                           ? submitClarification.variables?.id
                           : null
+                      }
+                      onSubmitRating={handleSubmitRating}
+                      ratingSubmittingId={
+                        rateReport.isPending ? rateReport.variables?.id : null
                       }
                       isVoting={
                         voteReport.isPending &&
@@ -741,26 +1063,45 @@ export default function CitizenDashboard() {
                 )}
                 <MarkerContent
                   className={
-                    isActiveClarificationReport
-                      ? "[&>*]:!z-[60]"
+                    isActiveClarificationReport || isHighlightedReport
+                      ? "[&>*]:!z-[70]"
                       : "[&>*]:!z-[10]"
                   }
                 >
                   <div
                     className={`relative flex h-10 w-10 -ml-5 -mt-5 items-center justify-center rounded-full transition-all ${markerOuterClass}`}
-                    style={{ zIndex: isActiveClarificationReport ? 60 : 10 }}
+                    style={{
+                      zIndex:
+                        isActiveClarificationReport || isHighlightedReport
+                          ? 70
+                          : 10,
+                    }}
                   >
-                    {isActiveClarificationReport && (
-                      <span className="absolute inset-0 rounded-full bg-violet-400/35 animate-ping" />
+                    {(isActiveClarificationReport || isHighlightedReport) && (
+                      <span
+                        className={`absolute inset-0 rounded-full animate-ping ${
+                          isHighlightedReport
+                            ? "bg-indigo-400/35"
+                            : "bg-violet-400/35"
+                        }`}
+                      />
                     )}
                     <div
                       className={`relative flex h-6 w-6 items-center justify-center rounded-full border-2 shadow-lg transition-all ${markerInnerClass}`}
                     >
-                      <AlertTriangle
-                        size={12}
-                        className="text-white"
-                        strokeWidth={3}
-                      />
+                      {isResolvedReport ? (
+                        <Check
+                          size={13}
+                          className="text-white"
+                          strokeWidth={3.5}
+                        />
+                      ) : (
+                        <AlertTriangle
+                          size={12}
+                          className="text-white"
+                          strokeWidth={3}
+                        />
+                      )}
                     </div>
                   </div>
                 </MarkerContent>
@@ -772,7 +1113,6 @@ export default function CitizenDashboard() {
             <MapPopup
               longitude={selectedMapReport.lng}
               latitude={selectedMapReport.lat}
-              closeButton
               onClose={() => setSelectedMapReportId(null)}
               className="overflow-hidden rounded-sm border border-gray-100 bg-white p-0 shadow-[0_18px_44px_rgba(15,23,42,0.18)]"
             >
@@ -781,6 +1121,7 @@ export default function CitizenDashboard() {
                 report={selectedMapReport}
                 onPhotoClick={openLightbox}
                 onVote={handleVoteReport}
+                onFocusAgency={focusAgencyForReport}
                 onSubmitClarification={handleSubmitClarification}
                 onClarificationDraftActiveChange={
                   handleClarificationDraftActiveChange
@@ -790,6 +1131,10 @@ export default function CitizenDashboard() {
                     ? submitClarification.variables?.id
                     : null
                 }
+                onSubmitRating={handleSubmitRating}
+                ratingSubmittingId={
+                  rateReport.isPending ? rateReport.variables?.id : null
+                }
                 isVoting={
                   voteReport.isPending &&
                   voteReport.variables?.id === selectedMapReport.id
@@ -798,43 +1143,80 @@ export default function CitizenDashboard() {
             </MapPopup>
           )}
 
-          {showAgencyMarkers && agencies.map((agency, idx) => (
-            <MapMarker
-              key={`agency-${agency.id || idx}`}
-              longitude={agency.lng}
-              latitude={agency.lat}
-            >
-              <MarkerPopup
-                closeButton
-                className="overflow-hidden rounded-sm border border-gray-100 bg-white p-0 shadow-[0_18px_44px_rgba(15,23,42,0.18)]"
+          {showAgencyMarkers && agencies.map((agency, idx) => {
+            const isHighlightedAgency = highlightedAgencyId === agency.id;
+
+            return (
+              <MapMarker
+                key={`agency-${agency.id || idx}`}
+                longitude={agency.lng}
+                latitude={agency.lat}
+                onClick={
+                  !isDesktop
+                    ? () => {
+                        setReportSheetHeight(68);
+                        setSelectedMobileReport(null);
+                        setSelectedMobileAgency(agency);
+                      }
+                    : undefined
+                }
               >
-                <div className="w-[200px] flex flex-col overflow-hidden">
-                  <AgencyPopupCarousel
-                    agency={agency}
-                    onPhotoClick={openLightbox}
-                  />
-                  <div className="p-3 pb-4 flex flex-col gap-1.5 relative">
-                    <div
-                      className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-sm w-fit truncate max-w-full ${agency.photos?.length > 0 || agency.photoUrl ? "text-indigo-600 bg-indigo-50 absolute -top-8 left-3 shadow-md border border-indigo-100/50" : "text-indigo-600 bg-indigo-50"}`}
-                    >
-                      {agency.type?.replace(/_/g, " ") || "Dinas"}
+                {isDesktop && (
+                  <MarkerPopup
+                    className="overflow-hidden rounded-sm border border-gray-100 bg-white p-0 shadow-[0_18px_44px_rgba(15,23,42,0.18)]"
+                  >
+                    <div className="flex w-[420px] max-w-[calc(100vw-48px)] flex-col overflow-hidden">
+                      <AgencyPopupCarousel
+                        agency={agency}
+                        onPhotoClick={openLightbox}
+                        performance={agencyPerformanceByDinasId.get(agency.dinasId)}
+                        onOpenPerformanceDetail={setSelectedPerformanceAgency}
+                      />
+                      <div className="relative flex flex-col gap-1.5 border-t border-gray-100 p-3 pb-4">
+                        <div className="w-fit max-w-full truncate rounded-sm bg-indigo-50 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-indigo-600">
+                          {agency.type?.replace(/_/g, " ") || "Dinas"}
+                        </div>
+                        <div className="text-xs font-bold text-gray-900 leading-tight">
+                          {agency.name}
+                        </div>
+                        {agency.address && (
+                          <div className="flex min-w-0 items-start gap-1.5 text-[10px] font-bold leading-snug text-gray-400">
+                            <MapPin size={11} className="mt-0.5 shrink-0 text-indigo-400" />
+                            <span className="line-clamp-2">
+                              {agency.address}
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <div className="text-xs font-bold text-gray-900 leading-tight">
-                      {agency.name}
+                  </MarkerPopup>
+                )}
+                <MarkerContent>
+                  <div
+                    className={`relative flex h-10 w-10 -ml-5 -mt-5 items-center justify-center rounded-full transition-all ${
+                      isHighlightedAgency
+                        ? "bg-indigo-500/25 ring-4 ring-indigo-300/60"
+                        : "bg-transparent"
+                    }`}
+                    style={{ zIndex: isHighlightedAgency ? 70 : 20 }}
+                  >
+                    {isHighlightedAgency && (
+                      <span className="absolute inset-0 rounded-full bg-indigo-400/35 animate-ping" />
+                    )}
+                    <div
+                      className={`relative flex h-8 w-8 items-center justify-center rounded-full border-2 shadow-lg transition-all cursor-pointer ${
+                        isHighlightedAgency
+                          ? "scale-110 border-white bg-indigo-600 text-white shadow-indigo-500/60"
+                          : "border-indigo-200 bg-indigo-50 text-indigo-600 hover:scale-110 hover:bg-indigo-600 hover:text-white hover:border-transparent"
+                      }`}
+                    >
+                      <Building2 size={14} strokeWidth={2.5} />
                     </div>
                   </div>
-                </div>
-              </MarkerPopup>
-              <MarkerContent>
-                <div
-                  className="w-8 h-8 rounded-full bg-indigo-50 border-2 border-indigo-200 shadow-lg flex items-center justify-center -mt-4 text-indigo-600 hover:scale-110 hover:bg-indigo-600 hover:text-white hover:border-transparent transition-all cursor-pointer"
-                  style={{ zIndex: 20 }}
-                >
-                  <Building2 size={14} strokeWidth={2.5} />
-                </div>
-              </MarkerContent>
-            </MapMarker>
-          ))}
+                </MarkerContent>
+              </MapMarker>
+            );
+          })}
 
           {searchedLocation && (
             <MapMarker
@@ -967,6 +1349,7 @@ export default function CitizenDashboard() {
             report={feedDetailReport}
             onBack={() => setFeedDetailReport(null)}
             onNavigateMap={() => openReportCard(feedDetailReport)}
+            onFocusAgency={focusAgencyForReport}
             onPhotoClick={openLightbox}
             onVote={handleVoteReport}
             isVoting={
@@ -981,6 +1364,10 @@ export default function CitizenDashboard() {
               submitClarification.isPending
                 ? submitClarification.variables?.id
                 : null
+            }
+            onSubmitRating={handleSubmitRating}
+            ratingSubmittingId={
+              rateReport.isPending ? rateReport.variables?.id : null
             }
           />
         ) : viewMode === "feed" ? (
@@ -1165,7 +1552,7 @@ export default function CitizenDashboard() {
             ? submitClarification.variables?.id
             : null
         }
-        onSubmitRating={handleRateReport}
+        onSubmitRating={handleSubmitRating}
         ratingSubmittingId={
           rateReport.isPending ? rateReport.variables?.id : null
         }
@@ -1181,7 +1568,7 @@ export default function CitizenDashboard() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className="absolute inset-0 z-40 bg-gray-950/45 backdrop-blur-[2px]"
-              onClick={() => setSelectedMobileReport(null)}
+              onClick={closeMobileSheet}
             />
             <motion.div
               initial={isDesktop ? { scale: 0.96, opacity: 0 } : { y: "100%", opacity: 0 }}
@@ -1191,7 +1578,11 @@ export default function CitizenDashboard() {
                 height: `${reportSheetHeight}vh`,
               }}
               exit={isDesktop ? { scale: 0.96, opacity: 0 } : { y: "100%", opacity: 0 }}
-              transition={{ type: "spring", stiffness: 420, damping: 38 }}
+              transition={
+                isReportSheetDragging
+                  ? { duration: 0 }
+                  : { type: "spring", stiffness: 360, damping: 34 }
+              }
               className={`absolute z-50 flex flex-col overflow-hidden bg-white ${
                 isDesktop
                   ? "left-[max(1rem,calc(50%-260px))] top-[7vh] max-h-[86vh] w-[520px] max-w-[calc(100vw-2rem)] rounded-sm shadow-[0_24px_72px_rgba(15,23,42,0.28)]"
@@ -1203,7 +1594,7 @@ export default function CitizenDashboard() {
                   type="button"
                   onClick={() => {
                     if (reportSheetResizeMovedRef.current) return;
-                    setReportSheetHeight((height) => (height > 78 ? 68 : 82));
+                    setReportSheetHeight((height) => (height > 78 ? 68 : 86));
                   }}
                   onPointerDown={startReportSheetResize}
                   className="flex w-full touch-none justify-center bg-white pt-3 pb-2 cursor-grab active:cursor-grabbing"
@@ -1217,21 +1608,13 @@ export default function CitizenDashboard() {
                 </button>
               )}
 
-              <button
-                type="button"
-                onClick={() => setSelectedMobileReport(null)}
-                className="absolute top-3 right-3 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-gray-500 shadow-sm ring-1 ring-gray-200/70 backdrop-blur transition-colors hover:bg-white hover:text-gray-900"
-                aria-label="Tutup detail laporan"
-              >
-                <X size={16} strokeWidth={2.5} />
-              </button>
-
               <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
                 <ReportPopup
                   key={selectedMobileReport.id}
                   report={selectedMobileReport}
                   onPhotoClick={openLightbox}
                   onVote={handleVoteReport}
+                  onFocusAgency={focusAgencyForReport}
                   onSubmitClarification={handleSubmitClarification}
                   onClarificationDraftActiveChange={
                     handleClarificationDraftActiveChange
@@ -1240,6 +1623,10 @@ export default function CitizenDashboard() {
                     submitClarification.isPending
                       ? submitClarification.variables?.id
                       : null
+                  }
+                  onSubmitRating={handleSubmitRating}
+                  ratingSubmittingId={
+                    rateReport.isPending ? rateReport.variables?.id : null
                   }
                   isVoting={
                     voteReport.isPending &&
@@ -1252,6 +1639,105 @@ export default function CitizenDashboard() {
           </>
         )}
       </AnimatePresence>
+
+      <AnimatePresence>
+        {selectedMobileAgency && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 z-40 bg-gray-950/45 backdrop-blur-[2px]"
+              onClick={closeMobileSheet}
+            />
+            <motion.div
+              initial={
+                isDesktop
+                  ? { scale: 0.96, opacity: 0 }
+                  : { y: "100%", opacity: 0 }
+              }
+              animate={{
+                ...(isDesktop ? { scale: 1 } : { y: 0 }),
+                opacity: 1,
+                height: `${reportSheetHeight}vh`,
+              }}
+              exit={
+                isDesktop
+                  ? { scale: 0.96, opacity: 0 }
+                  : { y: "100%", opacity: 0 }
+              }
+              transition={
+                isReportSheetDragging
+                  ? { duration: 0 }
+                  : { type: "spring", stiffness: 360, damping: 34 }
+              }
+              className={`absolute z-50 flex flex-col overflow-hidden bg-white ${
+                isDesktop
+                  ? "left-[max(1rem,calc(50%-260px))] top-[7vh] max-h-[86vh] w-[520px] max-w-[calc(100vw-2rem)] rounded-sm shadow-[0_24px_72px_rgba(15,23,42,0.28)]"
+                  : "inset-x-0 bottom-0 rounded-t-2xl shadow-[0_-20px_48px_rgba(15,23,42,0.24)]"
+              }`}
+            >
+              {!isDesktop && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (reportSheetResizeMovedRef.current) return;
+                    setReportSheetHeight((height) => (height > 78 ? 68 : 86));
+                  }}
+                  onPointerDown={startReportSheetResize}
+                  className="flex w-full touch-none justify-center bg-white pt-3 pb-2 cursor-grab active:cursor-grabbing"
+                  aria-label={
+                    reportSheetHeight > 78
+                      ? "Perkecil detail dinas"
+                      : "Perbesar detail dinas"
+                  }
+                >
+                  <span className="h-1.5 w-12 rounded-full bg-gray-200" />
+                </button>
+              )}
+
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+                <AgencyPopupCarousel
+                  agency={selectedMobileAgency}
+                  onPhotoClick={openLightbox}
+                  performance={agencyPerformanceByDinasId.get(
+                    selectedMobileAgency.dinasId,
+                  )}
+                  onOpenPerformanceDetail={setSelectedPerformanceAgency}
+                />
+                <div className="relative flex flex-col gap-1.5 border-t border-gray-100 p-4 pb-6">
+                  <div className="w-fit max-w-full truncate rounded-sm bg-indigo-50 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-indigo-600">
+                    {selectedMobileAgency.type?.replace(/_/g, " ") || "Dinas"}
+                  </div>
+                  <div className="text-sm font-black leading-tight text-gray-950">
+                    {selectedMobileAgency.name}
+                  </div>
+                  {selectedMobileAgency.address && (
+                    <div className="flex min-w-0 items-start gap-2 text-xs font-bold leading-snug text-gray-500">
+                      <MapPin size={13} className="mt-0.5 shrink-0 text-indigo-500" />
+                      <span>
+                        {selectedMobileAgency.address}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {selectedPerformanceAgency && (
+        <AgencyPerformanceDetailModal
+          agency={selectedPerformanceAgency}
+          reports={selectedPerformanceReports}
+          performance={agencyPerformanceByDinasId.get(
+            selectedPerformanceAgency.dinasId,
+          )}
+          onClose={() => setSelectedPerformanceAgency(null)}
+          onFocusReport={openReportCard}
+        />
+      )}
 
       <AnimatePresence>
         {lightbox && (

@@ -15,6 +15,7 @@ import {
   Navigation,
   ThumbsDown,
   ThumbsUp,
+  UserCheck,
   ZoomIn,
 } from "lucide-react";
 import { motion } from "framer-motion";
@@ -22,6 +23,16 @@ import {
   CITIZEN_REPORT_STATUS_MAP,
   formatMachineText,
 } from "@/pages/dashboard/utils";
+import { HelpTooltip } from "@/components/ui/help-tooltip";
+
+const FEED_STATUS_HELP: Record<string, string> = {
+  pending: "Laporan baru masuk dan masih menunggu verifikasi.",
+  verified: "Laporan sudah valid dan siap ditangani dinas.",
+  in_progress: "Dinas sedang menangani laporan ini.",
+  clarification_requested: "Pelapor perlu menambahkan informasi sebelum dinas lanjut menangani.",
+  resolved: "Laporan sudah selesai. Voting ditutup supaya laporan lama tidak tetap naik prioritas.",
+  rejected: "Laporan tidak bisa ditindaklanjuti.",
+};
 
 function formatFeedDate(value: string) {
   const date = new Date(value);
@@ -74,8 +85,10 @@ function FeedReportCard({
   const upvotes = report.upvotes ?? 0;
   const downvotes = report.downvotes ?? 0;
   const myVote = report.myVote ?? 0;
+  const isResolvedReport = report.status === "resolved";
   const isClarificationRequested = report.status === "clarification_requested";
-  const isMine = report.ownership === "mine" || report.canEdit;
+  const isMine = report.ownership === "mine";
+  const isVoteDisabled = isVoting || isResolvedReport;
   const latestTimeline = report.timeline?.length
     ? report.timeline[report.timeline.length - 1]
     : null;
@@ -146,11 +159,20 @@ function FeedReportCard({
             </div>
           </div>
         </div>
-        <span
-          className={`shrink-0 rounded-full border px-2.5 py-1 text-[9px] font-black uppercase tracking-widest ${status.color}`}
-        >
-          {status.label}
-        </span>
+        <div className="flex shrink-0 flex-col items-end gap-1.5">
+          <span
+            className={`rounded-full border px-2.5 py-1 text-[9px] font-black uppercase tracking-widest ${status.color}`}
+            title={FEED_STATUS_HELP[report.status] ?? status.label}
+          >
+            {status.label}
+          </span>
+          {isMine && (
+            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-emerald-700">
+              <UserCheck size={11} />
+              Laporan Anda
+            </span>
+          )}
+        </div>
       </header>
 
       <section className="px-4 pb-3 sm:px-5">
@@ -251,33 +273,39 @@ function FeedReportCard({
         <div className="flex items-center gap-2">
           <button
             type="button"
-            disabled={isVoting}
+            disabled={isVoteDisabled}
             onClick={() => onVote(report, myVote === 1 ? 0 : 1)}
             className={`flex h-9 items-center gap-2 rounded-full border px-3 text-xs font-black transition-colors ${
               myVote === 1
                 ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                : "border-gray-200 bg-white text-gray-600 hover:border-emerald-200 hover:text-emerald-700"
-            } ${isVoting ? "opacity-60" : ""}`}
+                : `border-gray-200 bg-white text-gray-600 ${isResolvedReport ? "" : "hover:border-emerald-200 hover:text-emerald-700"}`
+            } ${isVoteDisabled ? "cursor-not-allowed opacity-60" : ""}`}
           >
             <ThumbsUp size={15} />
             {upvotes}
           </button>
           <button
             type="button"
-            disabled={isVoting}
+            disabled={isVoteDisabled}
             onClick={() => onVote(report, myVote === -1 ? 0 : -1)}
             className={`flex h-9 items-center gap-2 rounded-full border px-3 text-xs font-black transition-colors ${
               myVote === -1
                 ? "border-red-200 bg-red-50 text-red-700"
-                : "border-gray-200 bg-white text-gray-600 hover:border-red-200 hover:text-red-700"
-            } ${isVoting ? "opacity-60" : ""}`}
+                : `border-gray-200 bg-white text-gray-600 ${isResolvedReport ? "" : "hover:border-red-200 hover:text-red-700"}`
+            } ${isVoteDisabled ? "cursor-not-allowed opacity-60" : ""}`}
           >
             <ThumbsDown size={15} />
             {downvotes}
           </button>
         </div>
-        <span className="text-xs font-black text-gray-500">
-          {voteScore > 0 ? `+${voteScore}` : voteScore} skor
+        <span className="inline-flex items-center gap-1.5 text-xs font-black text-gray-500">
+          {isResolvedReport
+            ? "Voting ditutup"
+            : `${voteScore > 0 ? `+${voteScore}` : voteScore} skor`}
+          <HelpTooltip
+            content="Skor vote dipakai untuk membantu prioritas laporan aktif. Laporan selesai tidak ikut kompetisi vote lagi."
+            align="right"
+          />
         </span>
       </div>
 
@@ -465,7 +493,7 @@ export function CitizenSocialFeed({
             </div>
           ))
         ) : reports.length === 0 ? (
-          <div className="mt-10 flex min-h-[300px] flex-col items-center justify-center rounded-sm border border-dashed border-gray-200 bg-white px-6 text-center shadow-sm">
+          <div className="mt-8 flex min-h-[260px] flex-col items-center justify-center px-6 text-center">
             <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-gray-100 text-gray-400">
               <AlertTriangle size={24} />
             </div>

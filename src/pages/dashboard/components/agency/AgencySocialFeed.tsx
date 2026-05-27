@@ -2,7 +2,10 @@ import { useEffect, useRef } from "react";
 import { AlertCircle, Building2, CheckCircle2, MapPin } from "lucide-react";
 import { motion } from "framer-motion";
 import type { AgencySocialFeedProps } from "@/types/dashboard";
-import { formatAgencyRegionLabel } from "@/pages/dashboard/config";
+import {
+  formatAgencyRegionLabel,
+  getAgencyRoutingStatusMeta,
+} from "@/pages/dashboard/config";
 import { getDashboardStatusToneStyle } from "@/pages/dashboard/utils";
 
 const FEED_SKELETONS = Array.from({ length: 5 });
@@ -87,35 +90,47 @@ export function AgencySocialFeed({
             </p>
           </div>
         ) : (
-          reports.map((report, index) => (
-            <motion.article
-              key={report.id}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: Math.min(index * 0.025, 0.16) }}
-              className="overflow-hidden rounded-sm border border-gray-100 bg-white shadow-[0_18px_44px_rgba(15,23,42,0.08)]"
-            >
-              <button
-                type="button"
-                onClick={() =>
-                  (onOpenReportDetail ?? onSelectReport)(report.id)
-                }
-                className="block w-full p-4 text-left transition-colors hover:bg-gray-50/70 sm:p-5"
-              >
-                <div className="mb-3 flex items-start justify-between gap-3">
-                  <span
-                    className={`rounded-sm px-2.5 py-1 text-[9px] font-black uppercase tracking-widest ${getDashboardStatusToneStyle(report.statusTone)}`}
-                  >
-                    {report.statusLabel}
-                  </span>
-                  <span className="shrink-0 text-[10px] font-semibold text-gray-400">
-                    {report.dateLabel}
-                  </span>
-                </div>
+          reports.map((report, index) => {
+            const routingStatusMeta = getAgencyRoutingStatusMeta(
+              report.routingStatus,
+            );
 
-                <h3 className="mb-3 text-[17px] font-black leading-snug tracking-tight text-gray-950">
-                  {report.title}
-                </h3>
+            return (
+              <motion.article
+                key={report.id}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: Math.min(index * 0.025, 0.16) }}
+                className="overflow-hidden rounded-sm border border-gray-100 bg-white shadow-[0_18px_44px_rgba(15,23,42,0.08)]"
+              >
+                <button
+                  type="button"
+                  onClick={() =>
+                    (onOpenReportDetail ?? onSelectReport)(report.id)
+                  }
+                  className="block w-full p-4 text-left transition-colors hover:bg-gray-50/70 sm:p-5"
+                >
+                  <div className="mb-3 flex items-start justify-between gap-3">
+                    <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                      <span
+                        className={`rounded-sm px-2.5 py-1 text-[9px] font-black uppercase tracking-widest ${getDashboardStatusToneStyle(report.statusTone)}`}
+                      >
+                        {report.statusLabel}
+                      </span>
+                      {routingStatusMeta && (
+                        <span className={`rounded-sm border px-2.5 py-1 text-[8px] font-black uppercase tracking-widest ${routingStatusMeta.color}`}>
+                          {routingStatusMeta.label}
+                        </span>
+                      )}
+                    </div>
+                    <span className="shrink-0 text-[10px] font-semibold text-gray-400">
+                      {report.dateLabel}
+                    </span>
+                  </div>
+
+                  <h3 className="mb-3 text-[17px] font-black leading-snug tracking-tight text-gray-950">
+                    {report.title}
+                  </h3>
 
                 <div className="mb-3 flex flex-wrap items-center gap-2">
                   {report.kategori?.name && (
@@ -160,9 +175,10 @@ export function AgencySocialFeed({
                     Buka
                   </span>
                 </div>
-              </button>
-            </motion.article>
-          ))
+                </button>
+              </motion.article>
+            );
+          })
         )}
 
         {!isLoading && reports.length > 0 && (

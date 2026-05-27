@@ -58,6 +58,8 @@ export interface ReportLocation {
     id: string;
     name: string;
     wilayah: string;
+    address?: string | null;
+    phone?: string | null;
   } | null;
   canEdit?: boolean;
   ownership?: ReportOwnership;
@@ -85,7 +87,6 @@ export interface ReportLocation {
 export interface ReportRating {
   id: string;
   score: number;
-  note: string | null;
   userId: string;
   dinasId: string | null;
   cabangDinasId: string | null;
@@ -181,6 +182,7 @@ export interface DashboardReportItem {
   referenceCode: string;
   title: string;
   status: ReportLocation["status"];
+  routingStatus: ReportLocation["routingStatus"];
   statusLabel: string;
   statusTone: ReportStatusTone;
   dashboardGroup: Exclude<ReportsDashboardTabKey, "semua">;
@@ -191,6 +193,7 @@ export interface DashboardReportItem {
   ownership?: ReportOwnership;
   dinas?: ReportLocation["dinas"];
   cabangDinas?: ReportLocation["cabangDinas"];
+  assignedTo?: ReportLocation["assignedTo"];
   kategori?: Pick<ReportCategory, "id" | "code" | "name"> | null;
 }
 
@@ -258,13 +261,21 @@ export interface VoteReportRequest {
 
 export interface RateReportRequest {
   score: number;
-  note?: string | null;
 }
 
 export interface UpdateReportMutationResponse {
   data: Pick<
     ReportLocation,
-    "id" | "status" | "agencyNote" | "resolutionNote" | "assignedTo" | "canEdit" | "ownership"
+    | "id"
+    | "status"
+    | "routingStatus"
+    | "agencyNote"
+    | "resolutionNote"
+    | "assignedTo"
+    | "canEdit"
+    | "ownership"
+    | "dinas"
+    | "cabangDinas"
   > & {
     resolvedAt?: string | null;
   };

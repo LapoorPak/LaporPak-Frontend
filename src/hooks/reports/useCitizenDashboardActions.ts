@@ -235,7 +235,12 @@ export function useCitizenDashboardActions({
   });
 
   const rateReport = useMutationRateReport({
-    onSuccess: async () => {
+    onSuccess: async (response) => {
+      setSelectedMobileReport((currentReport) =>
+        currentReport?.id === response.data.id
+          ? { ...currentReport, ...response.data }
+          : currentReport,
+      );
       await refreshDashboardData();
       toast.success("Rating tersimpan", {
         description:
@@ -277,6 +282,13 @@ export function useCitizenDashboardActions({
   };
 
   const handleVoteReport = (report: ReportLocation, vote: ReportVoteValue) => {
+    if (report.status === "resolved") {
+      toast.info("Voting sudah ditutup", {
+        description: "Laporan yang sudah selesai tidak bisa divote lagi.",
+      });
+      return;
+    }
+
     voteReport.mutate({
       id: report.id,
       payload: { vote },
@@ -286,11 +298,10 @@ export function useCitizenDashboardActions({
   const handleRateReport = async (
     reportId: string,
     score: number,
-    note: string,
   ) => {
-    await rateReport.mutateAsync({
+    return rateReport.mutateAsync({
       id: reportId,
-      payload: { score, note },
+      payload: { score },
     });
   };
 
