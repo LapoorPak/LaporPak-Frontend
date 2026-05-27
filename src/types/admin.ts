@@ -294,6 +294,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
+  image: string | null;
   phone: string | null;
   role: string | null;
   banned: boolean;

@@ -1254,13 +1254,14 @@ export default function AdminCabangPage() {
                     <div className="h-44 border border-gray-200 rounded-sm overflow-hidden relative bg-gray-100">
                       {selectedCabang.latitude && selectedCabang.longitude ? (
                         <Map
+                          key={`${selectedCabang.id}-${selectedCabang.longitude}-${selectedCabang.latitude}`}
                           theme="dark"
                           viewport={{
                             center: [
                               Number(selectedCabang.longitude),
                               Number(selectedCabang.latitude),
                             ],
-                            zoom: 14,
+                            zoom: 15,
                           }}
                           className="w-full h-full"
                         >
@@ -1270,9 +1271,15 @@ export default function AdminCabangPage() {
                             latitude={Number(selectedCabang.latitude)}
                           >
                             <MarkerContent>
-                              <div className="relative flex h-5 w-5">
-                                <div className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-60" />
-                                <div className="relative inline-flex rounded-full h-5 w-5 bg-primary border-2 border-white shadow-lg" />
+                              <div className="flex flex-col items-center -mt-10 pointer-events-none">
+                                <div className="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center shadow-lg shadow-indigo-500/35 border-2 border-white">
+                                  <Building2
+                                    size={14}
+                                    className="text-white"
+                                    strokeWidth={2.6}
+                                  />
+                                </div>
+                                <div className="w-2 h-2 bg-indigo-600 rounded-full mt-0.5 opacity-50" />
                               </div>
                             </MarkerContent>
                           </MapMarker>

@@ -47,6 +47,34 @@ function getInitials(name: string) {
   return name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase();
 }
 
+function UserAvatar({
+  user,
+  className = "h-8 w-8 text-[11px]",
+}: {
+  user: Pick<User, "name" | "image">;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`relative shrink-0 overflow-hidden rounded-full border border-gray-200 bg-gradient-to-br from-gray-200 to-gray-100 ${className}`}
+    >
+      {user.image ? (
+        <img
+          src={user.image}
+          alt={user.name || "Pengguna"}
+          referrerPolicy="no-referrer"
+          crossOrigin="anonymous"
+          className="h-full w-full object-cover"
+        />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center font-bold text-gray-600">
+          {getInitials(user.name || "?")}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function getRoleBadge(role: string | null) {
   if (role === "admin")
     return <span className="inline-flex items-center gap-1 bg-violet-500/15 text-violet-400 border border-violet-500/25 px-2 py-0.5 rounded text-[10px] font-bold tracking-wider"><Shield size={9} /> ADMIN</span>;
@@ -574,9 +602,7 @@ export default function AdminUsersPage() {
                       >
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-200 to-gray-100 border border-gray-200 flex items-center justify-center text-[11px] font-bold text-gray-600 shrink-0">
-                              {getInitials(user.name || "?")}
-                            </div>
+                            <UserAvatar user={user} />
                             <div className="min-w-0">
                               <div className="text-sm font-semibold text-gray-900 truncate">{user.name}</div>
                               <div className="text-[11px] text-gray-400 truncate">{user.email}</div>
@@ -649,9 +675,7 @@ export default function AdminUsersPage() {
               >
                 {/* User header */}
                 <div className="p-5 border-b border-gray-100 flex items-start gap-4 bg-gray-50">
-                  <div className="w-14 h-14 rounded-sm bg-gradient-to-br from-gray-200 to-gray-100 border border-gray-200 flex items-center justify-center text-lg font-bold text-gray-600 shrink-0">
-                    {getInitials(selectedUser.name || "?")}
-                  </div>
+                  <UserAvatar user={selectedUser} className="h-14 w-14 text-lg" />
                   <div className="flex-1 min-w-0">
                     <h3 className="font-bold text-gray-900 text-sm truncate">{selectedUser.name}</h3>
                     <p className="text-[11px] text-gray-500 truncate mt-0.5">{selectedUser.email}</p>

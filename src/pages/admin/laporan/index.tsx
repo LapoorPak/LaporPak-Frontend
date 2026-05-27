@@ -28,6 +28,7 @@ import {
   ZoomIn,
   Image as ImageIcon,
   Navigation,
+  MapPin,
   ThumbsDown,
   ThumbsUp,
   Activity,
@@ -1350,24 +1351,27 @@ export default function AdminLaporanPage() {
                       {selectedLaporan.latitude != null &&
                       selectedLaporan.longitude != null ? (
                         <Map
+                          key={`${selectedLaporan.id}-${selectedLaporan.longitude}-${selectedLaporan.latitude}`}
                           theme="dark"
                           center={[
                             selectedLaporan.longitude,
                             selectedLaporan.latitude,
                           ]}
-                          zoom={15}
+                          zoom={17}
                           className="w-full h-full"
                         >
                           <MapMarker
                             longitude={selectedLaporan.longitude}
                             latitude={selectedLaporan.latitude}
+                            anchor="bottom"
                           >
                             <MarkerContent>
-                              <div className="relative">
-                                <div className="w-5 h-5 rounded-full bg-red-500 border-2 border-white shadow-lg flex items-center justify-center">
-                                  <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                              <div className="relative flex flex-col items-center">
+                                <div className="absolute -inset-2 rounded-full bg-[#db2744]/25 animate-ping" />
+                                <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-white bg-[#db2744] text-white shadow-[0_10px_24px_rgba(219,39,68,0.38)]">
+                                  <MapPin size={18} strokeWidth={3} />
                                 </div>
-                                <div className="absolute top-full left-1/2 -translate-x-1/2 w-0.5 h-2 bg-red-500" />
+                                <div className="-mt-0.5 h-2.5 w-1 rounded-b-full bg-[#db2744] shadow-[0_4px_8px_rgba(219,39,68,0.3)]" />
                               </div>
                             </MarkerContent>
                           </MapMarker>

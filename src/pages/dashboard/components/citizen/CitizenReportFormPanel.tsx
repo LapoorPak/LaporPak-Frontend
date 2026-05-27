@@ -34,8 +34,13 @@ export function CitizenReportFormPanel({
     startResize: startMobileResize,
   } = useMobileSheetResize({
     enabled: !isDesktop,
-    maxHeight: 82,
-    minHeight: 48,
+    initialHeight: 68,
+    maxHeight: 86,
+    minHeight: 34,
+    snapPoints: [68, 86],
+    closeHeight: 40,
+    closeVelocity: 0.65,
+    onClose,
     resetWhen: isOpen && !isDesktop,
   });
   const canUseGpsLocation =
@@ -49,35 +54,45 @@ export function CitizenReportFormPanel({
   return (
     <AnimatePresence>
       {isOpen && (
-        <motion.div
-          initial={isDesktop ? { x: "100%", opacity: 0 } : { y: "100%", opacity: 0 }}
-          animate={isDesktop ? { x: 0, opacity: 1 } : { y: 0, opacity: 1 }}
-          exit={isDesktop ? { x: "100%", opacity: 0 } : { y: "100%", opacity: 0 }}
-          transition={{ type: "spring", stiffness: 300, damping: 30 }}
-          className={`absolute z-30 pointer-events-none ${isDesktop ? "top-24 right-6" : "bottom-0 left-0 w-full"}`}
-        >
+        <>
+          {!isDesktop && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 z-40 bg-gray-950/45 backdrop-blur-[2px]"
+              onClick={onClose}
+            />
+          )}
           <motion.div
-            drag={isDesktop}
-            dragMomentum={false}
-            animate={
-              isDesktop
-                ? undefined
-                : { height: `${mobileSheetHeight}vh` }
-            }
-            transition={{ type: "spring", stiffness: 420, damping: 38 }}
-            className={`bg-white flex flex-col overflow-hidden pointer-events-auto ${
-              isDesktop
-                ? "resize h-[calc(100vh-120px)] min-h-[400px] w-[400px] min-w-[320px] max-w-[600px] shadow-2xl rounded-sm border border-gray-100"
-                : "w-full rounded-t-2xl shadow-[0_-20px_40px_rgba(15,23,42,0.16)]"
-            }`}
+            initial={isDesktop ? { x: "100%", opacity: 0 } : { y: "100%", opacity: 0 }}
+            animate={isDesktop ? { x: 0, opacity: 1 } : { y: 0, opacity: 1 }}
+            exit={isDesktop ? { x: "100%", opacity: 0 } : { y: "100%", opacity: 0 }}
+            transition={{ type: "spring", stiffness: 360, damping: 34 }}
+            className={`absolute pointer-events-none ${isDesktop ? "z-30 top-24 right-6" : "z-50 inset-x-0 bottom-0"}`}
           >
+            <motion.div
+              drag={isDesktop}
+              dragMomentum={false}
+              animate={
+                isDesktop
+                  ? undefined
+                  : { height: `${mobileSheetHeight}vh` }
+              }
+              transition={{ type: "spring", stiffness: 420, damping: 38 }}
+              className={`bg-white flex flex-col overflow-hidden pointer-events-auto ${
+                isDesktop
+                  ? "resize h-[calc(100vh-120px)] min-h-[400px] w-[400px] min-w-[320px] max-w-[600px] shadow-2xl rounded-sm border border-gray-100"
+                  : "w-full rounded-t-2xl shadow-[0_-20px_48px_rgba(15,23,42,0.24)]"
+              }`}
+            >
             {/* Header */}
             {!isDesktop && (
               <button
                 type="button"
                 onClick={() => {
                   if (mobileResizeMovedRef.current) return;
-                  setMobileSheetHeight((height) => (height > 78 ? 72 : 82));
+                  setMobileSheetHeight((height) => (height > 78 ? 68 : 86));
                 }}
                 onPointerDown={startMobileResize}
                 className="flex w-full touch-none justify-center pt-3 pb-1 cursor-grab active:cursor-grabbing"
@@ -99,16 +114,18 @@ export function CitizenReportFormPanel({
                 </h3>
                 <p className="text-xs font-bold text-gray-400 mt-1 uppercase tracking-wide">Isi detail lengkap</p>
               </div>
-              <button
-                onClick={onClose}
-                onPointerDown={(event) => event.stopPropagation()}
-                className="text-gray-400 hover:text-gray-900 transition-colors p-2 -mr-2"
-              >
-                <X size={20} strokeWidth={2.5} />
-              </button>
+              {isDesktop && (
+                <button
+                  onClick={onClose}
+                  onPointerDown={(event) => event.stopPropagation()}
+                  className="text-gray-400 hover:text-gray-900 transition-colors p-2 -mr-2"
+                >
+                  <X size={20} strokeWidth={2.5} />
+                </button>
+              )}
             </div>
 
-            <div className="flex-1 overflow-y-auto px-7 space-y-7 bg-white pb-6 pt-2 hide-scrollbar">
+            <div className="flex-1 overflow-y-auto overscroll-contain px-7 space-y-7 bg-white pb-6 pt-2 hide-scrollbar">
 
               {/* Judul */}
               <div className="space-y-2">
@@ -320,7 +337,8 @@ export function CitizenReportFormPanel({
               </Button>
             </div>
           </motion.div>
-        </motion.div>
+          </motion.div>
+        </>
       )}
     </AnimatePresence>
   );
