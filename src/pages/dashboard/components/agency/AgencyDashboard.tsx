@@ -888,7 +888,7 @@ export default function AgencyDashboard() {
           className="w-full h-full"
         >
           <MapControls
-            position="top-right"
+            position="bottom-right"
             showZoom
             showLocate
             locateZoom={14}
