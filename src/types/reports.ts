@@ -79,6 +79,8 @@ export interface ReportLocation {
   voteScore: number;
   myVote: ReportVoteValue | null;
   rating?: ReportRating | null;
+  averageRating?: number | null;
+  ratingCount?: number;
   aiReview?: AiReview | null;
   images?: string[];
   timeline?: ReportTimelineItem[];

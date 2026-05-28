@@ -161,7 +161,9 @@ const getAgencyPerformance = (
     (report) => report.status !== "resolved",
   );
   const ratedReports = resolvedReports.filter(
-    (report) => typeof report.rating?.score === "number",
+    (report) =>
+      typeof report.averageRating === "number" ||
+      typeof report.rating?.score === "number",
   );
   const now = Date.now();
   const activeAges = activeReports
@@ -173,10 +175,12 @@ const getAgencyPerformance = (
       return resolvedTime ? getHoursBetween(report.createdAt, resolvedTime) : null;
     })
     .filter((hours): hours is number => hours !== null);
-  const totalRating = ratedReports.reduce(
-    (sum, report) => sum + (report.rating?.score ?? 0),
-    0,
-  );
+  const totalRating = ratedReports.reduce((sum, report) => {
+    return sum + (report.averageRating ?? report.rating?.score ?? 0);
+  }, 0);
+  const totalRatingCount = ratedReports.reduce((sum, report) => {
+    return sum + (report.ratingCount ?? 1);
+  }, 0);
 
   return {
     total: relevantReports.length,
@@ -186,7 +190,7 @@ const getAgencyPerformance = (
     stale: activeAges.filter((hours) => hours > 24 * 14).length,
     averageRating:
       ratedReports.length > 0 ? totalRating / ratedReports.length : null,
-    ratingCount: ratedReports.length,
+    ratingCount: totalRatingCount,
     completionRate:
       relevantReports.length > 0
         ? Math.round((resolvedReports.length / relevantReports.length) * 100)

@@ -179,7 +179,7 @@ export function AdminDinasPerformanceModal({
       item.hours !== null
     ));
   const ratings = resolvedReports
-    .map((report) => report.rating?.score)
+    .map((report) => report.averageRating ?? report.rating?.score)
     .filter((score): score is number => typeof score === "number");
   const averageRating =
     performance?.averageRating ??

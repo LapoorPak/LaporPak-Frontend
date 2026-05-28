@@ -280,14 +280,17 @@ export interface AdminLaporan {
   assignedTo?: { id: string; name: string; email: string; image: string | null } | null;
   resolvedBy?: { id: string; name: string; email: string } | null;
   rating?: {
-    id: string;
     score: number;
-    userId: string;
-    dinasId: string | null;
-    cabangDinasId: string | null;
-    createdAt: string;
-    updatedAt: string;
+    count?: number;
+    id?: string;
+    userId?: string;
+    dinasId?: string | null;
+    cabangDinasId?: string | null;
+    createdAt?: string;
+    updatedAt?: string;
   } | null;
+  averageRating?: number | null;
+  ratingCount?: number;
 }
 
 export interface User {

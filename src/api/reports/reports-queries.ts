@@ -286,7 +286,7 @@ export function useMutationVoteReport(
 export function useMutationRateReport(
   options?: Omit<
     UseMutationOptions<
-      { data: Pick<ReportLocation, "id" | "rating"> },
+      { data: Pick<ReportLocation, "id" | "rating" | "averageRating" | "ratingCount"> },
       Error,
       { id: string; payload: RateReportRequest }
     >,
@@ -295,7 +295,7 @@ export function useMutationRateReport(
 ) {
   return useMutation({
     mutationFn: async ({ id, payload }: { id: string; payload: RateReportRequest }) => {
-      const response = await apiClient.post<{ data: Pick<ReportLocation, "id" | "rating"> }>(
+      const response = await apiClient.post<{ data: Pick<ReportLocation, "id" | "rating" | "averageRating" | "ratingCount"> }>(
         Api.reportRating(id),
         payload,
       );

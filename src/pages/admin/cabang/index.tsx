@@ -191,7 +191,9 @@ function getBranchPerformance(
     (report) => report.status !== "resolved",
   );
   const ratedReports = resolvedReports.filter(
-    (report) => typeof report.rating?.score === "number",
+    (report) =>
+      typeof report.averageRating === "number" ||
+      typeof report.rating?.score === "number",
   );
   const activeAges = activeReports
     .map((report) => getHoursBetween(report.createdAt, snapshotTime))
@@ -202,10 +204,12 @@ function getBranchPerformance(
       return resolvedTime ? getHoursBetween(report.createdAt, resolvedTime) : null;
     })
     .filter((hours): hours is number => hours !== null);
-  const totalRating = ratedReports.reduce(
-    (sum, report) => sum + (report.rating?.score ?? 0),
-    0,
-  );
+  const totalRating = ratedReports.reduce((sum, report) => {
+    return sum + (report.averageRating ?? report.rating?.score ?? 0);
+  }, 0);
+  const totalRatingCount = ratedReports.reduce((sum, report) => {
+    return sum + (report.ratingCount ?? 1);
+  }, 0);
 
   return {
     total: relevantReports.length,
@@ -215,7 +219,7 @@ function getBranchPerformance(
     stale: activeAges.filter((hours) => hours > 24 * 14).length,
     averageRating:
       ratedReports.length > 0 ? totalRating / ratedReports.length : null,
-    ratingCount: ratedReports.length,
+    ratingCount: totalRatingCount,
     completionRate:
       relevantReports.length > 0
         ? Math.round((resolvedReports.length / relevantReports.length) * 100)
@@ -300,7 +304,23 @@ function toReportLocation(report: AdminLaporan, cabang: Cabang): ReportLocation 
     downvotes: report.downvotes ?? 0,
     voteScore: report.voteScore ?? 0,
     myVote: null,
-    rating: report.rating ?? null,
+    rating:
+      report.rating?.id &&
+      report.rating.userId &&
+      report.rating.createdAt &&
+      report.rating.updatedAt
+        ? {
+            id: report.rating.id,
+            score: report.rating.score,
+            userId: report.rating.userId,
+            dinasId: report.rating.dinasId ?? null,
+            cabangDinasId: report.rating.cabangDinasId ?? null,
+            createdAt: report.rating.createdAt,
+            updatedAt: report.rating.updatedAt,
+          }
+        : null,
+    averageRating: report.averageRating ?? report.rating?.score ?? null,
+    ratingCount: report.ratingCount ?? report.rating?.count ?? 0,
     images: report.images,
     timeline: report.resolvedAt
       ? [

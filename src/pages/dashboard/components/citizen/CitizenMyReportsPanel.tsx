@@ -526,8 +526,10 @@ export function CitizenMyReportsPanel({
                       {report.status === "resolved" && (
                         <div className="mb-3">
                           <CitizenRatingControl
-                            title={report.rating ? "Rating Anda" : "Beri Rating Dinas"}
+                            title={report.rating ? "Rating Dinas" : "Beri Rating Dinas"}
                             currentScore={report.rating?.score}
+                            averageScore={report.averageRating}
+                            ratingCount={report.ratingCount}
                             score={ratingDraft.score}
                             isSubmitting={isRatingSubmitting}
                             onScoreChange={(score) =>

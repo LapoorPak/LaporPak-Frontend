@@ -193,7 +193,7 @@ export function AgencyPerformanceDetailModal({
     })
     .filter((hours): hours is number => hours !== null);
   const ratings = resolvedReports
-    .map((report) => report.rating?.score)
+    .map((report) => report.averageRating ?? report.rating?.score)
     .filter((score): score is number => typeof score === "number");
   const averageRating =
     performance?.averageRating ??
@@ -239,9 +239,9 @@ export function AgencyPerformanceDetailModal({
       fill: "#fb7185",
     },
   ];
-  const ratingData = [1, 2, 3, 4, 5].map((score) => ({
+  const ratingData = [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5].map((score) => ({
     name: `${score}`,
-    value: ratings.filter((rating) => Math.ceil(rating) === score).length,
+    value: ratings.filter((rating) => rating === score).length,
   }));
   const monthlyData = buildMonthlyData(relevantReports);
   const oldestActiveReports = activeAges
