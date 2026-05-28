@@ -109,7 +109,12 @@ export type CitizenFeedReportCardProps = {
   onVote: (report: ReportLocation, vote: ReportVoteValue) => void;
   onOpenReportDetail: (report: ReportLocation) => void;
   onOpenMyReports?: (report: ReportLocation) => void;
+  onSubmitRating: (
+    reportId: string,
+    score: number,
+  ) => Promise<void> | void;
   isVoting?: boolean;
+  ratingSubmittingId?: string | null;
 };
 
 export type CitizenSocialFeedProps = {
@@ -119,11 +124,16 @@ export type CitizenSocialFeedProps = {
   onVote: (report: ReportLocation, vote: ReportVoteValue) => void;
   onOpenReportDetail: (report: ReportLocation) => void;
   onOpenMyReports: (report: ReportLocation) => void;
+  onSubmitRating: (
+    reportId: string,
+    score: number,
+  ) => Promise<void> | void;
   onLoadMore: () => void;
   hasNextPage?: boolean;
   isLoading?: boolean;
   isFetchingNextPage?: boolean;
   votingReportId?: string | null;
+  ratingSubmittingId?: string | null;
 };
 
 export type CitizenFeedReportDetailProps = {

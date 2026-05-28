@@ -92,6 +92,7 @@ const DEFAULT_CITIZEN_REPORT_FILTER_STATUSES: CitizenReportFilterStatus[] = [
   "verified",
   "in_progress",
   "clarification_requested",
+  "resolved",
 ];
 const MOBILE_SHEET_SNAP_POINTS = [48, 68, 86];
 const MOBILE_SHEET_MIN_HEIGHT = 34;
@@ -1382,6 +1383,7 @@ export default function CitizenDashboard() {
               setSelectedMobileReport(null);
               setMyReportsSearch(report.title);
             }}
+            onSubmitRating={handleSubmitRating}
             onLoadMore={() => {
               if (
                 feedReportsQuery.hasNextPage &&
@@ -1395,6 +1397,9 @@ export default function CitizenDashboard() {
             isFetchingNextPage={feedReportsQuery.isFetchingNextPage}
             votingReportId={
               voteReport.isPending ? voteReport.variables?.id : null
+            }
+            ratingSubmittingId={
+              rateReport.isPending ? rateReport.variables?.id : null
             }
           />
         ) : null}

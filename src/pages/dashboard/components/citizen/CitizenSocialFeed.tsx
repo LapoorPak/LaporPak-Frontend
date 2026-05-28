@@ -24,6 +24,7 @@ import {
   formatMachineText,
 } from "@/pages/dashboard/utils";
 import { HelpTooltip } from "@/components/ui/help-tooltip";
+import { CitizenRatingControl } from "@/pages/dashboard/components/citizen/CitizenRatingControl";
 
 const FEED_STATUS_HELP: Record<string, string> = {
   pending: "Laporan baru masuk dan masih menunggu verifikasi.",
@@ -70,10 +71,13 @@ function FeedReportCard({
   onVote,
   onOpenReportDetail,
   onOpenMyReports,
+  onSubmitRating,
   isVoting,
+  ratingSubmittingId,
 }: CitizenFeedReportCardProps) {
   const [photoIndex, setPhotoIndex] = useState(0);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [ratingDraft, setRatingDraft] = useState(report.rating?.score ?? 0);
   const status = CITIZEN_REPORT_STATUS_MAP[report.status] || {
     label: report.status,
     color: "bg-gray-50 text-gray-700 border-gray-200",
@@ -89,6 +93,7 @@ function FeedReportCard({
   const isClarificationRequested = report.status === "clarification_requested";
   const isMine = report.ownership === "mine";
   const isVoteDisabled = isVoting || isResolvedReport;
+  const isRatingSubmitting = ratingSubmittingId === report.id;
   const latestTimeline = report.timeline?.length
     ? report.timeline[report.timeline.length - 1]
     : null;
@@ -132,6 +137,10 @@ function FeedReportCard({
       : report.agencyNote
         ? "text-sky-700"
         : "text-gray-500";
+
+  useEffect(() => {
+    setRatingDraft(report.rating?.score ?? 0);
+  }, [report.id, report.rating?.score]);
 
   return (
     <motion.article
@@ -340,6 +349,20 @@ function FeedReportCard({
           </div>
         </div>
 
+        {isResolvedReport && (
+          <CitizenRatingControl
+            title={report.rating ? "Rating Anda" : "Beri Rating Dinas"}
+            currentScore={report.rating?.score}
+            score={ratingDraft}
+            isSubmitting={isRatingSubmitting}
+            onScoreChange={setRatingDraft}
+            onSubmit={() => {
+              if (!ratingDraft) return;
+              void onSubmitRating(report.id, ratingDraft);
+            }}
+          />
+        )}
+
         {(progressText || progressTimeline || progressImages.length > 0) && (
           <div className="rounded-sm border border-gray-100 bg-gray-50 px-3 py-2.5">
             <div className="flex flex-wrap items-center gap-2">
@@ -423,11 +446,13 @@ export function CitizenSocialFeed({
   onVote,
   onOpenReportDetail,
   onOpenMyReports,
+  onSubmitRating,
   onLoadMore,
   hasNextPage,
   isLoading,
   isFetchingNextPage,
   votingReportId,
+  ratingSubmittingId,
 }: CitizenSocialFeedProps) {
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const displayedTotalCount = totalCount ?? reports.length;
@@ -513,7 +538,9 @@ export function CitizenSocialFeed({
               onVote={onVote}
               onOpenReportDetail={onOpenReportDetail}
               onOpenMyReports={onOpenMyReports}
+              onSubmitRating={onSubmitRating}
               isVoting={votingReportId === report.id}
+              ratingSubmittingId={ratingSubmittingId}
             />
           ))
         )}
