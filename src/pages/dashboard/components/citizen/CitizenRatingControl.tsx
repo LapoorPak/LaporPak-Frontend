@@ -80,9 +80,7 @@ export function CitizenRatingControl({
   const displayScore = hasCurrentScore
     ? averageScore ?? currentScore
     : score;
-  const ratingLabel = hasCurrentScore
-    ? "Rata-rata"
-    : "Pilihan Anda";
+  const ratingLabel = hasCurrentScore ? "Rata-rata" : null;
 
   return (
     <div
@@ -117,12 +115,12 @@ export function CitizenRatingControl({
           <span className="text-xs font-black text-amber-600">
             {formatRating(displayScore)}/5
           </span>
-          <span className="mt-1 truncate text-[8px] font-black uppercase tracking-wider text-amber-600/70">
-            {ratingLabel}
-            {hasCurrentScore && hasAverageScore && ratingCount
-              ? ` (${ratingCount})`
-              : ""}
-          </span>
+          {ratingLabel && (
+            <span className="mt-1 truncate text-[8px] font-black uppercase tracking-wider text-amber-600/70">
+              {ratingLabel}
+              {hasAverageScore && ratingCount ? ` (${ratingCount})` : ""}
+            </span>
+          )}
         </span>
       )}
       </div>
